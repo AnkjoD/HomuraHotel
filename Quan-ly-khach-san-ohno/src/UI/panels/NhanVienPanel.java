@@ -1,14 +1,14 @@
-package UI.panels;
+package ui.panels;
 
 import service.AuthService;
 
 import service.NhanVienService;
 import entity.NhanVien;
-import UI.MainFrame;
-import UI.components.UIConstants;
-import UI.components.ExcelExporter;
-import UI.components.RoundedComponents.*;
-import UI.dialogs.NhanVienDialog;
+import ui.MainFrame;
+import ui.components.UIConstants;
+import ui.components.ExcelExporter;
+import ui.components.RoundedComponents.*;
+import ui.dialogs.NhanVienDialog;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -55,7 +55,7 @@ public class NhanVienPanel extends JPanel {
 
         JPanel left = new JPanel(); left.setOpaque(false);
         left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
-        JLabel t = new JLabel("Nhân viên"); t.setFont(UIConstants.FONT_TITLE);
+        JLabel t = new JLabel("Nhân sự & Tài khoản"); t.setFont(UIConstants.FONT_TITLE);
         JLabel s = new JLabel("Quản lý trạng thái và thông tin nhân sự");
         s.setFont(UIConstants.FONT_BODY); s.setForeground(UIConstants.TEXT_SECONDARY);
         left.add(t); left.add(Box.createVerticalStrut(2)); left.add(s);
@@ -265,3 +265,4 @@ public class NhanVienPanel extends JPanel {
 
     public void refresh() { removeAll(); buildUI(); revalidate(); repaint(); }
 }
+

@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -74,3 +74,4 @@ public class ModernMenuItem extends JMenuItem implements MouseListener {
     @Override
     public void mouseReleased(MouseEvent e) {}
 }
+

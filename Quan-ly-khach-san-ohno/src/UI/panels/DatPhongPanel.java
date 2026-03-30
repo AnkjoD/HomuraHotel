@@ -1,13 +1,13 @@
-package UI.panels;
+package ui.panels;
 
 import service.*;
 import entity.*;
-import UI.MainFrame;
-import UI.components.UIConstants;
-import UI.components.WrapLayout;
-import UI.dialogs.CheckinDialog;
-import UI.components.DateTimePicker;
-import UI.components.RoundedComponents.*;
+import ui.MainFrame;
+import ui.components.UIConstants;
+import ui.components.WrapLayout;
+import ui.dialogs.CheckinDialog;
+import ui.components.DateTimePicker;
+import ui.components.RoundedComponents.*;
 import entity.enums.TrangThaiDatPhong;
 
 import javax.swing.*;
@@ -40,6 +40,13 @@ public class DatPhongPanel extends JPanel {
 
     private static final String CARD_LIST = "LIST";
     private static final String CARD_SEARCH = "SEARCH";
+    
+    private KhachHang prefilledKhachHang;
+
+    public void prefillKhachHang(KhachHang kh) {
+        this.prefilledKhachHang = kh;
+        showSearchCard();
+    }
 
     public DatPhongPanel(MainFrame mainFrame) {
         setOpaque(false);
@@ -458,6 +465,9 @@ public class DatPhongPanel extends JPanel {
 
     private void showSearchCard() {
         showResultPlaceholder();
+        if (prefilledKhachHang != null) {
+            // Optional: show a banner or toast message
+        }
         cardLayout.show(cardContainer, CARD_SEARCH);
     }
 
@@ -707,6 +717,20 @@ public class DatPhongPanel extends JPanel {
         row2.add(fieldGroup("Số lượng khách (tối đa " + p.getSucChua() + ")", spnKhach));
         form.add(row2);
         form.add(Box.createVerticalStrut(18));
+
+        // Auto-fill CRM Data if available
+        if (prefilledKhachHang != null) {
+            txtHoTen.setText(prefilledKhachHang.getHoTen());
+            txtSDT.setText(prefilledKhachHang.getSoDienThoai());
+            if (prefilledKhachHang.getCccd() != null) {
+                txtCCCD.setText(prefilledKhachHang.getCccd());
+            }
+            // Khóa lại không cho tự ý đổi tên người đặt
+            txtHoTen.setEditable(false);
+            txtHoTen.setBackground(new Color(0xE2E8F0)); 
+            txtSDT.setEditable(false);
+            txtSDT.setBackground(new Color(0xE2E8F0));
+        }
 
         // Section: Thanh toán
         form.add(sectionLabel("💳  Thông tin thanh toán"));

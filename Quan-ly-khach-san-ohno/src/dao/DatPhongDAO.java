@@ -10,8 +10,12 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DatPhongDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(DatPhongDAO.class.getName());
 
     private final KhachHangDAO khachHangDAO = new KhachHangDAO();
 
@@ -24,7 +28,7 @@ public class DatPhongDAO {
         String sql = "SELECT * FROM DatPhong ORDER BY ngayDat DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi lấy danh sách đặt phòng", e); }
         return list;
     }
 
@@ -34,7 +38,7 @@ public class DatPhongDAO {
             ps.setString(1, maDatPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi lấy đặt phòng theo mã", e); }
         return null;
     }
 
@@ -44,7 +48,7 @@ public class DatPhongDAO {
             ps.setString(1, maDatPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs, false);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi lấy đặt phòng (basic)", e); }
         return null;
     }
 
@@ -64,7 +68,7 @@ public class DatPhongDAO {
             ps.setString(10, dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING");
             ps.setString(11, dp.getGhiChu());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thêm đặt phòng", e); return false; }
     }
 
     public boolean update(DatPhong dp) {
@@ -81,7 +85,7 @@ public class DatPhongDAO {
             ps.setString(9, dp.getGhiChu());
             ps.setString(10, dp.getMaDatPhong());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi cập nhật đặt phòng", e); return false; }
     }
 
     public String generateMaDatPhong() {
@@ -92,7 +96,7 @@ public class DatPhongDAO {
             ps.setString(1, prefix); ps.setString(2, prefix + "%");
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return prefix + String.format("%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.WARNING, "Lỗi sinh mã đặt phòng", e); }
         return prefix + "001";
     }
 
@@ -115,7 +119,7 @@ public class DatPhongDAO {
             
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi tìm kiếm đặt phòng", e); }
         return list;
     }
 

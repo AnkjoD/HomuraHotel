@@ -1,8 +1,8 @@
-package UI.dialogs;
+package ui.dialogs;
 
-import UI.components.RoundedComponents.RoundedBorder;
-import UI.components.RoundedComponents.RoundedButton;
-import UI.components.UIConstants;
+import ui.components.RoundedComponents.RoundedBorder;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.UIConstants;
 import entity.KhachHang;
 import java.awt.*;
 import javax.swing.*;
@@ -14,7 +14,8 @@ public class KhachHangDialog extends JDialog {
     private final KhachHang        entity;
     private boolean confirmed = false;
 
-    private JTextField    txtTen, txtSDT, txtCCCD;
+    private JTextField    txtTen, txtSDT, txtCCCD, txtNgaySinh, txtQuocTich;
+    private JComboBox<String> cboGioiTinh;
     private JLabel        lblMa;
     private RoundedButton btnSave;
 
@@ -22,13 +23,14 @@ public class KhachHangDialog extends JDialog {
     private static final String REGEX_TEN  = "^[\\p{L} .'-]{2,50}$";
     private static final String REGEX_SDT  = "^(0[35789])[0-9]{8}$";
     private static final String REGEX_CCCD = "^([0-9]{9}|[0-9]{12}|[A-Z][0-9]{7,8})$";
+    private static final String REGEX_DATE = "^\\d{2}/\\d{2}/\\d{4}$";
     
-    private JLabel errTen, errSDT, errCCCD;
+    private JLabel errTen, errSDT, errCCCD, errNgaySinh;
 
     public KhachHangDialog(Frame parent, KhachHang kh) {
         super(parent, kh == null ? "Thêm khách hàng mới" : "Chỉnh sửa – " + kh.getHoTen(), true);
         this.entity = kh;
-        setSize(430, 480);
+        setSize(430, 680);
         setLocationRelativeTo(parent);
         setResizable(false);
         buildUI();
@@ -60,10 +62,16 @@ public class KhachHangDialog extends JDialog {
         body.setBorder(BorderFactory.createEmptyBorder(20, 24, 8, 24));
 
         txtTen  = field(); txtSDT = field(); txtCCCD = field();
+        txtNgaySinh = field(); txtQuocTich = field(); txtQuocTich.setText("Việt Nam");
+        cboGioiTinh = new JComboBox<>(new String[]{"Nam", "Nữ", "Khác"});
+        cboGioiTinh.setFont(UIConstants.FONT_BODY);
+        cboGioiTinh.setBackground(Color.WHITE);
+        cboGioiTinh.setPreferredSize(new Dimension(0, 34));
         
         errTen = errLabel();
         errSDT = errLabel();
         errCCCD = errLabel();
+        errNgaySinh = errLabel();
 
         txtTen.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override public void focusLost(java.awt.event.FocusEvent e) { validateTen(); }
@@ -78,12 +86,19 @@ public class KhachHangDialog extends JDialog {
         // Gợi ý placeholder
         setPlaceholder(txtSDT,  "VD: 0901234567");
         setPlaceholder(txtCCCD, "VD: 012345678901 (9 hoặc 12 số)");
+        setPlaceholder(txtNgaySinh, "VD: 15/05/1990");
 
         body.add(labelField("Họ và tên *",       txtTen, errTen));
-        body.add(Box.createVerticalStrut(8));
+        body.add(Box.createVerticalStrut(6));
         body.add(labelField("Số điện thoại *",    txtSDT, errSDT));
-        body.add(Box.createVerticalStrut(8));
+        body.add(Box.createVerticalStrut(6));
         body.add(labelField("CCCD / Passport",    txtCCCD, errCCCD));
+        body.add(Box.createVerticalStrut(6));
+        body.add(labelField("Ngày sinh (dd/MM/yyyy)", txtNgaySinh, errNgaySinh));
+        body.add(Box.createVerticalStrut(6));
+        body.add(labelField("Giới tính", cboGioiTinh, null));
+        body.add(Box.createVerticalStrut(6));
+        body.add(labelField("Quốc tịch", txtQuocTich, null));
 
         // Footer buttons
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
@@ -111,6 +126,9 @@ public class KhachHangDialog extends JDialog {
         txtTen.setText(entity.getHoTen());
         txtSDT.setText(entity.getSdt());
         txtCCCD.setText(entity.getCccd() != null ? entity.getCccd() : "");
+        if (entity.getNgaySinh() != null) txtNgaySinh.setText(entity.getNgaySinh().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        if (entity.getGioiTinh() != null) cboGioiTinh.setSelectedItem(entity.getGioiTinh());
+        txtQuocTich.setText(entity.getQuocTich() != null ? entity.getQuocTich() : "Việt Nam");
     }
 
     private boolean validateTen() {
@@ -138,11 +156,25 @@ public class KhachHangDialog extends JDialog {
         return true;
     }
 
+    private boolean validateNgaySinh() {
+        String ns = txtNgaySinh.getText().trim();
+        errNgaySinh.setText(" ");
+        if (ns.isEmpty()) return true;
+        if (!ns.matches(REGEX_DATE)) { errNgaySinh.setText("Phải dùng định dạng dd/MM/yyyy"); return false; }
+        try {
+            java.time.LocalDate.parse(ns, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } catch (Exception e) {
+            errNgaySinh.setText("Ngày không hợp lệ (VD: 29/02/2023 là sai)"); return false;
+        }
+        return true;
+    }
+
     private void doSave() {
         boolean ok1 = validateTen();
         boolean ok2 = validateSDT();
         boolean ok3 = validateCCCD();
-        if (!ok1 || !ok2 || !ok3) return;
+        boolean ok4 = validateNgaySinh();
+        if (!ok1 || !ok2 || !ok3 || !ok4) return;
 
         String ten  = txtTen.getText().trim();
         String sdt  = txtSDT.getText().trim();
@@ -152,6 +184,17 @@ public class KhachHangDialog extends JDialog {
         kh.setHoTen(ten);
         kh.setSdt(sdt);
         kh.setCccd(cccd.isEmpty() ? null : cccd);
+        
+        try {
+            if (!txtNgaySinh.getText().trim().isEmpty()) {
+                kh.setNgaySinh(java.time.LocalDate.parse(txtNgaySinh.getText().trim(), java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            } else {
+                kh.setNgaySinh(null);
+            }
+        } catch (Exception ignored) {}
+        
+        kh.setGioiTinh((String) cboGioiTinh.getSelectedItem());
+        kh.setQuocTich(txtQuocTich.getText().trim().isEmpty() ? "Việt Nam" : txtQuocTich.getText().trim());
 
         String err = entity == null ? service.them(kh) : service.sua(kh);
         if (err == null) {
@@ -203,4 +246,5 @@ public class KhachHangDialog extends JDialog {
         return err;
     }
 }
+
 

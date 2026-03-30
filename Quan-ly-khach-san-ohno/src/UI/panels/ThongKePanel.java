@@ -1,11 +1,11 @@
-package UI.panels;
+package ui.panels;
 
-import UI.MainFrame;
-import UI.components.RoundedComponents.*;
-import UI.components.RoundedComponents.RoundedBorder;
-import UI.components.RoundedComponents.RoundedButton;
-import UI.components.RoundedComponents.RoundedPanel;
-import UI.components.UIConstants;
+import ui.MainFrame;
+import ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents.RoundedBorder;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.UIConstants;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import java.io.File;

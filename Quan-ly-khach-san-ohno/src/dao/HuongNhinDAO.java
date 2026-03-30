@@ -1,9 +1,11 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.HuongNhin;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +13,8 @@ import java.util.List;
  * DAO cho bảng HuongNhin (Room View lookup).
  */
 public class HuongNhinDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(HuongNhinDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -22,7 +26,7 @@ public class HuongNhinDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); }
         return list;
     }
 
@@ -32,7 +36,7 @@ public class HuongNhinDAO {
             ps.setString(1, maHuongNhin);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); }
         return null;
     }
 
@@ -45,7 +49,7 @@ public class HuongNhinDAO {
             ps.setDouble(4, hn.getHeSoGia());
             ps.setInt(5, hn.getThuTu());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); return false; }
     }
 
     public boolean update(HuongNhin hn) {
@@ -57,14 +61,14 @@ public class HuongNhinDAO {
             ps.setInt(4, hn.getThuTu());
             ps.setString(5, hn.getMaHuongNhin());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); return false; }
     }
 
     public boolean delete(String maHuongNhin) {
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM HuongNhin WHERE maHuongNhin=?")) {
             ps.setString(1, maHuongNhin);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); return false; }
     }
 
     /** Generate next mã: HN07, HN08... */
@@ -73,7 +77,7 @@ public class HuongNhinDAO {
              ResultSet rs = st.executeQuery(
                  "SELECT MAX(CAST(SUBSTRING(maHuongNhin,3,10) AS INT)) FROM HuongNhin WHERE maHuongNhin LIKE 'HN%'")) {
             if (rs.next()) return String.format("HN%02d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); }
         return "HN01";
     }
 
@@ -84,7 +88,7 @@ public class HuongNhinDAO {
             ps.setString(1, maHuongNhin);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); }
         return 0;
     }
 
@@ -98,3 +102,5 @@ public class HuongNhinDAO {
         return hn;
     }
 }
+
+

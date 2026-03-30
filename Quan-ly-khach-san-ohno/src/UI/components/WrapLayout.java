@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import java.awt.*;
 
@@ -70,3 +70,4 @@ public class WrapLayout extends FlowLayout {
         }
     }
 }
+

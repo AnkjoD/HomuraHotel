@@ -1,6 +1,6 @@
-package UI;
+package ui;
 
-import UI.panels.*;
+import ui.panels.*;
 import entity.NhanVien;
 import java.awt.*;
 import java.awt.event.*;
@@ -17,6 +17,7 @@ public class MainFrame extends JFrame {
     private JLabel hotelLogoLabel;
     private String activeMenu = "tongquan";
     private final java.util.Map<String, Long> lastRefreshAt = new java.util.HashMap<>();
+    private final java.util.List<Runnable> menuUpdaters = new java.util.ArrayList<>();
     private static final long REFRESH_COOLDOWN_MS = 7000;
 
     private TongQuanPanel pTongQuan;
@@ -26,6 +27,8 @@ public class MainFrame extends JFrame {
     private ThongKePanel pThongKe;
     private NhanVienPanel pNhanVien;
     private DatPhongPanel pDatPhong;
+    private HoaDonPanel pHoaDon;
+    // private TaiKhoanPanel pTaiKhoan; // TODO next
 
     public MainFrame() {
         setTitle("Hotel MS");
@@ -466,69 +469,76 @@ public class MainFrame extends JFrame {
                 g.fillRect(getWidth() - 1, 0, 1, getHeight());
             }
         };
-        sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.setPreferredSize(new Dimension(260, 0));
         sidebar.setBackground(new Color(0x1E2337)); // thay bằng màu tương ứng
         sidebar.setLayout(new BorderLayout());
 
         // ── Logo
-
         JPanel textBlock = new JPanel();
         textBlock.setOpaque(false);
         textBlock.setLayout(new BoxLayout(textBlock, BoxLayout.Y_AXIS));
-        JLabel hotelName = new JLabel("Hotel MS");
-        hotelName.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        JLabel hotelName = new JLabel("Hotel MS Pro");
+        hotelName.setFont(new Font("Segoe UI", Font.BOLD, 16));
         hotelName.setForeground(Color.WHITE); // thay bằng màu tương ứng
-        JLabel sub = new JLabel("Enterprise Admin");
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        JLabel sub = new JLabel("Enterprise Edition");
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         sub.setForeground(new Color(0x8892B0)); // thay bằng màu tương ứng
         textBlock.add(hotelName);
         textBlock.add(sub);
+
+        JPanel logoWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 20));
+        logoWrap.setOpaque(false);
+        logoWrap.add(textBlock);
 
         // ── Menu items
         JPanel menu = new JPanel();
         menu.setOpaque(false);
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
-        menu.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        menu.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
 
         String[][] menus = {
-                { "tongquan", "Tổng quan" },
-                { "thuephong", "Thuê/Trả phòng" },
-                { "khachhang", "Khách hàng" },
-                { "qlhethong", "Quản lý hệ thống" },
-                { "thongke", "Thống kê" },
-                { "nhanvien", "Quản lý tài khoản" },
-                { "datphong", "Đặt phòng" },
+                { "tongquan", "Tổng quan", "\uD83C\uDFE0" },
+                { "datphong", "Đặt phòng", "\uD83D\uDCC5" },
+                { "thuephong", "Thuê Phòng", "\uD83D\uDECE\uFE0F" },
+                { "hoadon", "Quản lý hóa đơn", "\uD83D\uDCC4" },
+                { "SEP", "BỘ PHẬN QUẢN LÝ", "" },
+                { "khachhang", "Khách hàng", "\uD83D\uDC65" },
+                { "qlhethong", "Hệ thống & Dịch vụ", "\u2699\uFE0F" },
+                { "thongke", "Báo cáo thống kê", "\uD83D\uDCC8" },
+                { "nhanvien", "Nhân sự & Tài khoản", "\uD83D\uDEE1\uFE0F" }
         };
 
         for (String[] m : menus) {
-            JPanel item = buildMenuItem(m[0], m[1]);
+            if ("SEP".equals(m[0])) {
+                menu.add(Box.createVerticalStrut(14));
+                JLabel lblGrp = new JLabel("  " + m[1]);
+                lblGrp.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                lblGrp.setForeground(new Color(0x6A7599));
+                lblGrp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+                lblGrp.setAlignmentX(Component.LEFT_ALIGNMENT);
+                menu.add(lblGrp);
+                menu.add(Box.createVerticalStrut(6));
+                continue;
+            }
+            JPanel item = buildMenuItem(m[0], m[1], m[2]);
+            item.setAlignmentX(Component.LEFT_ALIGNMENT);
             menu.add(item);
-            menu.add(Box.createVerticalStrut(2));
+            menu.add(Box.createVerticalStrut(6));
         }
 
         // ── Settings at bottom
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 14));
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 18));
         bottom.setOpaque(false);
-        JLabel settings = new JLabel("Cài đặt");
-        try {
-            // Tải icon cho phần Cài đặt
-            java.awt.Image imgSetting = javax.imageio.ImageIO.read(new java.io.File("icon/setting.png"));
-            settings.setIcon(new ImageIcon(imgSetting.getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH)));
-        } catch (Exception ex) {
-            settings.setText("Cài đặt"); // Fallback emoji
-        }
-        settings.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        bottom.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2D3452)));
+        JLabel settings = new JLabel("Cài đặt phần mềm");
+        settings.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         settings.setForeground(new Color(0x8892B0)); // thay bằng màu tương ứng
         settings.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        // Gắn action nếu cần:
-        // settings.addMouseListener(new MouseAdapter() {
-        // public void mouseClicked(MouseEvent e) { showPage("caidat"); }
-        // });
         bottom.add(settings);
 
         JPanel topSection = new JPanel(new BorderLayout());
         topSection.setOpaque(false);
-
+        topSection.add(logoWrap, BorderLayout.NORTH);
         topSection.add(menu, BorderLayout.CENTER);
 
         sidebar.add(topSection, BorderLayout.CENTER);
@@ -536,42 +546,56 @@ public class MainFrame extends JFrame {
         return sidebar;
     }
 
-    private JPanel buildMenuItem(String key, String label) {
-        JPanel item = new JPanel(new BorderLayout()) {
-            boolean hover = false;
-
+    private JPanel buildMenuItem(String key, String label, String icon) {
+        boolean[] hover = { false };
+        JPanel item = new JPanel(new BorderLayout(14, 0)) {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
                 if (key.equals(activeMenu)) {
-                    g2.setColor(new Color(0x2D3452)); // nền active tối hơn
-                    g2.fillRoundRect(5, 2, getWidth() - 10, getHeight() - 4, 12, 12);
-                    g2.setColor(new Color(0x4361EE)); // thanh xanh bên trái
-                    g2.fillRoundRect(5, 2, 4, getHeight() - 4, 8, 8);
-                } else if (hover) {
-                    g2.setColor(new Color(0x252A40)); // hover nhạt hơn
-                    g2.fillRoundRect(5, 2, getWidth() - 10, getHeight() - 4, 12, 12);
+                    g2.setColor(new Color(0x4361EE)); // Nền active màu xanh dương nổi bật
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                } else if (hover[0]) {
+                    g2.setColor(new Color(0x2A314D)); // Nền hover
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
                 }
             }
         };
 
         item.setOpaque(false);
-        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
-        item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        item.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-        JLabel lbl = new JLabel(label);
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        lbl.setForeground(key.equals(activeMenu) ? Color.WHITE : new Color(0xA0A8C0));
-        item.add(lbl, BorderLayout.CENTER);
+        JLabel lblIcon = new JLabel(icon);
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        lblIcon.setPreferredSize(new Dimension(32, 32));
+        lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JLabel lblText = new JLabel(label);
+
+        Runnable updateSelf = () -> {
+            boolean active = key.equals(activeMenu);
+            lblIcon.setForeground(active ? Color.WHITE : new Color(0x8892B0));
+            lblText.setForeground(active ? Color.WHITE : new Color(0xA0A8C0));
+            lblText.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, 14));
+            item.repaint();
+        };
+        menuUpdaters.add(updateSelf);
+        updateSelf.run();
+
+        item.add(lblIcon, BorderLayout.WEST);
+        item.add(lblText, BorderLayout.CENTER);
 
         item.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
+                hover[0] = true;
                 item.repaint();
             }
 
             public void mouseExited(MouseEvent e) {
+                hover[0] = false;
                 item.repaint();
             }
 
@@ -599,125 +623,135 @@ public class MainFrame extends JFrame {
 
         // Do not construct heavy panels here to keep login transition responsive.
         cardLayout.show(contentArea, "loading");
-
         return contentArea;
     }
 
+    public DatPhongPanel getDatPhongPanel() {
+        return pDatPhong;
+    }
+
     public void navigateTo(String key) {
-        activeMenu = key;
-        boolean newlyLoaded = !isPanelLoaded(key);
-        ensurePanelLoaded(key);
-        cardLayout.show(contentArea, key);
-
-        refreshIfNeeded(key, newlyLoaded);
-
-        repaint();
+        navigateTo(key, null);
     }
 
-    private boolean isPanelLoaded(String key) {
-        if ("tongquan".equals(key))
-            return pTongQuan != null;
-        if ("thuephong".equals(key))
-            return pThuePhong != null;
-        if ("khachhang".equals(key))
-            return pKhachHang != null;
-        if ("qlhethong".equals(key))
-            return pQLHeThong != null;
-        if ("thongke".equals(key))
-            return pThongKe != null;
-        if ("nhanvien".equals(key))
-            return pNhanVien != null;
-        if ("datphong".equals(key))
-            return pDatPhong != null;
-        return false;
-    }
-
-    private void refreshIfNeeded(String key, boolean newlyLoaded) {
-        // Refresh data when panel is first loaded or after cooldown
-        if (newlyLoaded) {
-            lastRefreshAt.put(key, System.currentTimeMillis());
-            // Reload now to ensure data is fresh on first display
-            SwingUtilities.invokeLater(() -> doRefresh(key));
+    public void navigateTo(String key, Runnable postAction) {
+        if (activeMenu.equals(key) && contentArea.getComponentCount() > 1)
             return;
-        }
 
         long now = System.currentTimeMillis();
-        long last = lastRefreshAt.getOrDefault(key, 0L);
-        if (now - last < REFRESH_COOLDOWN_MS)
-            return;
-        lastRefreshAt.put(key, now);
-        doRefresh(key);
+        boolean timeToRefresh = (now - lastRefreshAt.getOrDefault(key, 0L)) > REFRESH_COOLDOWN_MS;
+
+        Cursor wait = Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR);
+        Cursor def = Cursor.getDefaultCursor();
+        setCursor(wait);
+
+        // Chạy trên thread riêng để UI vẫn smooth
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                ensurePanelLoaded(key, timeToRefresh);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                cardLayout.show(contentArea, key);
+                activeMenu = key;
+                if (timeToRefresh)
+                    lastRefreshAt.put(key, System.currentTimeMillis());
+
+                // Mặc định refresh Tổng Quan mỗi lần chuyển lại
+                if (key.equals("tongquan") && pTongQuan != null)
+                    pTongQuan.refresh();
+
+                // Cập nhật lại màu sắc của Sidebar Items!
+                for (Runnable r : menuUpdaters)
+                    r.run();
+
+                // Lật lại menu sidebar state
+                Container parent = contentArea.getParent();
+                if (parent != null) {
+                    parent.repaint();
+                }
+                getRootPane().repaint();
+                setCursor(def);
+
+                if (postAction != null) {
+                    postAction.run();
+                }
+            }
+        };
+        worker.execute();
     }
 
-    private void doRefresh(String key) {
-
-        if ("tongquan".equals(key) && pTongQuan != null)
-            pTongQuan.refresh();
-        else if ("thuephong".equals(key) && pThuePhong != null)
-            pThuePhong.refresh();
-        else if ("khachhang".equals(key) && pKhachHang != null)
-            pKhachHang.refresh();
-        else if ("qlhethong".equals(key) && pQLHeThong != null)
-            pQLHeThong.refresh();
-        else if ("thongke".equals(key) && pThongKe != null)
-            pThongKe.refresh();
-        else if ("nhanvien".equals(key) && pNhanVien != null)
-            pNhanVien.refresh();
-        else if ("datphong".equals(key) && pDatPhong != null)
-            pDatPhong.refresh();
-    }
-
-    private void ensurePanelLoaded(String key) {
-        if ("tongquan".equals(key)) {
-            if (pTongQuan == null) {
-                pTongQuan = new TongQuanPanel(this);
-                contentArea.add(pTongQuan, "tongquan");
-            }
-            return;
-        }
-        if ("thuephong".equals(key)) {
-            if (pThuePhong == null) {
-                pThuePhong = new ThuePhongPanel(this);
-                contentArea.add(pThuePhong, "thuephong");
-            }
-            return;
-        }
-        if ("khachhang".equals(key)) {
-            if (pKhachHang == null) {
-                pKhachHang = new KhachHangPanel(this);
-                contentArea.add(pKhachHang, "khachhang");
-            }
-            return;
-        }
-        if ("qlhethong".equals(key)) {
-            if (pQLHeThong == null) {
-                pQLHeThong = new QLHeThongPanel(this);
-                contentArea.add(pQLHeThong, "qlhethong");
-            }
-            return;
-        }
-        if ("thongke".equals(key)) {
-            if (pThongKe == null) {
-                pThongKe = new ThongKePanel(this);
-                contentArea.add(pThongKe, "thongke");
-            }
-            return;
-        }
-        if ("nhanvien".equals(key)) {
-            if (pNhanVien == null) {
-                pNhanVien = new NhanVienPanel(this);
-                contentArea.add(pNhanVien, "nhanvien");
-            }
-            return;
-        }
-        if ("datphong".equals(key) && pDatPhong == null) {
-            pDatPhong = new DatPhongPanel(this);
-            contentArea.add(pDatPhong, "datphong");
+    private void ensurePanelLoaded(String key, boolean refreshData) {
+        switch (key) {
+            case "tongquan":
+                if (pTongQuan == null) {
+                    pTongQuan = new TongQuanPanel(this);
+                    contentArea.add(pTongQuan, key);
+                } else if (refreshData)
+                    pTongQuan.refresh();
+                break;
+            case "thuephong":
+                if (pThuePhong == null) {
+                    pThuePhong = new ThuePhongPanel(this);
+                    contentArea.add(pThuePhong, key);
+                } else if (refreshData)
+                    pThuePhong.refresh();
+                break;
+            case "khachhang":
+                if (pKhachHang == null) {
+                    pKhachHang = new KhachHangPanel(this);
+                    contentArea.add(pKhachHang, key);
+                } else if (refreshData)
+                    pKhachHang.refresh();
+                break;
+            case "qlhethong":
+                if (pQLHeThong == null) {
+                    pQLHeThong = new QLHeThongPanel(this);
+                    contentArea.add(pQLHeThong, key);
+                } else if (refreshData)
+                    pQLHeThong.refresh();
+                break;
+            case "thongke":
+                if (pThongKe == null) {
+                    pThongKe = new ThongKePanel(this);
+                    contentArea.add(pThongKe, key);
+                } else if (refreshData)
+                    pThongKe.refresh();
+                break;
+            case "nhanvien":
+                if (pNhanVien == null) {
+                    pNhanVien = new NhanVienPanel(this);
+                    contentArea.add(pNhanVien, key);
+                } else if (refreshData)
+                    pNhanVien.refresh();
+                break;
+            case "datphong":
+                if (pDatPhong == null) {
+                    pDatPhong = new DatPhongPanel(this);
+                    contentArea.add(pDatPhong, key);
+                } else if (refreshData)
+                    pDatPhong.refresh();
+                break;
+            case "hoadon":
+                if (pHoaDon == null) {
+                    pHoaDon = new HoaDonPanel(this);
+                    contentArea.add(pHoaDon, key);
+                } else if (refreshData)
+                    pHoaDon.refresh();
+                break;
+            case "taikhoan":
+                if (contentArea.getComponentCount() == 1) {
+                    contentArea.add(new JPanel(), key); // Temporarily dummy
+                }
+                break;
         }
     }
 
     public void refreshThongKe() {
-        ensurePanelLoaded("thongke");
+        ensurePanelLoaded("thongke", false);
         if (pThongKe != null)
             pThongKe.refresh();
     }

@@ -1,14 +1,18 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.ChiTietBangGia;
 import entity.LoaiPhong;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChiTietBangGiaDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(ChiTietBangGiaDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -26,7 +30,7 @@ public class ChiTietBangGiaDAO {
             while (rs.next()) {
                 list.add(mapRow(rs));
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); }
         return list;
     }
 
@@ -41,7 +45,7 @@ public class ChiTietBangGiaDAO {
             ps.setString(2, maLoaiPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); }
         return null;
     }
 
@@ -54,7 +58,7 @@ public class ChiTietBangGiaDAO {
             ps.setDouble(4, ct.getGiaGioDau());
             ps.setDouble(5, ct.getPhuPhiTraTre());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); return false; }
     }
 
     public boolean update(ChiTietBangGia ct) {
@@ -65,7 +69,7 @@ public class ChiTietBangGiaDAO {
             ps.setDouble(3, ct.getPhuPhiTraTre());
             ps.setInt(4, ct.getMaChiTiet());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); return false; }
     }
 
     public boolean deleteByBangGia(String maBangGia) {
@@ -73,7 +77,7 @@ public class ChiTietBangGiaDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maBangGia);
             return ps.executeUpdate() >= 0; // 0 is ok if no rows
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); return false; }
     }
 
     private ChiTietBangGia mapRow(ResultSet rs) throws SQLException {
@@ -93,3 +97,5 @@ public class ChiTietBangGiaDAO {
         return ct;
     }
 }
+
+

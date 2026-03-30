@@ -1,14 +1,18 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.KhuyenMai;
 import entity.enums.LoaiGiam;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class KhuyenMaiDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(KhuyenMaiDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -19,7 +23,7 @@ public class KhuyenMaiDAO {
         String sql = "SELECT * FROM KHUYEN_MAI ORDER BY ngayBatDau DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); }
         return list;
     }
 
@@ -29,7 +33,7 @@ public class KhuyenMaiDAO {
             ps.setString(1, maKM);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); }
         return null;
     }
 
@@ -43,7 +47,7 @@ public class KhuyenMaiDAO {
             ps.setTimestamp(5, km.getNgayBatDau() != null ? Timestamp.valueOf(km.getNgayBatDau()) : null);
             ps.setTimestamp(6, km.getNgayKetThuc() != null ? Timestamp.valueOf(km.getNgayKetThuc()) : null);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); return false; }
     }
 
     private KhuyenMai mapRow(ResultSet rs) throws SQLException {
@@ -71,3 +75,5 @@ public class KhuyenMaiDAO {
         return km;
     }
 }
+
+

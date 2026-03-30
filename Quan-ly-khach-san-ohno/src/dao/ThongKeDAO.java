@@ -3,6 +3,7 @@ package dao;
 import database.DatabaseConnection;
 import java.sql.*;
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * ThongKeDAO – đã sửa:
@@ -13,6 +14,7 @@ import java.util.*;
 public class ThongKeDAO {
 
     private static final String TAG = "[ThongKeDAO]";
+    private static final Logger LOGGER = Logger.getLogger(ThongKeDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -267,31 +269,20 @@ public class ThongKeDAO {
     // ---- Top dịch vụ ----
     public List<Map<String, Object>> getTopDichVu(int topN) {
         List<Map<String, Object>> list = new ArrayList<>();
-        // Thử nhiều tên cột khác nhau để tương thích
-        String[] sqls = {
-            "SELECT TOP " + topN + " dv.tenDichVu, SUM(sddv.soLuong) AS soLan, " +
-            "  SUM(sddv.soLuong * sddv.donGiaLuu) AS doanhThu " +
+        String sql = "SELECT TOP " + topN + " dv.tenDichVu, SUM(sddv.soLuong) AS soLan, " +
+            "  SUM(sddv.soLuong * sddv.donGiaLucDung) AS doanhThu " +
             "FROM SuDungDichVu sddv JOIN DichVu dv ON sddv.maDichVu=dv.maDichVu " +
-            "GROUP BY dv.tenDichVu ORDER BY soLan DESC",
-
-            "SELECT TOP " + topN + " dv.tenDV AS tenDichVu, SUM(sddv.soLuong) AS soLan, " +
-            "  SUM(sddv.soLuong * sddv.donGia) AS doanhThu " +
-            "FROM DichVuThue sddv JOIN DichVu dv ON sddv.maDV=dv.maDV " +
-            "GROUP BY dv.tenDV ORDER BY soLan DESC"
-        };
-        for (String sql : sqls) {
-            try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
-                while (rs.next()) {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("tenDV",    rs.getString("tenDichVu"));
-                    row.put("soLan",    rs.getInt("soLan"));
-                    row.put("doanhThu", rs.getLong("doanhThu"));
-                    list.add(row);
-                }
-                if (!list.isEmpty()) return list;
-            } catch (SQLException e) {
-                System.err.println(TAG + " WARNING getTopDichVu (next variant): " + e.getMessage());
+            "GROUP BY dv.tenDichVu ORDER BY soLan DESC";
+        try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("tenDV",    rs.getString("tenDichVu"));
+                row.put("soLan",    rs.getInt("soLan"));
+                row.put("doanhThu", rs.getLong("doanhThu"));
+                list.add(row);
             }
+        } catch (SQLException e) {
+            LOGGER.warning(TAG + " getTopDichVu: " + e.getMessage());
         }
         return list;
     }

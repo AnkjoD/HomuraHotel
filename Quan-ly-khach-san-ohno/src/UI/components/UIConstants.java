@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import entity.enums.*;
 import java.awt.*;
@@ -174,3 +174,4 @@ public class UIConstants {
         return TEXT_MUTED;
     }
 }
+

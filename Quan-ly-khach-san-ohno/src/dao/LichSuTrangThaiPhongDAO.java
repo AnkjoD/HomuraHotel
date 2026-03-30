@@ -1,4 +1,4 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.LichSuTrangThaiPhong;
@@ -6,11 +6,15 @@ import entity.Phong;
 import entity.enums.TrangThaiPhong;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LichSuTrangThaiPhongDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(LichSuTrangThaiPhongDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -23,7 +27,7 @@ public class LichSuTrangThaiPhongDAO {
             ps.setString(1, maPhong);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LichSuTrangThaiPhongDAO", e); }
         return list;
     }
 
@@ -36,7 +40,7 @@ public class LichSuTrangThaiPhongDAO {
             ps.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
             ps.setString(5, ls.getLyDo());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LichSuTrangThaiPhongDAO", e); return false; }
     }
 
     private LichSuTrangThaiPhong mapRow(ResultSet rs) throws SQLException {
@@ -72,3 +76,5 @@ public class LichSuTrangThaiPhongDAO {
         return ls;
     }
 }
+
+

@@ -9,19 +9,27 @@ import java.util.List;
 public class NhanVienService {
     private final NhanVienDAO dao = new NhanVienDAO();
 
-    public List<NhanVien> getAll() { return dao.getAll(); }
+    public List<NhanVien> getAll() {
+        return dao.getAll();
+    }
 
-    public List<NhanVien> search(String kw, String chucVu) { return dao.search(kw, chucVu); }
+    public List<NhanVien> search(String kw, String chucVu) {
+        return dao.search(kw, chucVu);
+    }
 
-    public NhanVien getById(String maNhanVien) { return dao.getById(maNhanVien); }
+    public NhanVien getById(String maNhanVien) {
+        return dao.getById(maNhanVien);
+    }
 
     public String them(NhanVien nv) {
-        if (nv.getHoTen() == null || nv.getHoTen().isBlank()) return "Họ tên không được trống!";
-        if (nv.getSdt() == null || nv.getSdt().isBlank()) return "Số điện thoại không được trống!";
+        if (nv.getHoTen() == null || nv.getHoTen().isBlank())
+            return "Họ tên không được trống!";
+        if (nv.getSdt() == null || nv.getSdt().isBlank())
+            return "Số điện thoại không được trống!";
         if (nv.getMaNhanVien() == null || nv.getMaNhanVien().isBlank()) {
             nv.setMaNhanVien(dao.generateMaNV());
         }
-        
+
         if (nv.getTaiKhoan() == null) {
             TaiKhoan tk = new TaiKhoan();
             tk.setTenDangNhap(nv.getMaNhanVien());
@@ -36,12 +44,13 @@ public class NhanVienService {
             }
             nv.getTaiKhoan().setNhanVien(nv);
         }
-        
+
         return dao.insert(nv) ? null : "Lỗi thêm nhân viên!";
     }
 
     public String sua(NhanVien nv) {
-        if (nv.getHoTen() == null || nv.getHoTen().isBlank()) return "Họ tên không được trống!";
+        if (nv.getHoTen() == null || nv.getHoTen().isBlank())
+            return "Họ tên không được trống!";
         return dao.update(nv) ? null : "Lỗi cập nhật!";
     }
 

@@ -1,11 +1,11 @@
-package UI.panels;
+package ui.panels;
 
-import UI.MainFrame;
-import UI.components.*;
-import UI.components.RoundedComponents.RoundedBorder;
-import UI.components.RoundedComponents.RoundedButton;
-import UI.components.RoundedComponents.RoundedPanel;
-import UI.dialogs.*;
+import ui.MainFrame;
+import ui.components.*;
+import ui.components.RoundedComponents.RoundedBorder;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.dialogs.*;
 import dao.*;
 import entity.*;
 import entity.enums.TrangThaiPhong;
@@ -18,6 +18,8 @@ import javax.swing.*;
 import service.*;
 
 public class ThuePhongPanel extends JPanel {
+
+    private static final java.util.logging.Logger LOGGER = java.util.logging.Logger.getLogger(ThuePhongPanel.class.getName());
 
     private final MainFrame mainFrame;
     private final PhongService phongService = new PhongService();
@@ -643,6 +645,18 @@ public class ThuePhongPanel extends JPanel {
         TrangThaiPhong tt = p.getTrangThai();
         Color borderClr = UIConstants.getTrangThaiPhongColor(tt);
         Color bgHover = UIConstants.getTrangThaiPhongBg(tt);
+        String txtStatus = UIConstants.getTrangThaiPhongLabel(tt);
+
+        // ★ Reservation Logic Tweak (Professional PMS Style)
+        boolean hasReservation = reservedRooms.containsKey(p.getSoPhong());
+        String reservedInfo = "";
+        if (hasReservation && tt == TrangThaiPhong.AVAILABLE) {
+            borderClr = new Color(0xF59E0B); // Amber / Warning
+            bgHover = new Color(0xFEF3C7);
+            txtStatus = "Sắp check-in";
+            String[] info = reservedRooms.get(p.getSoPhong());
+            if (info.length > 2) reservedInfo = info[2]; // Time
+        }
 
         RoundedPanel card = new RoundedPanel(10);
         card.setBackground(Color.WHITE);
@@ -661,9 +675,15 @@ public class ThuePhongPanel extends JPanel {
         topRow.setOpaque(false);
         JLabel lblNum = new JLabel(p.getSoPhong());
         lblNum.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        JLabel lblTT = new JLabel(UIConstants.getTrangThaiPhongLabel(tt));
+        
+        JLabel lblTT = new JLabel(txtStatus);
         lblTT.setFont(UIConstants.FONT_TINY);
         lblTT.setForeground(borderClr);
+        if (hasReservation && tt == TrangThaiPhong.AVAILABLE) {
+            lblTT.setOpaque(true);
+            lblTT.setBackground(bgHover);
+            lblTT.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+        }
         topRow.add(lblNum, BorderLayout.WEST);
         topRow.add(lblTT, BorderLayout.EAST);
 
@@ -697,37 +717,23 @@ public class ThuePhongPanel extends JPanel {
         lblPrice.setFont(UIConstants.FONT_SMALL_BOLD);
         lblPrice.setForeground(UIConstants.SUCCESS);
 
-        // ★ Reservation badge
-        boolean hasReservation = reservedRooms.containsKey(p.getSoPhong());
-        JLabel lblReserved = null;
-        if (hasReservation && tt == TrangThaiPhong.AVAILABLE) {
-            String[] info = reservedRooms.get(p.getSoPhong());
-            lblReserved = new JLabel("Đã đặt " + (info.length > 2 ? info[2] : "")) {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(UIConstants.WARNING_LIGHT);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                    g2.dispose();
-                    super.paintComponent(g);
-                }
-            };
-            lblReserved.setFont(UIConstants.FONT_TINY);
-            lblReserved.setForeground(UIConstants.WARNING);
-            lblReserved.setBorder(BorderFactory.createEmptyBorder(1, 5, 1, 5));
-            lblReserved.setToolTipText("KH: " + info[1]);
-        }
-
-        card.add(topRow, BorderLayout.NORTH);
-        card.add(center, BorderLayout.CENTER);
         JPanel bottom = new JPanel(new BorderLayout());
         bottom.setOpaque(false);
         bottom.add(lblPrice, BorderLayout.WEST);
-        if (lblReserved != null)
-            bottom.add(lblReserved, BorderLayout.EAST);
+        
+        // Show reservation time subtly if it exists
+        if (!reservedInfo.isEmpty()) {
+            JLabel lblRsvTime = new JLabel("🕒 " + reservedInfo);
+            lblRsvTime.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+            lblRsvTime.setForeground(new Color(0xD97706));
+            bottom.add(lblRsvTime, BorderLayout.EAST);
+        }
+        
+        card.add(topRow, BorderLayout.NORTH);
+        card.add(center, BorderLayout.CENTER);
         card.add(bottom, BorderLayout.SOUTH);
 
+        final Color finalBgHover = bgHover;
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -749,7 +755,7 @@ public class ThuePhongPanel extends JPanel {
 
             @Override
             public void mouseEntered(MouseEvent e) {
-                card.setBackground(bgHover);
+                card.setBackground(finalBgHover);
                 card.repaint();
             }
 
@@ -1014,7 +1020,7 @@ public class ThuePhongPanel extends JPanel {
             JOptionPane.showMessageDialog(mainFrame,
                     "Lỗi khi đổi phòng: " + e.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            LOGGER.log(java.util.logging.Level.WARNING, "UI error in ThuePhongPanel", e);
         }
     }
 
@@ -1134,7 +1140,7 @@ public class ThuePhongPanel extends JPanel {
             JOptionPane.showMessageDialog(mainFrame,
                     "Lỗi khi thêm dịch vụ: " + e.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            LOGGER.log(java.util.logging.Level.WARNING, "UI error in ThuePhongPanel", e);
         }
     }
 
@@ -1284,3 +1290,4 @@ public class ThuePhongPanel extends JPanel {
         } // scroll dọc bình thường
     }
 }
+

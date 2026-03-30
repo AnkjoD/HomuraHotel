@@ -1,12 +1,19 @@
 package entity;
 
-import entity.TaiKhoan;
+import java.time.LocalDate;
 
 public class NhanVien {
     private String maNhanVien;
     private String hoTen;
     private String sdt;
     private String chucVu;
+    private String email;
+    private String cccd;
+    private LocalDate ngaySinh;
+    private String gioiTinh;
+    private String diaChi;
+    private LocalDate ngayVaoLam;
+    private boolean dangLamViec = true; // true = đang làm, false = đã nghỉ
 
     private TaiKhoan taiKhoan;
 
@@ -32,9 +39,31 @@ public class NhanVien {
     public String getChucVu() { return chucVu; }
     public void setChucVu(String chucVu) { this.chucVu = chucVu; }
 
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getCccd() { return cccd; }
+    public void setCccd(String cccd) { this.cccd = cccd; }
+
+    public LocalDate getNgaySinh() { return ngaySinh; }
+    public void setNgaySinh(LocalDate ngaySinh) { this.ngaySinh = ngaySinh; }
+
+    public String getGioiTinh() { return gioiTinh; }
+    public void setGioiTinh(String gioiTinh) { this.gioiTinh = gioiTinh; }
+
+    public String getDiaChi() { return diaChi; }
+    public void setDiaChi(String diaChi) { this.diaChi = diaChi; }
+
+    public LocalDate getNgayVaoLam() { return ngayVaoLam; }
+    public void setNgayVaoLam(LocalDate ngayVaoLam) { this.ngayVaoLam = ngayVaoLam; }
+
+    public boolean isDangLamViec() { return dangLamViec; }
+    public void setDangLamViec(boolean dangLamViec) { this.dangLamViec = dangLamViec; }
+
     public TaiKhoan getTaiKhoan() { return taiKhoan; }
     public void setTaiKhoan(TaiKhoan taiKhoan) { this.taiKhoan = taiKhoan; }
 
+    // Backward compat aliases
     public String getSoDienThoai() { return sdt; }
 
     @Override

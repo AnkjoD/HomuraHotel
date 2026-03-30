@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -348,3 +348,4 @@ public class DateTimePicker extends JPanel {
         }
     }
 }
+

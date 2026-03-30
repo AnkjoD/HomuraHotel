@@ -1,6 +1,6 @@
 package main;
 
-import UI.LoginFrame;
+import ui.LoginFrame;
 import database.DatabaseConnection;
 import javax.swing.*;
 

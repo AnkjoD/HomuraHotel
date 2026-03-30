@@ -68,7 +68,7 @@ CREATE TABLE HuongNhin (
     maHuongNhin VARCHAR(20) PRIMARY KEY,
     tenHuongNhin NVARCHAR(100) NOT NULL,
     moTa NVARCHAR(MAX),
-    heSoGia FLOAT DEFAULT 1.0,  -- hệ số nhân giá (1.0 = giá gốc, 1.3 = +30%)
+    heSoGia DECIMAL(18,2) DEFAULT 1.0,  -- hệ số nhân giá (1.0 = giá gốc, 1.3 = +30%)
     thuTu INT DEFAULT 0         -- sắp xếp hiển thị
 );
 
@@ -78,7 +78,7 @@ CREATE TABLE LoaiPhong (
     tenLoaiPhong NVARCHAR(100) NOT NULL,
     soNguoiToiDa INT,
     moTa NVARCHAR(MAX),
-    giaTheoNgay FLOAT
+    giaTheoNgay DECIMAL(18,2)
 );
 
 -- 4. Tiện nghi (Amenities) – bảng danh mục
@@ -127,9 +127,9 @@ CREATE TABLE ChiTietBangGia (
     maChiTietBangGia INT IDENTITY(1,1) PRIMARY KEY,
     maBangGia VARCHAR(20) REFERENCES BangGia(maBangGia),
     maLoaiPhong VARCHAR(20) REFERENCES LoaiPhong(maLoaiPhong),
-    giaTheoNgay FLOAT,
-    giaTheoGio FLOAT,
-    phuPhiTraTre FLOAT
+    giaTheoNgay DECIMAL(18,2),
+    giaTheoGio DECIMAL(18,2),
+    phuPhiTraTre DECIMAL(18,2)
 );
 
 -- 7. Khách hàng & Đặt phòng
@@ -137,7 +137,10 @@ CREATE TABLE KhachHang (
     maKhachHang VARCHAR(20) PRIMARY KEY,
     hoTen NVARCHAR(100) NOT NULL,
     sdt VARCHAR(20),
-    cccd VARCHAR(20)
+    cccd VARCHAR(20),
+    ngaySinh DATE,
+    gioiTinh NVARCHAR(10),
+    quocTich NVARCHAR(50) DEFAULT N'Việt Nam'
 );
 
 CREATE TABLE DatPhong (
@@ -148,8 +151,8 @@ CREATE TABLE DatPhong (
     ngayNhanDuKien DATETIME,
     ngayTraDuKien DATETIME,
     soNguoi INT,
-    tienDatCoc FLOAT DEFAULT 0,
-    tongTienTamTinh FLOAT DEFAULT 0,
+    tienDatCoc DECIMAL(18,2) DEFAULT 0,
+    tongTienTamTinh DECIMAL(18,2) DEFAULT 0,
     trangThai VARCHAR(20) DEFAULT 'PENDING' CHECK (trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED')),
     ghiChu NVARCHAR(MAX)
 );
@@ -160,8 +163,8 @@ CREATE TABLE ChiTietDatPhong (
     maPhong VARCHAR(20) REFERENCES Phong(maPhong),
     ngayNhanThucTe DATETIME,
     ngayTraThucTe DATETIME,
-    giaThucTeChot FLOAT,
-    phuPhiPhatSinh FLOAT DEFAULT 0
+    giaThucTeChot DECIMAL(18,2),
+    phuPhiPhatSinh DECIMAL(18,2) DEFAULT 0
 );
 
 -- 8. Dịch vụ & Sử dụng dịch vụ
@@ -169,7 +172,7 @@ CREATE TABLE DichVu (
     maDichVu VARCHAR(20) PRIMARY KEY,
     tenDichVu NVARCHAR(100) NOT NULL,
     loai NVARCHAR(50),
-    donGiaHienTai FLOAT NOT NULL,
+    donGiaHienTai DECIMAL(18,2) NOT NULL,
     donViTinh NVARCHAR(20),
     soLuongMin INT DEFAULT 1,
     moTa NVARCHAR(MAX),
@@ -178,10 +181,10 @@ CREATE TABLE DichVu (
 
 CREATE TABLE SuDungDichVu (
     maSuDung VARCHAR(20) PRIMARY KEY,
-    maDatPhong VARCHAR(20) REFERENCES DatPhong(maDatPhong),
+    maChiTiet VARCHAR(20) REFERENCES ChiTietDatPhong(maChiTiet), -- Dịch vụ gán vào từng phòng để dễ tách bill
     maDichVu VARCHAR(20) REFERENCES DichVu(maDichVu),
     soLuong INT NOT NULL,
-    donGiaLucDung FLOAT,
+    donGiaLucDung DECIMAL(18,2),
     thoiGianDung DATETIME DEFAULT GETDATE()
 );
 
@@ -189,7 +192,7 @@ CREATE TABLE SuDungDichVu (
 CREATE TABLE KhuyenMai (
     maKhuyenMai VARCHAR(20) PRIMARY KEY,
     loaiGiam VARCHAR(10) CHECK (loaiGiam IN ('PERCENT', 'FIXED')),
-    giaTriGiam FLOAT,
+    giaTriGiam DECIMAL(18,2),
     ngayBatDau DATETIME,
     ngayKetThuc DATETIME,
     dieuKienApDung NVARCHAR(MAX)
@@ -201,10 +204,10 @@ CREATE TABLE HoaDon (
     maNhanVien VARCHAR(20) REFERENCES NhanVien(maNhanVien), -- Người lập
     maKhuyenMai VARCHAR(20) REFERENCES KhuyenMai(maKhuyenMai),
     ngayLap DATETIME DEFAULT GETDATE(),
-    tongTienPhong FLOAT DEFAULT 0,
-    tongTienDichVu FLOAT DEFAULT 0,
-    tienGiamKhuyenMai FLOAT DEFAULT 0,
-    tongThanhToan FLOAT DEFAULT 0,
+    tongTienPhong DECIMAL(18,2) DEFAULT 0,
+    tongTienDichVu DECIMAL(18,2) DEFAULT 0,
+    tienGiamKhuyenMai DECIMAL(18,2) DEFAULT 0,
+    tongThanhToan DECIMAL(18,2) DEFAULT 0,
     trangThai VARCHAR(20) DEFAULT 'UNPAID' CHECK (trangThai IN ('UNPAID', 'PARTIALLY_PAID', 'PAID', 'REFUNDED'))
 );
 
@@ -214,10 +217,25 @@ CREATE TABLE ChiTietHoaDon (
     loai VARCHAR(10) CHECK (loai IN ('PHONG', 'DICH_VU')),
     moTa NVARCHAR(MAX),
     soLuong INT,
-    donGia FLOAT,
-    thanhTien FLOAT,
+    donGia DECIMAL(18,2),
+    thanhTien DECIMAL(18,2),
     maNguonNoiBo VARCHAR(20) -- maChiTietDatPhong hoặc maSuDungDichVu
 );
+
+-- ======================================================
+-- INDEXES
+-- ======================================================
+CREATE INDEX IX_PHONG_LOAI         ON Phong(maLoaiPhong);
+CREATE INDEX IX_PHONG_TRANGTHAI    ON Phong(trangThai);
+CREATE INDEX IX_KHACH_SDT          ON KhachHang(sdt);
+CREATE INDEX IX_KHACH_CCCD         ON KhachHang(cccd);
+CREATE INDEX IX_DATPHONG_KHACH     ON DatPhong(maKhachHang);
+CREATE INDEX IX_DATPHONG_TRANGTHAI ON DatPhong(trangThai);
+CREATE INDEX IX_CTDP_DATPHONG      ON ChiTietDatPhong(maDatPhong);
+CREATE INDEX IX_CTDP_PHONG         ON ChiTietDatPhong(maPhong);
+CREATE INDEX IX_SDDV_CHITIET       ON SuDungDichVu(maChiTiet);
+CREATE INDEX IX_HOADON_DATPHONG    ON HoaDon(maDatPhong);
+CREATE INDEX IX_CTHD_HOADON        ON ChiTietHoaDon(maHoaDon);
 
 -- ======================================================
 -- DATA SEEDING (Dữ liệu mẫu để test) -- MỞ RỘNG
@@ -317,16 +335,16 @@ INSERT INTO TienNghi_LoaiPhong VALUES ('LP005', 'TN18');
 
 -- 6. Phòng (Tạo 25 phòng mẫu) – dùng maHuongNhin thay vì text
 -- Tầng 1 (Standard)
-INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P101', 1, 'HN01', 'LP001', 'AVAILABLE');
+INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P101', 1, 'HN01', 'LP001', 'OCCUPIED');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P102', 1, 'HN01', 'LP001', 'AVAILABLE');
-INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P103', 1, 'HN02', 'LP002', 'AVAILABLE');
+INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P103', 1, 'HN02', 'LP002', 'CLEANING');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P104', 1, 'HN02', 'LP002', 'AVAILABLE');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P105', 1, 'HN02', 'LP002', 'AVAILABLE');
 
 -- Tầng 2 (Standard & Deluxe)
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P201', 2, 'HN02', 'LP001', 'AVAILABLE');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P202', 2, 'HN02', 'LP002', 'AVAILABLE');
-INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P203', 2, 'HN02', 'LP003', 'AVAILABLE');
+INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P203', 2, 'HN02', 'LP003', 'OCCUPIED');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P204', 2, 'HN02', 'LP003', 'AVAILABLE');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P205', 2, 'HN02', 'LP003', 'AVAILABLE');
 
@@ -340,7 +358,7 @@ INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('
 -- Tầng 4 (Deluxe & Suite)
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P401', 4, 'HN03', 'LP004', 'AVAILABLE');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P402', 4, 'HN03', 'LP004', 'AVAILABLE');
-INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P403', 4, 'HN03', 'LP005', 'AVAILABLE');
+INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P403', 4, 'HN03', 'LP005', 'OCCUPIED');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P404', 4, 'HN03', 'LP005', 'AVAILABLE');
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P405', 4, 'HN03', 'LP005', 'AVAILABLE');
 
@@ -351,11 +369,11 @@ INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('
 INSERT INTO Phong (maPhong, tang, maHuongNhin, maLoaiPhong, trangThai) VALUES ('P505', 5, 'HN06', 'LP005', 'AVAILABLE');
 
 -- 4. Khách hàng
-INSERT INTO KhachHang VALUES ('KH001', N'Nguyễn Văn An', '0911222333', '123456789');
-INSERT INTO KhachHang VALUES ('KH002', N'Trần Thị Bình', '0922333444', '987654321');
-INSERT INTO KhachHang VALUES ('KH003', N'Lê Văn Cường', '0933444555', '456789123');
-INSERT INTO KhachHang VALUES ('KH004', N'Phạm Thị Dung', '0944555666', '321654987');
-INSERT INTO KhachHang VALUES ('KH005', N'Hoàng Văn Em', '0955666777', '789123456');
+INSERT INTO KhachHang (maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES ('KH001', N'Nguyễn Văn An', '0911222333', '012345678901', '1990-05-15', N'Nam', N'Việt Nam');
+INSERT INTO KhachHang (maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES ('KH002', N'Trần Thị Bình', '0922333444', '098765432102', '1992-10-20', N'Nữ', N'Việt Nam');
+INSERT INTO KhachHang (maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES ('KH003', N'Lê Văn Cường', '0933444555', '045678912303', '1988-02-28', N'Nam', N'Việt Nam');
+INSERT INTO KhachHang (maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES ('KH004', N'Phạm Thị Dung', '0944555666', '032165498704', '1995-07-10', N'Nữ', N'Mỹ');
+INSERT INTO KhachHang (maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES ('KH005', N'Hoàng Văn Em', '0955666777', '078912345605', '2000-12-05', N'Nam', N'Hàn Quốc');
 
 -- 8. Bảng giá năm 2024
 INSERT INTO BangGia VALUES ('BG2024', N'Bảng giá năm 2024', '2024-01-01', '2024-12-31', 1);

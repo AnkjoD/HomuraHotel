@@ -1,14 +1,18 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.ChiTietDatPhong;
 import entity.DatPhong;
 import entity.Phong;
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChiTietDatPhongDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(ChiTietDatPhongDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -21,7 +25,7 @@ public class ChiTietDatPhongDAO {
             ps.setString(1, maDatPhong);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); }
         return list;
     }
 
@@ -37,7 +41,7 @@ public class ChiTietDatPhongDAO {
             ps.setDouble(6, ct.getGiaThucTeChot());
             ps.setDouble(7, ct.getPhuPhiPhatSinh());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); return false; }
     }
 
     public boolean update(ChiTietDatPhong ct) {
@@ -51,7 +55,7 @@ public class ChiTietDatPhongDAO {
             ps.setDouble(6, ct.getPhuPhiPhatSinh());
             ps.setString(7, ct.getMaChiTiet());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); return false; }
     }
 
     private ChiTietDatPhong mapRow(ResultSet rs) throws SQLException {
@@ -88,7 +92,7 @@ public class ChiTietDatPhongDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT MAX(CAST(SUBSTRING(maChiTiet,3,10) AS INT)) FROM ChiTietDatPhong")) {
             if (rs.next()) return String.format("CT%04d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); }
         return "CT0001";
     }
 
@@ -97,7 +101,7 @@ public class ChiTietDatPhongDAO {
             ps.setString(1, id);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); }
         return null;
     }
 
@@ -106,7 +110,9 @@ public class ChiTietDatPhongDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM ChiTietDatPhong")) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e); }
         return list;
     }
 }
+
+

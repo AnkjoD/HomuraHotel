@@ -1,4 +1,4 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.NhanVien;
@@ -6,10 +6,14 @@ import entity.TaiKhoan;
 import entity.enums.VaiTro;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NhanVienDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(NhanVienDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -17,45 +21,52 @@ public class NhanVienDAO {
 
     public NhanVien getByMaNV(String maNV) {
         String sql = "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
-                     "FROM NhanVien nv " +
-                     "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
-                     "WHERE nv.maNhanVien=?";
+                "FROM NhanVien nv " +
+                "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
+                "WHERE nv.maNhanVien=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maNV);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+            if (rs.next())
+                return mapRow(rs);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+        }
         return null;
     }
 
-    public NhanVien getById(String id) { return getByMaNV(id); }
+    public NhanVien getById(String id) {
+        return getByMaNV(id);
+    }
 
     public List<NhanVien> getAll() {
         List<NhanVien> list = new ArrayList<>();
         String sql = "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
-                     "FROM NhanVien nv " +
-                     "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
-                     "ORDER BY nv.hoTen";
+                "FROM NhanVien nv " +
+                "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
+                "ORDER BY nv.hoTen";
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+                ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next())
+                list.add(mapRow(rs));
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+        }
         return list;
     }
 
     public List<NhanVien> search(String keyword, String filterRole) {
         List<NhanVien> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder(
-            "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
-            "FROM NhanVien nv " +
-            "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
-            "WHERE 1=1"
-        );
+                "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
+                        "FROM NhanVien nv " +
+                        "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
+                        "WHERE 1=1");
         if (keyword != null && !keyword.isBlank())
             sb.append(" AND (nv.hoTen LIKE ? OR nv.sdt LIKE ? OR nv.maNhanVien LIKE ?)");
         if (filterRole != null && !filterRole.equals("Tất cả"))
             sb.append(" AND tk.vaiTro = ?");
-        
+
         sb.append(" ORDER BY nv.hoTen");
         try (PreparedStatement ps = getConn().prepareStatement(sb.toString())) {
             int idx = 1;
@@ -68,8 +79,11 @@ public class NhanVienDAO {
             if (filterRole != null && !filterRole.equals("Tất cả"))
                 ps.setString(idx, filterRole);
             ResultSet rs = ps.executeQuery();
-            while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+            while (rs.next())
+                list.add(mapRow(rs));
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+        }
         return list;
     }
 
@@ -106,15 +120,19 @@ public class NhanVienDAO {
             } finally {
                 conn.setAutoCommit(true);
             }
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+            return false;
+        }
     }
 
     public boolean update(NhanVien nv) {
         String sqlNV = "UPDATE NhanVien SET hoTen=?, sdt=?, chucVu=? WHERE maNhanVien=?";
         String sqlTK = "UPDATE TaiKhoan SET vaiTro=?" +
-                       (nv.getTaiKhoan() != null && nv.getTaiKhoan().getMatKhau() != null
-                           && !nv.getTaiKhoan().getMatKhau().isBlank() ? ", matKhau=?" : "") +
-                       " WHERE maNhanVien=?";
+                (nv.getTaiKhoan() != null && nv.getTaiKhoan().getMatKhau() != null
+                        && !nv.getTaiKhoan().getMatKhau().isBlank() ? ", matKhau=?" : "")
+                +
+                " WHERE maNhanVien=?";
         try (Connection conn = getConn()) {
             conn.setAutoCommit(false);
             try {
@@ -132,7 +150,8 @@ public class NhanVienDAO {
                     try (PreparedStatement ps = conn.prepareStatement(sql2)) {
                         int idx = 1;
                         ps.setString(idx++, tk.getVaiTro() != null ? tk.getVaiTro().name() : "RECEPTIONIST");
-                        if (hasPw) ps.setString(idx++, tk.getMatKhau());
+                        if (hasPw)
+                            ps.setString(idx++, tk.getMatKhau());
                         ps.setString(idx, nv.getMaNhanVien());
                         ps.executeUpdate();
                     }
@@ -146,7 +165,10 @@ public class NhanVienDAO {
             } finally {
                 conn.setAutoCommit(true);
             }
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+            return false;
+        }
     }
 
     public boolean delete(String maNhanVien) {
@@ -170,14 +192,21 @@ public class NhanVienDAO {
             } finally {
                 conn.setAutoCommit(true);
             }
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+            return false;
+        }
     }
 
     public String generateMaNV() {
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT MAX(CAST(SUBSTRING(maNhanVien,3,10) AS INT)) FROM NhanVien WHERE maNhanVien LIKE 'NV%'")) {
-            if (rs.next()) return String.format("NV%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+                ResultSet rs = st.executeQuery(
+                        "SELECT MAX(CAST(SUBSTRING(maNhanVien,3,10) AS INT)) FROM NhanVien WHERE maNhanVien LIKE 'NV%'")) {
+            if (rs.next())
+                return String.format("NV%03d", rs.getInt(1) + 1);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
+        }
         return "NV001";
     }
 
@@ -209,3 +238,5 @@ public class NhanVienDAO {
         return nv;
     }
 }
+
+

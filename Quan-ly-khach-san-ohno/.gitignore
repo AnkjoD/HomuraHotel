@@ -2,7 +2,9 @@
 # BUILD FILES (QUAN TRỌNG)
 # ======================
 bin/
+out/
 *.class
+.env
 
 # ======================
 # ECLIPSE FILES

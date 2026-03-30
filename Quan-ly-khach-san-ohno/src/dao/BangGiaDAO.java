@@ -1,13 +1,17 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.BangGia;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class BangGiaDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(BangGiaDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -18,7 +22,7 @@ public class BangGiaDAO {
         String sql = "SELECT * FROM BangGia ORDER BY ngayBatDau DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         return list;
     }
 
@@ -28,7 +32,7 @@ public class BangGiaDAO {
             ps.setString(1, maBangGia);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         return null;
     }
 
@@ -41,7 +45,7 @@ public class BangGiaDAO {
             ps.setTimestamp(4, Timestamp.valueOf(bg.getNgayKetThuc()));
             ps.setBoolean(5, bg.isTrangThai());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); return false; }
     }
 
     public boolean update(BangGia bg) {
@@ -53,7 +57,7 @@ public class BangGiaDAO {
             ps.setBoolean(4, bg.isTrangThai());
             ps.setString(5, bg.getMaBangGia());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); return false; }
     }
 
     public boolean delete(String maBangGia) {
@@ -61,12 +65,12 @@ public class BangGiaDAO {
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM ChiTietBangGia WHERE maBangGia=?")) {
             ps.setString(1, maBangGia);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         // Then delete bang gia
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM BangGia WHERE maBangGia=?")) {
             ps.setString(1, maBangGia);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); return false; }
     }
 
     public List<BangGia> search(String keyword, String status) {
@@ -83,7 +87,7 @@ public class BangGiaDAO {
             
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         return list;
     }
 
@@ -94,7 +98,7 @@ public class BangGiaDAO {
                      "ORDER BY ngayBatDau DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         return null;
     }
 
@@ -102,7 +106,7 @@ public class BangGiaDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT MAX(CAST(SUBSTRING(maBangGia,3,10) AS INT)) FROM BangGia WHERE maBangGia LIKE 'BG%'")) {
             if (rs.next() && rs.getObject(1) != null) return String.format("BG%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e); }
         return "BG001";
     }
 
@@ -121,3 +125,5 @@ public class BangGiaDAO {
         return bg;
     }
 }
+
+

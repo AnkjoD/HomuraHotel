@@ -1,4 +1,4 @@
-package UI.dialogs;
+package ui.dialogs;
 
 import javax.swing.*;
 import java.awt.*;
@@ -306,3 +306,4 @@ public class QRPaymentDialog extends JDialog {
         }
     }
 }
+

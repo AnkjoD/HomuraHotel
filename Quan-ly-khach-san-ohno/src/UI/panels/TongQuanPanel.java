@@ -1,9 +1,9 @@
-package UI.panels;
+package ui.panels;
 
 import service.*;
-import UI.MainFrame;
-import UI.components.UIConstants;
-import UI.components.RoundedComponents.*;
+import ui.MainFrame;
+import ui.components.UIConstants;
+import ui.components.RoundedComponents.*;
 
 import javax.swing.*;
 import java.awt.*;

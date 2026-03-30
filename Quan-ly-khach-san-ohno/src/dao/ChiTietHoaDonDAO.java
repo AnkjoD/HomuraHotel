@@ -1,14 +1,18 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.ChiTietHoaDon;
 import entity.enums.LoaiChiTietHoaDon;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChiTietHoaDonDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(ChiTietHoaDonDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -21,7 +25,7 @@ public class ChiTietHoaDonDAO {
             ps.setString(1, maHoaDon);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietHoaDonDAO", e); }
         return list;
     }
 
@@ -37,14 +41,14 @@ public class ChiTietHoaDonDAO {
             ps.setDouble(6, ct.getDonGia());
             ps.setDouble(7, ct.getThanhTien());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietHoaDonDAO", e); return false; }
     }
 
     public String generateMaCTHD() {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT MAX(CAST(SUBSTRING(maCTHD,5,10) AS INT)) FROM CHI_TIET_HOA_DON WHERE maCTHD LIKE 'CTHD%'")) {
             if (rs.next()) return String.format("CTHD%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietHoaDonDAO", e); }
         return "CTHD001";
     }
 
@@ -69,3 +73,5 @@ public class ChiTietHoaDonDAO {
         return ct;
     }
 }
+
+

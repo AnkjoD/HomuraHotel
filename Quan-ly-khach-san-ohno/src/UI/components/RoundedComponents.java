@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -304,3 +304,4 @@ public class RoundedComponents {
         return new RoundedButton(text, new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
     }
 }
+

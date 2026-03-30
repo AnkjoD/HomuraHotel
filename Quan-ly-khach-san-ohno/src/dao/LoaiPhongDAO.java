@@ -1,13 +1,17 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.LoaiPhong;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LoaiPhongDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(LoaiPhongDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -18,7 +22,7 @@ public class LoaiPhongDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM LoaiPhong ORDER BY tenLoaiPhong")) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return list;
     }
 
@@ -30,7 +34,7 @@ public class LoaiPhongDAO {
                 LoaiPhong lp = mapRow(rs);
                 if (lp.isDangKinhDoanh()) list.add(lp);
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return list;
     }
 
@@ -39,7 +43,7 @@ public class LoaiPhongDAO {
             ps.setString(1, maLoaiPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return null;
     }
 
@@ -52,7 +56,7 @@ public class LoaiPhongDAO {
             ps.setString(4, lp.getMoTa());
             ps.setDouble(5, lp.getGiaTheoNgay());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
     }
 
     public boolean update(LoaiPhong lp) {
@@ -64,14 +68,14 @@ public class LoaiPhongDAO {
             ps.setDouble(4, lp.getGiaTheoNgay());
             ps.setString(5, lp.getMaLoaiPhong());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
     }
 
     public boolean delete(String maLoaiPhong) {
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM LoaiPhong WHERE maLoaiPhong=?")) {
             ps.setString(1, maLoaiPhong);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
     }
 
     /** Check if any phong references this loaiPhong */
@@ -81,7 +85,7 @@ public class LoaiPhongDAO {
             ps.setString(1, maLoaiPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return 0;
     }
 
@@ -91,7 +95,7 @@ public class LoaiPhongDAO {
              ResultSet rs = st.executeQuery(
                  "SELECT MAX(CAST(SUBSTRING(maLoaiPhong,3,10) AS INT)) FROM LoaiPhong WHERE maLoaiPhong LIKE 'LP%'")) {
             if (rs.next()) return String.format("LP%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return "LP001";
     }
 
@@ -105,3 +109,5 @@ public class LoaiPhongDAO {
         return lp;
     }
 }
+
+

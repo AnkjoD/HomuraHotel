@@ -1,4 +1,4 @@
-package UI.dialogs;
+package ui.dialogs;
 
 import service.AuthService;
 import service.ThuePhongService;
@@ -6,9 +6,9 @@ import service.DichVuService;
 import service.PhongService;
 import service.KhachHangService;
 import entity.*;
-import UI.components.UIConstants;
-import UI.components.RoundedComponents.*;
-import UI.components.RoundedComponents.*;
+import ui.components.UIConstants;
+import ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents.*;
 
 import javax.swing.*;
 import javax.swing.table.*;
@@ -28,11 +28,11 @@ public class HoaDonDialog extends JDialog {
     private boolean confirmed = false;
 
     private DefaultTableModel tableModel;
-    private JLabel lblTongPhong, lblTongDV, lblTongCong, lblDatCoc, lblConLai;
+    private JLabel lblTongPhong, lblTongDV, lblTongCong;
     private JComboBox<String> cboDV;
-    private JComboBox<String> cboHinhThucThanhToan; // ★ Thêm combobox hình thức
     private JSpinner spnSL;
     private java.util.List<DichVu> dvList = new ArrayList<>();
+    private JComboBox<String> cboHinhThuc;
 
     public HoaDonDialog(Frame parent, ChiTietDatPhong tp) {
         super(parent, "Hóa đơn – Phòng " + tp.getSoPhong(), true);
@@ -42,24 +42,6 @@ public class HoaDonDialog extends JDialog {
         setResizable(false);
         getContentPane().setBackground(Color.WHITE);
         buildUI();
-    }
-
-    // ★ Helper: tính ngày nhận thực tế (fallback khi NULL)
-    private Date getNgayNhanFallback() {
-        if (thuePhong.getNgayNhanThucTe_Date() != null)
-            return thuePhong.getNgayNhanThucTe_Date();
-        // Fallback 1: dùng ngày nhận dự kiến từ DatPhong
-        if (thuePhong.getDatPhong() != null && thuePhong.getDatPhong().getNgayNhanDK_Date() != null)
-            return thuePhong.getDatPhong().getNgayNhanDK_Date();
-        // Fallback 2: dùng ngày đặt
-        if (thuePhong.getDatPhong() != null && thuePhong.getDatPhong().getNgayDat() != null)
-            return java.sql.Timestamp.valueOf(thuePhong.getDatPhong().getNgayDat());
-        return new Date(); // cuối cùng dùng NOW
-    }
-
-    // ★ Helper: tính số đêm (tối thiểu 1)
-    private long getSoNgay() {
-        return Math.max(1, thuePhongService.tinhSoNgay(getNgayNhanFallback(), new Date()));
     }
 
     private void buildUI() {
@@ -152,12 +134,14 @@ public class HoaDonDialog extends JDialog {
                 new String[][] { { "Họ tên:", ten }, { "SĐT:", sdt }, { "CCCD:", cccd }, { "Email:", email } }));
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date ngayNhanDisplay = getNgayNhanFallback();
 
         panel.add(infoBlock("CHI TIẾT LƯU TRÚ", new String[][] {
-                { "Nhận phòng:", sdf.format(ngayNhanDisplay) },
+                { "Nhận phòng:",
+                        thuePhong.getNgayNhanThucTe() != null ? sdf.format(thuePhong.getNgayNhanThucTe_Date()) : "—" },
                 { "Trả phòng:", sdf.format(new Date()) },
-                { "Số đêm:", getSoNgay() + " đêm" },
+                { "Số đêm:",
+                        thuePhongService.tinhSoNgay(thuePhong.getNgayNhanThucTe(), java.time.LocalDateTime.now())
+                                + " đêm" },
                 { "Giá/đêm:", String.format("%,.0f đ", thuePhong.getGiaThucTeChot()) }
         }));
         return panel;
@@ -239,15 +223,9 @@ public class HoaDonDialog extends JDialog {
         lblTongPhong.setFont(UIConstants.FONT_BODY);
         lblTongDV = new JLabel("0 đ");
         lblTongDV.setFont(UIConstants.FONT_BODY);
-        lblDatCoc = new JLabel("0 đ");
-        lblDatCoc.setFont(UIConstants.FONT_BODY);
-        lblDatCoc.setForeground(UIConstants.WARNING);
         lblTongCong = new JLabel("0 đ");
-        lblTongCong.setFont(UIConstants.FONT_BODY_BOLD);
-        lblTongCong.setForeground(UIConstants.TEXT_PRIMARY);
-        lblConLai = new JLabel("0 đ");
-        lblConLai.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        lblConLai.setForeground(UIConstants.PRIMARY);
+        lblTongCong.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTongCong.setForeground(UIConstants.PRIMARY);
 
         loadBillRows();
 
@@ -266,21 +244,28 @@ public class HoaDonDialog extends JDialog {
         Phong phong = phongService.getPhongById(thuePhong.getSoPhong());
         double donGiaThang = thuePhong.getGiaThucTeChot() > 0 ? thuePhong.getGiaThucTeChot()
                 : (phong != null ? phong.getGiaTheoNgay() : 0.0);
-        long soNgay = getSoNgay(); // ★ Dùng helper (min 1, có fallback)
+        long soNgay = thuePhongService.tinhSoNgay(thuePhong.getNgayNhanThucTe_Date(), new Date());
         double tienPhong = donGiaThang * soNgay;
 
         // Tính phí phát sinh (check-in sớm/check-out muộn)
         double phuPhi = 0;
+        double phiCheckin = 0;
+        double phiCheckout = 0;
+        double phiKhac = thuePhong.getPhuPhiPhatSinh();
+
         if (thuePhong.getNgayNhanThucTe() != null) {
             int gioNhan = thuePhong.getNgayNhanThucTe().getHour();
-            if (gioNhan < 12)
-                phuPhi += 50000;
+            if (gioNhan < 12) {
+                phiCheckin = 50000; // Check-in trước 12h tính phí
+                phuPhi += phiCheckin;
+            }
         }
         int gioNow = java.time.LocalDateTime.now().getHour();
         if (gioNow > 13) {
-            phuPhi += 50000;
+            phiCheckout = 50000; // Check-out sau 13h tính phí
+            phuPhi += phiCheckout;
         }
-        phuPhi += thuePhong.getPhuPhiPhatSinh();
+        phuPhi += phiKhac; // Cộng phí khác
 
         tableModel.addRow(new Object[] {
                 "Tiền phòng – " + (thuePhong.getTenLoaiPhong() != null ? thuePhong.getTenLoaiPhong() : ""),
@@ -289,13 +274,14 @@ public class HoaDonDialog extends JDialog {
                 String.format("%,.0f đ", tienPhong)
         });
 
-        if (phuPhi > 0) {
-            tableModel.addRow(new Object[] {
-                    "Phí phát sinh",
-                    "—",
-                    "—",
-                    String.format("%,.0f đ", phuPhi)
-            });
+        if (phiCheckin > 0) {
+            tableModel.addRow(new Object[] { "Phụ thu nhận phòng sớm", "—", "—", String.format("%,.0f đ", phiCheckin) });
+        }
+        if (phiCheckout > 0) {
+            tableModel.addRow(new Object[] { "Phụ thu trả phòng muộn", "—", "—", String.format("%,.0f đ", phiCheckout) });
+        }
+        if (phiKhac > 0) {
+            tableModel.addRow(new Object[] { "Phí phát sinh khác", "—", "—", String.format("%,.0f đ", phiKhac) });
         }
 
         java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
@@ -310,32 +296,12 @@ public class HoaDonDialog extends JDialog {
             totalDV += sddv.tinhThanhTien();
         }
 
-        double tongGop = tienPhong + phuPhi + totalDV;
-        // ★ Lấy đặt cọc từ DatPhong
-        double datCoc = 0;
-        if (thuePhong.getDatPhong() != null) {
-            datCoc = thuePhong.getDatPhong().getTienDatCoc();
-        }
-        double conLai = tongGop - datCoc;
-
         if (lblTongPhong != null)
             lblTongPhong.setText(String.format("%,.0f đ", tienPhong + phuPhi));
         if (lblTongDV != null)
             lblTongDV.setText(String.format("%,.0f đ", (double) totalDV));
         if (lblTongCong != null)
-            lblTongCong.setText(String.format("%,.0f đ", tongGop));
-        if (lblDatCoc != null)
-            lblDatCoc.setText(datCoc > 0 ? String.format("- %,.0f đ", datCoc) : "Không cọc");
-        if (lblConLai != null) {
-            if (conLai >= 0) {
-                lblConLai.setText(String.format("%,.0f đ", conLai));
-                lblConLai.setForeground(UIConstants.PRIMARY);
-            } else {
-                // Đặt cọc > tổng → cần hoàn lại
-                lblConLai.setText(String.format("Hoàn lại %,.0f đ", Math.abs(conLai)));
-                lblConLai.setForeground(UIConstants.SUCCESS);
-            }
-        }
+            lblTongCong.setText(String.format("%,.0f đ", tienPhong + phuPhi + totalDV));
     }
 
     private JPanel buildAddDVSection() {
@@ -398,42 +364,41 @@ public class HoaDonDialog extends JDialog {
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 165));
 
         panel.add(Box.createVerticalStrut(10));
         panel.add(sumRow("Tiền phòng", lblTongPhong, false));
         panel.add(Box.createVerticalStrut(4));
         panel.add(sumRow("Tiền dịch vụ", lblTongDV, false));
         panel.add(Box.createVerticalStrut(6));
-        JSeparator sep1 = new JSeparator();
-        sep1.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        panel.add(sep1);
+        JSeparator sep = new JSeparator();
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        panel.add(sep);
         panel.add(Box.createVerticalStrut(6));
-        panel.add(sumRow("Tổng cộng", lblTongCong, false));
-        panel.add(Box.createVerticalStrut(4));
-        panel.add(sumRow("Đặt cọc", lblDatCoc, false));
-        panel.add(Box.createVerticalStrut(6));
+        panel.add(sumRow("TỔNG CỘNG", lblTongCong, true));
+        
+        panel.add(Box.createVerticalStrut(12));
+        JPanel rowHT = new JPanel(new BorderLayout());
+        rowHT.setOpaque(false);
+        rowHT.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        JLabel lblHT = new JLabel("Hình thức thanh toán");
+        lblHT.setFont(UIConstants.FONT_BODY);
+        lblHT.setForeground(UIConstants.TEXT_SECONDARY);
+        rowHT.add(lblHT, BorderLayout.WEST);
 
-        // ★ Hình thức thanh toán
-        JPanel methodRow = new JPanel(new BorderLayout());
-        methodRow.setOpaque(false);
-        methodRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
-        JLabel lblMethod = new JLabel("Hình thức:");
-        lblMethod.setFont(UIConstants.FONT_BODY);
-        lblMethod.setForeground(UIConstants.TEXT_SECONDARY);
-        cboHinhThucThanhToan = new JComboBox<>(new String[] { "Tiền mặt", "Chuyển khoản", "Thẻ tín dụng" });
-        cboHinhThucThanhToan.setFont(UIConstants.FONT_BODY);
-        cboHinhThucThanhToan.setPreferredSize(new Dimension(140, 32));
-        methodRow.add(lblMethod, BorderLayout.WEST);
-        methodRow.add(cboHinhThucThanhToan, BorderLayout.EAST);
-        panel.add(methodRow);
+        String[] options = { "Tiền mặt", "Chuyển khoản", "Thẻ tín dụng" };
+        cboHinhThuc = new JComboBox<>(options);
+        cboHinhThuc.setFont(UIConstants.FONT_BODY);
+        cboHinhThuc.setBackground(Color.WHITE);
+        cboHinhThuc.setPreferredSize(new Dimension(140, 28));
+        
+        JPanel comboPan = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        comboPan.setOpaque(false);
+        comboPan.add(cboHinhThuc);
+        rowHT.add(comboPan, BorderLayout.EAST);
+        
+        panel.add(rowHT);
 
-        panel.add(Box.createVerticalStrut(6));
-        JSeparator sep2 = new JSeparator();
-        sep2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        panel.add(sep2);
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(sumRow("CÒN PHẢI TRẢ", lblConLai, true));
         return panel;
     }
 
@@ -457,15 +422,19 @@ public class HoaDonDialog extends JDialog {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
                 BorderFactory.createEmptyBorder(12, 28, 12, 28)));
 
-        JButton btnPrint = new JButton("In hóa đơn");
+        JButton btnPrint = new JButton(" In hóa đơn");
         try {
-            // Tải ảnh và resize tự động
-            java.awt.Image imgPrint = javax.imageio.ImageIO.read(new java.io.File("icon/print.png"));
-            btnPrint.setIcon(new ImageIcon(imgPrint.getScaledInstance(18, 18, java.awt.Image.SCALE_SMOOTH)));
-        } catch (Exception ex) {
-            btnPrint.setText("In hóa đơn"); // Fallback emoji nếu không tìm thấy file
+            java.io.File printIconFile = new java.io.File("icon/print.png");
+            if (printIconFile.exists()) {
+                javax.swing.ImageIcon icon = new javax.swing.ImageIcon(printIconFile.getAbsolutePath());
+                java.awt.Image scaled = icon.getImage().getScaledInstance(18, 18, java.awt.Image.SCALE_SMOOTH);
+                btnPrint.setIcon(new javax.swing.ImageIcon(scaled));
+            } else {
+                btnPrint.setText("🖨 In hóa đơn"); // Fallback nếu không có file ảnh
+            }
+        } catch (Exception e) {
+            btnPrint.setText("🖨 In hóa đơn");
         }
-
         btnPrint.setFont(UIConstants.FONT_BODY);
         btnPrint.setForeground(UIConstants.TEXT_SECONDARY);
         btnPrint.setBorderPainted(false);
@@ -477,21 +446,6 @@ public class HoaDonDialog extends JDialog {
         btns.setOpaque(false);
         RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
         RoundedButton btnConfirm = new RoundedButton("Xác nhận trả phòng", UIConstants.SUCCESS, Color.WHITE);
-
-        try {
-            // Tải ảnh cho nút xác nhận trả phòng
-            java.awt.Image imgConfirm = javax.imageio.ImageIO.read(new java.io.File("icon/accept.png"));
-            btnConfirm.setIcon(new ImageIcon(imgConfirm.getScaledInstance(18, 18, java.awt.Image.SCALE_SMOOTH)));
-        } catch (Exception ex) {
-            try {
-                // Thử dùng icon accept nếu không có traphong.png
-                java.awt.Image imgAccept = javax.imageio.ImageIO.read(new java.io.File("icon/accept.pn"));
-                btnConfirm.setIcon(new ImageIcon(imgAccept.getScaledInstance(18, 18, java.awt.Image.SCALE_SMOOTH)));
-            } catch (Exception ex2) {
-                btnConfirm.setText("Xác nhận trả phòng"); // Fallback
-            }
-        }
-
         btnConfirm.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnCancel.addActionListener(e -> dispose());
         btnConfirm.addActionListener(e -> doCheckout());
@@ -505,8 +459,8 @@ public class HoaDonDialog extends JDialog {
 
     // ---- CHECK-OUT ----
     private void doCheckout() {
-        // Lấy hình thức thanh toán từ combobox
-        String hinhThuc = (String) cboHinhThucThanhToan.getSelectedItem();
+        // Lấy hình thức thanh toán từ ComboBox trên giao diện
+        String hinhThuc = (String) cboHinhThuc.getSelectedItem();
         if (hinhThuc == null)
             return;
 
@@ -516,7 +470,7 @@ public class HoaDonDialog extends JDialog {
             Phong phong = phongService.getPhongById(thuePhong.getSoPhong());
             double donGiaThang = thuePhong.getGiaThucTeChot() > 0 ? thuePhong.getGiaThucTeChot()
                     : (phong != null ? phong.getGiaTheoNgay() : 0.0);
-            long soNgay = getSoNgay(); // ★ Dùng helper
+            long soNgay = thuePhongService.tinhSoNgay(thuePhong.getNgayNhanThucTe_Date(), new Date());
             double tienPhong = donGiaThang * soNgay;
 
             // Tính phí
@@ -529,13 +483,12 @@ public class HoaDonDialog extends JDialog {
 
             java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
             double tienDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
-            double tongGop = tienPhong + phuPhi + tienDV;
-            double datCoc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getTienDatCoc() : 0;
-            double conLai = Math.max(0, tongGop - datCoc);
+            double tongCong = tienPhong + phuPhi + tienDV;
 
             String maHD = "HD-" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + "-" + thuePhong.getSoPhong();
+            // Hiện popup QR
             QRPaymentDialog qrDialog = new QRPaymentDialog(
-                    (Frame) getOwner(), (long) conLai, maHD);
+                    (Frame) getOwner(), (long) tongCong, maHD);
             qrDialog.setVisible(true);
 
             if (!qrDialog.isConfirmed())
@@ -545,7 +498,7 @@ public class HoaDonDialog extends JDialog {
         // ────────────────────────────────────────────────────────
 
         int ok = JOptionPane.showConfirmDialog(this,
-                "Xác nhận trả phòng " + thuePhong.getSoPhong() + "?\nCòn phải trả: " + lblConLai.getText(),
+                "Xác nhận trả phòng " + thuePhong.getSoPhong() + "?\nTổng tiền: " + lblTongCong.getText(),
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (ok != JOptionPane.YES_OPTION)
             return;
@@ -610,16 +563,24 @@ public class HoaDonDialog extends JDialog {
         Phong phong = phongService.getPhongById(thuePhong.getSoPhong());
         double donGiaThang = thuePhong.getGiaThucTeChot() > 0 ? thuePhong.getGiaThucTeChot()
                 : (phong != null ? phong.getGiaTheoNgay() : 0.0);
-        long soNgay = getSoNgay(); // ★ Dùng helper (min 1, có fallback)
+        long soNgay = thuePhongService.tinhSoNgay(thuePhong.getNgayNhanThucTe_Date(), new Date());
         double tienPhong = donGiaThang * soNgay;
 
         // Tính phí
         double phuPhi = 0;
-        if (thuePhong.getNgayNhanThucTe() != null && thuePhong.getNgayNhanThucTe().getHour() < 12)
-            phuPhi += 50000;
-        if (java.time.LocalDateTime.now().getHour() > 13)
-            phuPhi += 50000;
-        phuPhi += thuePhong.getPhuPhiPhatSinh();
+        double phiCheckin = 0;
+        double phiCheckout = 0;
+        double phiKhac = thuePhong.getPhuPhiPhatSinh();
+
+        if (thuePhong.getNgayNhanThucTe() != null && thuePhong.getNgayNhanThucTe().getHour() < 12) {
+            phiCheckin = 50000;
+            phuPhi += phiCheckin;
+        }
+        if (java.time.LocalDateTime.now().getHour() > 13) {
+            phiCheckout = 50000;
+            phuPhi += phiCheckout;
+        }
+        phuPhi += phiKhac;
 
         java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
         double totalDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
@@ -645,12 +606,12 @@ public class HoaDonDialog extends JDialog {
         panel.add(Box.createVerticalStrut(8));
 
         // Khách hàng
-        Date ngayNhanDisplay = getNgayNhanFallback(); // ★ Fallback
         panel.add(printRow("Phòng:", thuePhong.getSoPhong() + " – "
                 + (thuePhong.getTenLoaiPhong() != null ? thuePhong.getTenLoaiPhong() : "")));
         panel.add(printRow("Khách hàng:", kh != null ? kh.getHoTen() : "—"));
         panel.add(printRow("SĐT:", kh != null && kh.getSoDienThoai() != null ? kh.getSoDienThoai() : "—"));
-        panel.add(printRow("Nhận phòng:", sdf.format(ngayNhanDisplay)));
+        panel.add(printRow("Nhận phòng:",
+                thuePhong.getNgayNhanThucTe_Date() != null ? sdf.format(thuePhong.getNgayNhanThucTe_Date()) : "—"));
         panel.add(printRow("Trả phòng:", sdf.format(new Date())));
         panel.add(printRow("Số đêm:", soNgay + " đêm"));
         panel.add(Box.createVerticalStrut(8));
@@ -659,27 +620,23 @@ public class HoaDonDialog extends JDialog {
 
         // Chi tiết
         panel.add(printRow("Tiền phòng:", String.format("%,.0f đ", (double) tienPhong)));
-        if (phuPhi > 0) {
-            panel.add(printRow("Phí phát sinh:", String.format("%,.0f đ", (double) phuPhi)));
+        if (phiCheckin > 0) {
+            panel.add(printRow("Phụ thu nhận phòng sớm:", String.format("%,.0f đ", phiCheckin)));
+        }
+        if (phiCheckout > 0) {
+            panel.add(printRow("Phụ thu trả phòng muộn:", String.format("%,.0f đ", phiCheckout)));
+        }
+        if (phiKhac > 0) {
+            panel.add(printRow("Phí phát sinh khác:", String.format("%,.0f đ", phiKhac)));
         }
         for (SuDungDichVu sddv : dsDichVu)
             panel.add(printRow(sddv.getTenDichVu() + "×" + sddv.getSoLuong() + ":",
                     String.format("%,.0f đ", (double) sddv.tinhThanhTien())));
-        // Đặt cọc
-        double datCoc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getTienDatCoc() : 0;
-        double conLai = tienPhong + phuPhi + totalDV - datCoc;
-
-        if (datCoc > 0) {
-            panel.add(printRow("Đặt cọc:", String.format("- %,.0f đ", datCoc)));
-        }
         panel.add(Box.createVerticalStrut(8));
         panel.add(printSep());
         panel.add(Box.createVerticalStrut(8));
 
-        String totalText = conLai >= 0
-                ? "CÒN PHẢI TRẢ:   " + String.format("%,.0f đ", conLai)
-                : "HOÀN LẠI:   " + String.format("%,.0f đ", Math.abs(conLai));
-        JLabel total = new JLabel(totalText);
+        JLabel total = new JLabel("TỔNG CỘNG:   " + String.format("%,.0f đ", tienPhong + phuPhi + totalDV));
         total.setFont(new Font("Segoe UI", Font.BOLD, 15));
         total.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(total);

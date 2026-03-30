@@ -1,4 +1,4 @@
-package UI.components;
+package ui.components;
 
 import java.awt.*;
 import javax.swing.*;
@@ -43,3 +43,4 @@ public class ModernPopupMenu extends JPopupMenu {
         super.paint(g);
     }
 }
+

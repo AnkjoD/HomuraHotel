@@ -1,7 +1,7 @@
-package UI.dialogs;
+package ui.dialogs;
 
-import UI.components.RoundedComponents.*;
-import UI.components.UIConstants;
+import ui.components.RoundedComponents.*;
+import ui.components.UIConstants;
 import entity.*;
 import java.awt.*;
 import java.time.ZoneId;
@@ -376,3 +376,4 @@ public class BangGiaDialog extends JDialog {
         return p;
     }
 }
+

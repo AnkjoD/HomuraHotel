@@ -1,9 +1,9 @@
-package UI.dialogs;
+package ui.dialogs;
 
 import service.DichVuService;
 import entity.DichVu;
-import UI.components.UIConstants;
-import UI.components.RoundedComponents.*;
+import ui.components.UIConstants;
+import ui.components.RoundedComponents.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -117,3 +117,4 @@ public class DichVuDialog extends JDialog {
     private void sc(JComboBox<String> c, String v) { if(v==null)return; for(int i=0;i<c.getItemCount();i++) if(v.equals(c.getItemAt(i))){c.setSelectedIndex(i);return;} }
     private void err(String m) { JOptionPane.showMessageDialog(this,m,"Lỗi dữ liệu",JOptionPane.WARNING_MESSAGE); }
 }
+

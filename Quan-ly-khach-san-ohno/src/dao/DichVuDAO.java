@@ -1,13 +1,17 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.*;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DichVuDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(DichVuDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -18,7 +22,7 @@ public class DichVuDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM DichVu ORDER BY tenDichVu")) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return list;
     }
 
@@ -27,7 +31,7 @@ public class DichVuDAO {
             ps.setString(1, maDichVu);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return null;
     }
 
@@ -43,7 +47,7 @@ public class DichVuDAO {
             ps.setString(7, dv.getMoTa());
             ps.setBoolean(8, dv.isTrangThai());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); return false; }
     }
 
     public boolean update(DichVu dv) {
@@ -58,14 +62,14 @@ public class DichVuDAO {
             ps.setBoolean(7, dv.isTrangThai());
             ps.setString(8, dv.getMaDichVu());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); return false; }
     }
 
     public boolean delete(String maDichVu) {
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM DichVu WHERE maDichVu=?")) {
             ps.setString(1, maDichVu);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); return false; }
     }
 
     private DichVu mapRow(ResultSet rs) throws SQLException {
@@ -101,7 +105,7 @@ public class DichVuDAO {
             }
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return list;
     }
 
@@ -109,7 +113,7 @@ public class DichVuDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu")) {
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return 0;
     }
 
@@ -119,7 +123,9 @@ public class DichVuDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT AVG(donGiaHienTai) FROM DichVu")) {
             if (rs.next()) return rs.getDouble(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return 0;
     }
 }
+
+

@@ -1,8 +1,8 @@
-package UI;
+package ui;
 
-import UI.components.RoundedComponents.RoundedBorder;
-import UI.components.RoundedComponents.RoundedButton;
-import UI.components.UIConstants;
+import ui.components.RoundedComponents.RoundedBorder;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.UIConstants;
 import entity.NhanVien;
 import java.awt.*;
 import java.awt.event.*;
@@ -349,7 +349,8 @@ public class LoginFrame extends JFrame {
                             mainFrame.setVisible(true);
                             dispose();
                         } catch (Exception uiEx) {
-                            uiEx.printStackTrace();
+                            java.util.logging.Logger.getLogger(LoginFrame.class.getName())
+                                .log(java.util.logging.Level.SEVERE, "Lỗi mở MainFrame", uiEx);
                             lblError.setText("Không thể mở màn hình chính. Kiểm tra dữ liệu nhân viên.");
                             setLoginLoading(false);
                         }
@@ -387,3 +388,4 @@ public class LoginFrame extends JFrame {
         btnLogin.setText(loading ? "Đang đăng nhập..." : "Đăng nhập");
     }
 }
+

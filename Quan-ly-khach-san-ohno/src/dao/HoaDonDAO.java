@@ -10,8 +10,13 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class HoaDonDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(HoaDonDAO.class.getName());
+
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -22,7 +27,7 @@ public class HoaDonDAO {
         String sql = "SELECT * FROM HoaDon ORDER BY ngayLap DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); }
         return list;
     }
 
@@ -32,7 +37,7 @@ public class HoaDonDAO {
             ps.setString(1, maHoaDon);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); }
         return null;
     }
 
@@ -51,7 +56,7 @@ public class HoaDonDAO {
             ps.setDouble(9, hd.getTongThanhToan());
             ps.setString(10, hd.getTrangThai() != null ? hd.getTrangThai().name() : "UNPAID");
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); return false; }
     }
 
     public boolean update(HoaDon hd) {
@@ -60,7 +65,7 @@ public class HoaDonDAO {
             ps.setString(1, hd.getTrangThai().name());
             ps.setString(2, hd.getMaHoaDon());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); return false; }
     }
 
     public String generateMaHD() {
@@ -71,7 +76,7 @@ public class HoaDonDAO {
             ps.setString(1, prefix); ps.setString(2, prefix + "%");
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return prefix + String.format("%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); }
         return prefix + "001";
     }
 

@@ -1,4 +1,4 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.HuongNhin;
@@ -6,6 +6,8 @@ import entity.LoaiPhong;
 import entity.Phong;
 import entity.DatPhong;
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 public class PhongDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(PhongDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -38,7 +42,7 @@ public class PhongDAO {
                 try { p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); } catch (Exception ignored) {}
                 list.add(p);
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return list;
     }
 
@@ -53,7 +57,7 @@ public class PhongDAO {
             ps.setString(1, maPhong);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return null;
     }
 
@@ -66,7 +70,7 @@ public class PhongDAO {
             ps.setString(4, p.getMaHuongNhin());
             ps.setString(5, p.getTrangThai() != null ? p.getTrangThai().name() : "AVAILABLE");
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
     }
 
     public boolean update(Phong p) {
@@ -78,7 +82,7 @@ public class PhongDAO {
             ps.setString(4, p.getTrangThai() != null ? p.getTrangThai().name() : "AVAILABLE");
             ps.setString(5, p.getMaPhong());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
     }
 
     public List<Phong> findAvailableRooms(java.time.LocalDateTime start, java.time.LocalDateTime end, int sucChua) {
@@ -113,7 +117,7 @@ public class PhongDAO {
                 try { p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); } catch (Exception ignored) {}
                 list.add(p);
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return list;
     }
 
@@ -122,7 +126,7 @@ public class PhongDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
     }
 
     public List<Phong> search(String kw, String tang, String huongNhin) {
@@ -144,7 +148,7 @@ public class PhongDAO {
             if (huongNhin != null && !huongNhin.isEmpty()) ps.setString(idx++, huongNhin);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return list;
     }
 
@@ -162,7 +166,7 @@ public class PhongDAO {
                 else if ("CLEANING".equalsIgnoreCase(key)) key = "Vệ sinh";
                 map.put(key, count);
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return map;
     }
 
@@ -195,7 +199,7 @@ public class PhongDAO {
                 String ngayNhan = tsNhan != null ? new java.text.SimpleDateFormat("dd/MM HH:mm").format(tsNhan) : "";
                 map.put(maPhong, new String[]{maDat, tenKH != null ? tenKH : "—", ngayNhan});
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return map;
     }
 
@@ -217,7 +221,7 @@ public class PhongDAO {
             ps.setTimestamp(3, Timestamp.valueOf(from));
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1) == 0;
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return true;
     }
 
@@ -258,3 +262,4 @@ public class PhongDAO {
         return p;
     }
 }
+

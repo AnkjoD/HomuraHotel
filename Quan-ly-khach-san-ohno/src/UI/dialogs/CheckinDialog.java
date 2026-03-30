@@ -1,4 +1,4 @@
-package UI.dialogs;
+package ui.dialogs;
 
 import service.DatPhongService;
 import service.KhachHangService;
@@ -8,9 +8,9 @@ import service.PhongService;
 import entity.*;
 import entity.enums.TrangThaiDatPhong;
 import entity.enums.TrangThaiPhong;
-import UI.components.DateTimePicker;
-import UI.components.UIConstants;
-import UI.components.RoundedComponents.*;
+import ui.components.DateTimePicker;
+import ui.components.UIConstants;
+import ui.components.RoundedComponents.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -933,3 +933,4 @@ public class CheckinDialog extends JDialog {
         return p;
     }
 }
+

@@ -1,9 +1,11 @@
-package dao;
+﻿package dao;
 
 import database.DatabaseConnection;
 import entity.TienNghi;
 
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +13,8 @@ import java.util.List;
  * DAO cho bảng TienNghi + bảng trung gian TienNghi_LoaiPhong.
  */
 public class TienNghiDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(TienNghiDAO.class.getName());
 
     private Connection getConn() throws SQLException {
         return DatabaseConnection.getInstance().getConnection();
@@ -24,7 +28,7 @@ public class TienNghiDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return list;
     }
 
@@ -35,7 +39,7 @@ public class TienNghiDAO {
             ps.setString(1, nhom);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return list;
     }
 
@@ -46,7 +50,7 @@ public class TienNghiDAO {
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(rs.getString(1));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return list;
     }
 
@@ -56,7 +60,7 @@ public class TienNghiDAO {
             ps.setString(1, maTienNghi);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return null;
     }
 
@@ -69,7 +73,7 @@ public class TienNghiDAO {
             ps.setString(4, tn.getIcon());
             ps.setInt(5, tn.getThuTu());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); return false; }
     }
 
     public boolean update(TienNghi tn) {
@@ -81,7 +85,7 @@ public class TienNghiDAO {
             ps.setInt(4, tn.getThuTu());
             ps.setString(5, tn.getMaTienNghi());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); return false; }
     }
 
     public boolean delete(String maTienNghi) {
@@ -89,12 +93,12 @@ public class TienNghiDAO {
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM TienNghi_LoaiPhong WHERE maTienNghi=?")) {
             ps.setString(1, maTienNghi);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         // Rồi xóa tiện nghi
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM TienNghi WHERE maTienNghi=?")) {
             ps.setString(1, maTienNghi);
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { e.printStackTrace(); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); return false; }
     }
 
     public String generateMa() {
@@ -102,7 +106,7 @@ public class TienNghiDAO {
              ResultSet rs = st.executeQuery(
                  "SELECT MAX(CAST(SUBSTRING(maTienNghi,3,10) AS INT)) FROM TienNghi WHERE maTienNghi LIKE 'TN%'")) {
             if (rs.next()) return String.format("TN%02d", rs.getInt(1) + 1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return "TN01";
     }
 
@@ -118,7 +122,7 @@ public class TienNghiDAO {
             ps.setString(1, maLoaiPhong);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         return list;
     }
 
@@ -129,7 +133,7 @@ public class TienNghiDAO {
                 "DELETE FROM TienNghi_LoaiPhong WHERE maLoaiPhong=?")) {
             ps.setString(1, maLoaiPhong);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
 
         // Thêm mapping mới
         if (maTienNghiList != null && !maTienNghiList.isEmpty()) {
@@ -141,7 +145,7 @@ public class TienNghiDAO {
                     ps.addBatch();
                 }
                 ps.executeBatch();
-            } catch (SQLException e) { e.printStackTrace(); }
+            } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
         }
     }
 
@@ -167,3 +171,5 @@ public class TienNghiDAO {
         return tn;
     }
 }
+
+
