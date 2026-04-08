@@ -1,0 +1,170 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam linetype polyline
+skinparam nodesep 25
+skinparam ranksep 35
+
+skinparam usecase {
+  BackgroundColor #EAF3FB
+  BorderColor #5B9BD5
+  BorderThickness 1
+  FontColor #000000
+  FontSize 10
+}
+
+skinparam actor {
+  BackgroundColor White
+  BorderColor #2C5F8A
+  FontColor #000000
+  FontSize 10
+}
+
+skinparam rectangle {
+  BackgroundColor #F8FBFF
+  BorderColor #2C5F8A
+  BorderThickness 1.5
+  FontColor #2C5F8A
+  FontStyle bold
+}
+
+skinparam ArrowColor #2C5F8A
+skinparam ArrowThickness 1
+skinparam ArrowFontSize 9
+skinparam ArrowFontColor #2C5F8A
+
+left to right direction
+
+' === ACTORS (Left) ===
+actor "Lễ tân" as LeTan
+
+' === SYSTEM BOUNDARY ===
+rectangle "Hệ thống Quản lý Khách sạn Hotel Ohno" as SYS {
+
+  ' --- CENTRAL USE CASE ---
+  usecase "Đăng nhập" as UC_DN
+
+  ' --- LEFT COLUMN USE CASES (Lễ Tân related) ---
+  usecase "Đặt phòng trước" as UC_Dat
+  usecase "Hủy đặt phòng" as UC_Huy
+  usecase "Nhận phòng" as UC_NP
+  usecase "Nhận phòng theo đặt trước" as UC_NP1
+  usecase "Nhận phòng trực tiếp" as UC_NP2
+  usecase "Tra cứu khách hàng" as UC_TCKH
+  usecase "Trả phòng &\nThanh toán lẻ" as UC_TP
+  usecase "Xuất hóa đơn PDF" as UC_PDF
+  usecase "Gom bill đoàn" as UC_Gom
+  usecase "Gọi dịch vụ phòng" as UC_DV
+  usecase "Chuyển phòng" as UC_CP
+  usecase "Gia hạn lưu trú" as UC_GH
+  usecase "Thay đổi\nngười đại diện" as UC_DD
+  usecase "Cập nhật trạng thái\ndọn phòng" as UC_Don
+  usecase "Thêm/Sửa/Vô hiệu\nhóa khách hàng" as UC_KH
+  usecase "Tra cứu hóa đơn" as UC_TCHD
+  usecase "In lại hóa đơn" as UC_In
+  usecase "Bàn giao ca" as UC_BGC
+  usecase "Kiểm đếm tiền mặt" as UC_KD
+
+  ' --- RIGHT COLUMN USE CASES (Quản lý & Admin related) ---
+  usecase "Đăng xuất" as UC_DX
+  usecase "Đổi mật khẩu" as UC_DMK
+  usecase "Thêm/Sửa/Xóa phòng" as UC_Phong
+  usecase "Quản lý loại phòng" as UC_LP
+  usecase "Cập nhật bảng giá" as UC_BG
+  usecase "Thêm/Sửa/Xóa\ndịch vụ" as UC_DVQL
+  usecase "Thêm/Sửa/Xóa\nkhuyến mãi" as UC_KM
+  usecase "Xem thống kê\n& báo cáo" as UC_TK
+  usecase "Tra cứu nhật ký" as UC_NK
+  usecase "Thêm/Sửa\nnhân viên" as UC_NV
+  usecase "Khóa/Mở\ntài khoản" as UC_TK2
+
+  ' --- VERTICAL ALIGNMENT ALONG 2 COLUMNS (In left to right direction, 'right' aligns vertically) ---
+  ' Left Column Stack
+  UC_Dat -[hidden]right-> UC_Huy
+  UC_Huy -[hidden]right-> UC_NP
+  UC_NP -[hidden]right-> UC_NP1
+  UC_NP1 -[hidden]right-> UC_NP2
+  UC_NP2 -[hidden]right-> UC_TCKH
+  UC_TCKH -[hidden]right-> UC_TP
+  UC_TP -[hidden]right-> UC_PDF
+  UC_PDF -[hidden]right-> UC_Gom
+  UC_Gom -[hidden]right-> UC_DV
+  UC_DV -[hidden]right-> UC_CP
+  UC_CP -[hidden]right-> UC_GH
+  UC_GH -[hidden]right-> UC_DD
+  UC_DD -[hidden]right-> UC_Don
+  UC_Don -[hidden]right-> UC_KH
+  UC_KH -[hidden]right-> UC_TCHD
+  UC_TCHD -[hidden]right-> UC_In
+  UC_In -[hidden]right-> UC_BGC
+  UC_BGC -[hidden]right-> UC_KD
+
+  ' Right Column Stack
+  UC_DX -[hidden]right-> UC_DMK
+  UC_DMK -[hidden]right-> UC_Phong
+  UC_Phong -[hidden]right-> UC_LP
+  UC_LP -[hidden]right-> UC_BG
+  UC_BG -[hidden]right-> UC_DVQL
+  UC_DVQL -[hidden]right-> UC_KM
+  UC_KM -[hidden]right-> UC_TK
+  UC_TK -[hidden]right-> UC_NK
+  UC_NK -[hidden]right-> UC_NV
+  UC_NV -[hidden]right-> UC_TK2
+
+  ' Position the columns relative to Đăng nhập (Center) (In left to right direction, 'down' aligns horizontally)
+  UC_NP -[hidden]down-> UC_DN
+  UC_DN -[hidden]down-> UC_Phong
+}
+
+' === ACTORS (Right) ===
+actor "Quản lý" as QuanLy
+actor "Admin" as Admin
+
+' === ACTOR INHERITANCE ===
+LeTan <|-- QuanLy
+QuanLy <|-- Admin
+
+' === CONNECTIONS: ACTORS TO USE CASES ===
+' Left Actor (Lễ tân)
+LeTan --> UC_DN
+LeTan --> UC_Dat
+LeTan --> UC_Huy
+LeTan --> UC_NP
+LeTan --> UC_TP
+LeTan --> UC_Gom
+LeTan --> UC_DV
+LeTan --> UC_CP
+LeTan --> UC_GH
+LeTan --> UC_DD
+LeTan --> UC_Don
+LeTan --> UC_KH
+LeTan --> UC_TCHD
+LeTan --> UC_BGC
+
+' Right Actor (Quản lý)
+QuanLy --> UC_DN
+QuanLy --> UC_Phong
+QuanLy --> UC_LP
+QuanLy --> UC_BG
+QuanLy --> UC_DVQL
+QuanLy --> UC_KM
+QuanLy --> UC_TK
+QuanLy --> UC_NK
+
+' Right Actor (Admin)
+Admin --> UC_DN
+Admin --> UC_NV
+Admin --> UC_TK2
+
+' === USE CASE RELATIONSHIPS ===
+UC_DX ..> UC_DN : <i><size:9><<extend>></size></i>
+UC_DMK ..> UC_DN : <i><size:9><<extend>></size></i>
+UC_NP1 ..> UC_NP : <i><size:9><<extend>></size></i>
+UC_NP2 ..> UC_NP : <i><size:9><<extend>></size></i>
+UC_NP ..> UC_TCKH : <i><size:9><<include>></size></i>
+UC_TP ..> UC_PDF : <i><size:9><<include>></size></i>
+UC_Gom ..> UC_TP : <i><size:9><<include>></size></i>
+UC_In ..> UC_TCHD : <i><size:9><<extend>></size></i>
+UC_BGC ..> UC_KD : <i><size:9><<include>></size></i>
+
+@enduml
