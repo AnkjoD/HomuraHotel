@@ -1,0 +1,347 @@
+@startuml
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 14
+skinparam nodesep 10
+skinparam ranksep 15
+
+' === STYLE FOR CLASS HEADERS AND BODIES ===
+skinparam class {
+  BackgroundColor White
+  BorderColor #2C5F8A
+  HeaderBackgroundColor #2C5F8A
+  AttributeFontSize 12
+  MethodFontSize 12
+}
+skinparam classHeaderFontColor White
+hide circle
+
+' === STYLE FOR ENUMS ===
+skinparam enum {
+  BackgroundColor #F0F4FF
+  BorderColor #2C5F8A
+  AttributeFontSize 12
+}
+
+skinparam ArrowColor #2C5F8A
+skinparam ArrowThickness 1
+
+' =====================================================================
+'   CLASSES
+' =====================================================================
+
+class "<b><color:white>DatPhong</color></b>" as DatPhong {
+  - maDatPhong: String
+  - ngayDat: LocalDateTime
+  - ngayNhanDuKien: LocalDateTime
+  - ngayTraDuKien: LocalDateTime
+  - soLuongKhach: int
+  - tienDatCoc: double
+  - tongTienTamTinh: double
+  - trangThai: TrangThaiDatPhong
+  - ghiChu: String
+  - loaiKhach: String
+  - tenDoan: String
+  - phiNoShow: double
+  - hanCheckIn: LocalDateTime
+  - phiHuyPhong: double
+  + markNoShow(phiPhat: double): void
+  + confirmFromWaitlist(): void
+  + xacNhan(): void
+  + huy(lyDo: String): void
+  + tinhTienTamTinh(): double
+}
+
+class "<b><color:white>ChiTietDatPhong</color></b>" as ChiTietDatPhong {
+  - maChiTiet: String
+  - ngayNhanThucTe: LocalDateTime
+  - ngayTraThucTe: LocalDateTime
+  - giaThucTeChot: double
+  - phuPhiPhatSinh: double
+  - daThanhToan: boolean
+  + tinhSoNgayO(): int
+  + tinhSoGioO(): double
+}
+
+class "<b><color:white>SuDungDichVu</color></b>" as SuDungDichVu {
+  - soLuong: int
+  - donGiaLuu: double
+  + tinhThanhTien(): double
+}
+
+class "<b><color:white>DichVu</color></b>" as DichVu {
+  - maDichVu: String
+  - tenDichVu: String
+  - donGia: double
+  - donViTinh: String
+  - loai: String
+  - moTa: String
+  - soLuongMin: int
+  - trangThai: int
+  + kiemTraSanSang(): boolean
+}
+
+class "<b><color:white>KenhDatPhong</color></b>" as KenhDatPhong {
+  - maKenh: String
+  - tenKenh: String
+  - loaiKenh: String
+  - heSoHoaHong: double
+  - trangThai: boolean
+  - moTa: String
+}
+
+class "<b><color:white>Phong</color></b>" as Phong {
+  - maPhong: String
+  - tang: int
+  - viTri: String
+  - giaTheoNgay: double
+  - trangThai: TrangThaiPhong
+  - checkInTime: LocalDateTime
+  - expectedCheckOutTime: LocalDateTime
+  + capNhatTrangThai(tt: TrangThaiPhong): void
+  + kiemTraSanSang(): boolean
+  + kiemTraSanSang(tuNgay: LocalDateTime, denNgay: LocalDateTime): boolean
+}
+
+class "<b><color:white>LoaiPhong</color></b>" as LoaiPhong {
+  - maLoaiPhong: String
+  - tenLoaiPhong: String
+  - sucChua: int
+  - moTa: String
+  - giaTheoNgay: double
+  - dangKinhDoanh: boolean
+}
+
+class "<b><color:white>HuongNhin</color></b>" as HuongNhin {
+  - maHuongNhin: String
+  - tenHuongNhin: String
+  - heSoGia: double
+}
+
+class "<b><color:white>TienNghi</color></b>" as TienNghi {
+  - maTienNghi: String
+  - tenTienNghi: String
+  - nhomTienNghi: String
+}
+
+class "<b><color:white>LichSuTrangThaiPhong</color></b>" as LichSuTrangThaiPhong {
+  - maLichSu: String
+  - trangThaiCu: TrangThaiPhong
+  - trangThaiMoi: TrangThaiPhong
+  - thoiGianChuyen: LocalDateTime
+  - lyDo: String
+}
+
+class "<b><color:white>HoaDon</color></b>" as HoaDon {
+  - maHoaDon: String
+  - ngayLap: LocalDateTime
+  - tongTienPhong: double
+  - tongTienDichVu: double
+  - tienGiamKhuyenMai: double
+  - tongThanhToan: double
+  - trangThai: TrangThaiThanhToan
+  - phuongThucThanhToan: String
+  + tinhTongThanhToan(): double
+  + inHoaDon(): void
+}
+
+class "<b><color:white>ChiTietHoaDon</color></b>" as ChiTietHoaDon {
+  - maChiTietHoaDon: String
+  - loaiChiTiet: LoaiChiTietHoaDon
+  - noiDung: String
+  - donViTinh: String
+  - soLuong: int
+  - donGia: double
+  - thanhTien: double
+  + tinhThanhTien(): double
+}
+
+class "<b><color:white>BangGia</color></b>" as BangGia {
+  - maBangGia: String
+  - tenBangGia: String
+  - ngayBatDau: LocalDateTime
+  - ngayKetThuc: LocalDateTime
+  - trangThai: boolean
+  - loaiBangGia: String
+  - doiTuongApDung: String
+  - mucUuTien: int
+  + kiemTraHieuLuc(): boolean
+}
+
+class "<b><color:white>ChiTietBangGia</color></b>" as ChiTietBangGia {
+  - maChiTiet: int
+  - giaNgay: double
+  - giaGioDau: double
+  - giaGioTiepTheo: double
+  - phuPhiTraTre: double
+  - giaCuoiTuan: double
+}
+
+class "<b><color:white>KhuyenMai</color></b>" as KhuyenMai {
+  - maKhuyenMai: String
+  - tenKhuyenMai: String
+  - loaiGiam: LoaiGiam
+  - giaTriGiam: double
+  - ngayBatDau: LocalDateTime
+  - ngayKetThuc: LocalDateTime
+  - trangThai: boolean
+  - soLuong: int
+  - daDung: int
+  - dieuKienToiThieu: double
+  - giaTriGiamToiDa: double
+  + kiemTraHopLe(tongBill: double): boolean
+  + tinhSoTienGiam(tongTien: double): double
+}
+
+class "<b><color:white>NhanVien</color></b>" as NhanVien {
+  - maNhanVien: String
+  - hoTen: String
+  - sdt: String
+  - chucVu: String
+  - email: String
+  - cccd: String
+  - dangLamViec: boolean
+}
+
+class "<b><color:white>TaiKhoan</color></b>" as TaiKhoan {
+  - tenDangNhap: String
+  - matKhau: String
+  - vaiTro: VaiTro
+  - trangThai: boolean
+  - lanDangNhapCuoi: LocalDateTime
+  + dangNhap(tenDN: String, matKhau: String): boolean
+  + doiMatKhau(matKhauMoi: void): void
+}
+
+class "<b><color:white>GiaoCa</color></b>" as GiaoCa {
+  - maGiaoCa: String
+  - thoiGianBatDau: LocalDateTime
+  - thoiGianKetThuc: LocalDateTime
+  - tienMatDauCa: double
+  - tienMatThuTrongCa: double
+  - tienMatBanGiao: double
+  - maNhanVienNhan: String
+  - tienMatChenhLech: double
+  - trangThai: String
+}
+
+class "<b><color:white>ChiPhi</color></b>" as ChiPhi {
+  - maChiPhi: int
+  - soTien: double
+  - lyDo: String
+  - thoiGian: LocalDateTime
+  - maGiaoCa: String
+}
+
+class "<b><color:white>NhatKyHeThong</color></b>" as NhatKyHeThong {
+  - maLog: int
+  - thoiGian: LocalDateTime
+  - tenDangNhap: String
+  - hanhDong: String
+  - doiTuong: String
+}
+
+class "<b><color:white>KhachHang</color></b>" as KhachHang {
+  - maKhachHang: String
+  - hoTen: String
+  - sdt: String
+  - cccd: String
+  - gioiTinh: String
+  - quocTich: String
+  - soLanO: int
+  - tongChiTieu: double
+  - diemTichLuy: int
+  - hangKhachHang: String
+  - isBlacklist: boolean
+  + validateGiayToNuocNgoai(): String
+  + timKiem(keyword: String): KhachHang
+}
+
+' =====================================================================
+'   ENUMS
+' =====================================================================
+enum LoaiChiTietHoaDon {
+  PHONG
+  DICH_VU
+  PHU_PHI
+}
+
+enum LoaiGiam {
+  PERCENT
+  FIXED
+}
+
+enum TrangThaiDatPhong {
+  PENDING
+  CONFIRMED
+  PARTIALLY_CHECKED_IN
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+  WAITLIST
+}
+
+enum TrangThaiPhong {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  CLEANING
+  DELETED
+}
+
+enum TrangThaiThanhToan {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+enum VaiTro {
+  ADMIN
+  MANAGER
+  RECEPTIONIST
+}
+
+' =====================================================================
+'   RELATIONSHIPS
+' =====================================================================
+
+' DatPhong / ChiTietDatPhong / SuDungDichVu / DichVu
+DatPhong "1" *--down-- "1..*" ChiTietDatPhong : dsChiTiet
+ChiTietDatPhong "1" *--down-- "0..*" SuDungDichVu : dsSuDungDichVu
+DichVu "1" --down-- "0..*" SuDungDichVu : dichVu
+DatPhong "1" --down-- "0..*" SuDungDichVu : dsDichVu
+
+' Room / LoaiPhong / HuongNhin / TienNghi / LichSu
+Phong "1" -left-- "0..*" ChiTietDatPhong : phong
+LoaiPhong "1" --down-- "0..*" Phong : loaiPhong
+HuongNhin "1" --down-- "0..*" Phong : huongNhin
+Phong "1" *--down-- "0..*" LichSuTrangThaiPhong : dsLichSu
+LoaiPhong "1..*" o--down-- "0..*" TienNghi : dsTienNghi
+
+' Customer / Booking / Billing
+KhachHang "1" --down-- "0..*" DatPhong : khachHang
+KhachHang "1" --down-- "0..*" ChiTietDatPhong : khachHang
+KhachHang "1" --down-- "0..*" HoaDon : khachHang
+KenhDatPhong "1" --down-- "0..*" DatPhong : kenhDatPhong
+
+' Billing / Pricing / Promotions
+HoaDon "1" --down-- "0..1" DatPhong : datPhong
+HoaDon "1" *--down-- "1..*" ChiTietHoaDon : dsChiTietHoaDon
+KhuyenMai "0..1" --down-- "0..*" HoaDon : khuyenMai
+BangGia "1" *--down-- "1..*" ChiTietBangGia : dsChiTiet
+ChiTietBangGia "1" --down-- "0..*" LoaiPhong : loaiPhong
+
+' Staff / Auth / GiaoCa / ChiPhi
+NhanVien "1" --down-- "0..*" DatPhong : nhanVien
+NhanVien "1" --down-- "0..*" ChiTietDatPhong : nhanVien
+NhanVien "1" --down-- "0..*" HoaDon : nhanVien
+NhanVien "1" --down-- "1" TaiKhoan : taiKhoan
+NhanVien "1" --down-- "0..*" GiaoCa : nhanVien
+NhanVien "1" --down-- "0..*" ChiPhi : nhanVien
+GiaoCa "1" --down-- "0..*" ChiPhi : giaoCa
+
+@enduml
