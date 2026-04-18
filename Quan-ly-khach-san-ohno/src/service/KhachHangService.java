@@ -36,4 +36,13 @@ public class KhachHangService {
     public String xoa(String maKhachHang) {
         return dao.delete(maKhachHang) ? null : "Không thể xóa!";
     }
+
+    /**
+     * Cập nhật số lần ở và doanh thu đóng góp của khách hàng.
+     * Thường gọi sau khi thanh toán hóa đơn.
+     */
+    public boolean capNhatThongKe(String maKh, double chiTieuThem, boolean tangSoLanO) {
+        if (maKh == null || maKh.isEmpty()) return false;
+        return dao.updateCRMStats(maKh, chiTieuThem, tangSoLanO);
+    }
 }

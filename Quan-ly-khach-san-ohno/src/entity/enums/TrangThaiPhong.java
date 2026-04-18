@@ -4,5 +4,6 @@ public enum TrangThaiPhong {
     AVAILABLE,
     OCCUPIED,
     MAINTENANCE,
-    CLEANING
+    CLEANING,
+    DELETED
 }

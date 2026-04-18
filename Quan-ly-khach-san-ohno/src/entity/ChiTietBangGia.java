@@ -6,6 +6,7 @@ public class ChiTietBangGia {
     private double giaGioDau;
     private double giaGioTiepTheo;
     private double phuPhiTraTre;
+    private double giaCuoiTuan;     // Giá riêng cho T7, CN (0 = dùng giá ngày thường)
 
     private BangGia bangGia;
     private LoaiPhong loaiPhong;
@@ -18,6 +19,18 @@ public class ChiTietBangGia {
         this.giaGioTiepTheo = giaGioTiepTheo;
         this.bangGia = bangGia;
         this.loaiPhong = loaiPhong;
+    }
+
+    /**
+     * Lấy giá áp dụng cho một ngày cụ thể (phân biệt ngày thường vs cuối tuần).
+     * @param dayOfWeek java.time.DayOfWeek
+     * @return giá áp dụng
+     */
+    public double getGiaTheoNgayTrongTuan(java.time.DayOfWeek dayOfWeek) {
+        if (giaCuoiTuan > 0 && (dayOfWeek == java.time.DayOfWeek.SATURDAY || dayOfWeek == java.time.DayOfWeek.SUNDAY)) {
+            return giaCuoiTuan;
+        }
+        return giaNgay;
     }
 
     // Getters and Setters
@@ -35,6 +48,9 @@ public class ChiTietBangGia {
 
     public double getPhuPhiTraTre() { return phuPhiTraTre; }
     public void setPhuPhiTraTre(double phuPhiTraTre) { this.phuPhiTraTre = phuPhiTraTre; }
+
+    public double getGiaCuoiTuan() { return giaCuoiTuan; }
+    public void setGiaCuoiTuan(double giaCuoiTuan) { this.giaCuoiTuan = giaCuoiTuan; }
 
     public BangGia getBangGia() { return bangGia; }
     public void setBangGia(BangGia bangGia) { this.bangGia = bangGia; }

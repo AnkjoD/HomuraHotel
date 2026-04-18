@@ -150,7 +150,7 @@ public class RoundedComponents {
             setForeground(UIConstants.TEXT_PRIMARY);
             setBorder(BorderFactory.createCompoundBorder(
                 new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                BorderFactory.createEmptyBorder(7, 12, 7, 12)));
             setBackground(Color.WHITE);
             setOpaque(true);
             addFocusListener(new FocusAdapter() {
@@ -158,13 +158,13 @@ public class RoundedComponents {
                 public void focusGained(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
                         new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
-                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                        BorderFactory.createEmptyBorder(7, 12, 7, 12)));
                 }
                 @Override
                 public void focusLost(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
                         new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                        BorderFactory.createEmptyBorder(7, 12, 7, 12)));
                 }
             });
         }
@@ -174,25 +174,150 @@ public class RoundedComponents {
             super.paintComponent(g);
             if (getText().isEmpty() && placeholder != null) {
                 Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(UIConstants.TEXT_MUTED);
                 g2.setFont(getFont());
-                g2.drawString(placeholder, 10, getHeight() / 2 + g2.getFontMetrics().getAscent() / 2 - 2);
+                g2.drawString(placeholder, 12, getHeight() / 2 + g2.getFontMetrics().getAscent() / 2 - 2);
                 g2.dispose();
             }
         }
     }
 
     // ============================================================
-    // ModernComboBox
+    // ModernSpinner - spinner với UI đồng bộ
+    // ============================================================
+    public static class ModernSpinner extends JSpinner {
+        public ModernSpinner(SpinnerModel model) {
+            super(model);
+            setFont(UIConstants.FONT_BODY);
+            setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+            setBackground(Color.WHITE);
+            setUI(new javax.swing.plaf.basic.BasicSpinnerUI() {
+                @Override
+                protected Component createNextButton() {
+                    Component c = createArrow(SwingConstants.NORTH);
+                    c.setName("Spinner.nextButton");
+                    installNextButtonListeners(c);
+                    return c;
+                }
+                @Override
+                protected Component createPreviousButton() {
+                    Component c = createArrow(SwingConstants.SOUTH);
+                    c.setName("Spinner.previousButton");
+                    installPreviousButtonListeners(c);
+                    return c;
+                }
+                
+                private Component createArrow(int direction) {
+                    JButton btn = new JButton();
+                    btn.setBorder(BorderFactory.createEmptyBorder());
+                    btn.setContentAreaFilled(false);
+                    btn.setPreferredSize(new Dimension(24, 16));
+                    btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    btn.setIcon(new Icon() {
+                        @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2.setColor(UIConstants.TEXT_MUTED);
+                            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                            int w = 8, h = 5;
+                            int sx = (c.getWidth() - w) / 2;
+                            int sy = (c.getHeight() - h) / 2;
+                            if (direction == SwingConstants.NORTH) { 
+                                g2.drawLine(sx, sy + h, sx + w/2, sy); g2.drawLine(sx + w/2, sy, sx + w, sy + h);
+                            } else {
+                                g2.drawLine(sx, sy, sx + w/2, sy + h); g2.drawLine(sx + w/2, sy + h, sx + w, sy);
+                            }
+                            g2.dispose();
+                        }
+                        @Override public int getIconWidth() { return 12; }
+                        @Override public int getIconHeight() { return 12; }
+                    });
+                    return btn;
+                }
+            });
+            
+            JComponent editor = getEditor();
+            if (editor instanceof JSpinner.DefaultEditor) {
+                JTextField txt = ((JSpinner.DefaultEditor) editor).getTextField();
+                txt.setBackground(Color.WHITE);
+                txt.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 0));
+                txt.addFocusListener(new FocusAdapter() {
+                    @Override public void focusGained(FocusEvent e) {
+                        setBorder(BorderFactory.createCompoundBorder(
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
+                            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+                    }
+                    @Override public void focusLost(FocusEvent e) {
+                        setBorder(BorderFactory.createCompoundBorder(
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+                    }
+                });
+            }
+        }
+    }
+
+    // ============================================================
+    // ModernComboBox - dropdown đẹp mắt
     // ============================================================
     public static class ModernComboBox<T> extends JComboBox<T> {
-        public ModernComboBox() {
+        public ModernComboBox(T[] items) {
+            super(items);
             setFont(UIConstants.FONT_BODY);
             setBackground(Color.WHITE);
             setBorder(BorderFactory.createCompoundBorder(
                 new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(4, 8, 4, 4)));
-            setFocusable(false);
+                BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+            setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
+                @Override
+                protected JButton createArrowButton() {
+                    JButton btn = new JButton();
+                    btn.setBorder(BorderFactory.createEmptyBorder());
+                    btn.setContentAreaFilled(false);
+                    btn.setIcon(new Icon() {
+                        @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            g2.setColor(UIConstants.TEXT_MUTED);
+                            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                            int w = 8;
+                            int h = 4;
+                            int sx = x + (getIconWidth() - w) / 2;
+                            int sy = y + (getIconHeight() - h) / 2;
+                            g2.drawLine(sx, sy, sx + w/2, sy + h);
+                            g2.drawLine(sx + w/2, sy + h, sx + w, sy);
+                            g2.dispose();
+                        }
+                        @Override public int getIconWidth() { return 14; }
+                        @Override public int getIconHeight() { return 14; }
+                    });
+                    return btn;
+                }
+            });
+            
+            // Add focus effect
+            addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusGained(FocusEvent e) {
+                    setBorder(BorderFactory.createCompoundBorder(
+                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
+                        BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+                }
+                @Override
+                public void focusLost(FocusEvent e) {
+                    setBorder(BorderFactory.createCompoundBorder(
+                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                        BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+                }
+            });
+        }
+
+        // Empty constructor
+        public ModernComboBox() {
+            this((T[]) new Object[0]);
         }
     }
 
@@ -263,27 +388,12 @@ public class RoundedComponents {
         lblValue.setFont(UIConstants.FONT_CARD_NUM);
         lblValue.setForeground(UIConstants.TEXT_PRIMARY);
 
-        // Accent underline bar
-        JPanel bar = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(accentColor);
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.fillRoundRect(0, 0, getWidth(), 3, 3, 3);
-                g2.dispose();
-            }
-        };
-        bar.setOpaque(false);
-        bar.setPreferredSize(new Dimension(0, 6));
-
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
         top.add(lblLabel, BorderLayout.NORTH);
         top.add(lblValue, BorderLayout.CENTER);
 
         card.add(top, BorderLayout.CENTER);
-        card.add(bar, BorderLayout.SOUTH);
         return card;
     }
 

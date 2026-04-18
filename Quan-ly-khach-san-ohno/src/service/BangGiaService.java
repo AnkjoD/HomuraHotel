@@ -14,11 +14,25 @@ public class BangGiaService {
     public BangGia getById(String id)                      { return dao.getById(id); }
 
     public String them(BangGia bg) {
+        // Kiểm tra chồng lấn
+        if (bg.isTrangThai()) {
+            BangGia overlap = dao.checkOverlap(bg);
+            if (overlap != null) {
+                return "Trùng thời gian với bảng giá: " + overlap.getTenBangGia() + " (Độ ưu tiên: " + overlap.getMucUuTien() + ")";
+            }
+        }
         bg.setMaBangGia(dao.generateMaBangGia());
         return dao.insert(bg) ? null : "Lỗi thêm bảng giá!";
     }
 
     public String sua(BangGia bg) {
+        // Kiểm tra chồng lấn
+        if (bg.isTrangThai()) {
+            BangGia overlap = dao.checkOverlap(bg);
+            if (overlap != null) {
+                return "Trùng thời gian với bảng giá: " + overlap.getTenBangGia() + " (Độ ưu tiên: " + overlap.getMucUuTien() + ")";
+            }
+        }
         return dao.update(bg) ? null : "Lỗi cập nhật!";
     }
 
@@ -48,14 +62,26 @@ public class BangGiaService {
     // ---- Rate Lookup Logic (tra giá hiện hành) ----
 
     /**
-     * Lấy giá hiện hành cho một loại phòng.
-     * Ưu tiên: BangGia active hôm nay → fallback LoaiPhong.giaTheoNgay
+     * Lấy giá hiện hành cho một loại phòng (hôm nay).
      */
     public double layGiaHienHanh(String maLoaiPhong) {
-        BangGia bgActive = dao.findActiveToday();
+        return layGiaVaoThoiDiem(maLoaiPhong, java.time.LocalDateTime.now());
+    }
+
+    /**
+     * Lấy giá cho một loại phòng vào một thời điểm cụ thể.
+     * Ưu tiên: BangGia active vào thời điểm đó → fallback LoaiPhong.giaTheoNgay
+     */
+    public double layGiaVaoThoiDiem(String maLoaiPhong, java.time.LocalDateTime thoiDiem) {
+        // Ưu tiên tìm theo đối tượng ALL trước, nếu sau này logic phức tạp hơn có thể truyền doiTuong vào
+        BangGia bgActive = dao.findBestRate(thoiDiem, "ALL");
         if (bgActive != null) {
             ChiTietBangGia ctbg = ctDAO.findByBangGiaAndLoaiPhong(bgActive.getMaBangGia(), maLoaiPhong);
-            if (ctbg != null && ctbg.getGiaNgay() > 0) return ctbg.getGiaNgay();
+            if (ctbg != null) {
+                // Tự động chọn giữa giá ngày thường và giá cuối tuần (FIX BUG)
+                double gia = ctbg.getGiaTheoNgayTrongTuan(thoiDiem.getDayOfWeek());
+                if (gia > 0) return gia;
+            }
         }
         // Fallback: lấy giá cơ sở từ LoaiPhong
         LoaiPhong lp = lpDAO.getById(maLoaiPhong);

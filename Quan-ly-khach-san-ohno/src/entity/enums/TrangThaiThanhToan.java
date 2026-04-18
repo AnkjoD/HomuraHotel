@@ -4,5 +4,6 @@ public enum TrangThaiThanhToan {
     UNPAID,
     PARTIALLY_PAID,
     PAID,
-    REFUNDED
+    REFUNDED,
+    CANCELLED
 }

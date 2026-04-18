@@ -9,6 +9,7 @@ import entity.*;
 import entity.enums.TrangThaiDatPhong;
 import entity.enums.TrangThaiPhong;
 import ui.components.DateTimePicker;
+import ui.components.NotificationManager;
 import ui.components.UIConstants;
 import ui.components.RoundedComponents.*;
 
@@ -23,6 +24,7 @@ public class CheckinDialog extends JDialog {
     private final KhachHangService  khService        = new KhachHangService();
     private final PhongService      phongService     = new PhongService();
     private final DatPhongService   datPhongService  = new DatPhongService();
+    private final service.BangGiaService bangGiaService = new service.BangGiaService();
 
     private Phong      selectedPhong;
     private KhachHang  selectedKhach;
@@ -38,6 +40,7 @@ public class CheckinDialog extends JDialog {
 
     // Step inputs
     private JTextField    txtTenKH, txtSDT, txtCCCD, txtEmail;
+    private ModernComboBox<String> cboQuocTich;
     private JLabel        errTenKH, errSDT, errCCCD, errEmail;
     private DateTimePicker pickerNgayNhan, pickerNgayTra;
     private JSpinner      spnSoKhach;
@@ -47,6 +50,15 @@ public class CheckinDialog extends JDialog {
     private JLabel        lblTongDV;
     private java.util.List<DichVu>  allDichVu = new ArrayList<>();
     private final java.util.List<SuDungDichVu> selectedDV = new ArrayList<>();
+    
+    // ID Document capture
+    private String selectedImagePath;
+    private JLabel lblImagePreview;
+
+    private String truncate(String text, int max) {
+        if (text == null) return "";
+        return text.length() <= max ? text : text.substring(0, max - 2) + "..";
+    }
 
     // Bottom bar buttons
     private RoundedButton btnBack, btnNext;
@@ -72,7 +84,8 @@ public class CheckinDialog extends JDialog {
             if (txtTenKH != null) txtTenKH.setText(kh.getHoTen());
             if (txtSDT != null) txtSDT.setText(kh.getSoDienThoai());
             if (txtCCCD != null) txtCCCD.setText(kh.getCccd());
-            if (txtEmail != null) txtEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
+            if (kh.getEmail() != null) txtEmail.setText(kh.getEmail());
+            if (kh.getQuocTich() != null && cboQuocTich != null) cboQuocTich.setSelectedItem(kh.getQuocTich());
         }
         if (dp != null) {
             if (pickerNgayNhan != null) pickerNgayNhan.setDate(dp.getNgayNhanDK_Date() != null ? dp.getNgayNhanDK_Date() : new Date());
@@ -113,7 +126,7 @@ public class CheckinDialog extends JDialog {
         lblTitle.setFont(UIConstants.FONT_TITLE);
         String info = selectedPhong != null
             ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
-              + " - " + String.format("%,.0fd/dem", (double) selectedPhong.getGiaTheoNgay())
+              + " - " + String.format("%,.0fd/dem", (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : ""))
             : "Chon phong de bat dau";
         lblInfo = new JLabel(info);
         lblInfo.setFont(UIConstants.FONT_BODY);
@@ -220,8 +233,9 @@ public class CheckinDialog extends JDialog {
                     JLabel lbl = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                     if (value instanceof Phong) {
                         Phong ph = (Phong) value;
-                        String view = ph.getView();
-                        lbl.setText(String.format("P.%s - %s (%s) - %s", ph.getSoPhong(), ph.getTenLoaiPhong(), view, ph.getTrangThai()));
+                        double gia = bangGiaService.layGiaHienHanh(ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "");
+                        lbl.setText(String.format("P.%s - %s - %,.0fd", ph.getSoPhong(), ph.getTenLoaiPhong(), gia));
+                        if (index == -1) lbl.setForeground(UIConstants.PRIMARY);
                     }
                     return lbl;
                 }
@@ -249,7 +263,8 @@ public class CheckinDialog extends JDialog {
             JLabel num   = new JLabel("Phong " + selectedPhong.getSoPhong()); num.setFont(new Font("Segoe UI",Font.BOLD,20));
             JLabel type  = new JLabel(selectedPhong.getTenLoaiPhong() + " - Tang " + selectedPhong.getTang() + " - " + selectedPhong.getSucChua() + " nguoi");
             type.setFont(UIConstants.FONT_BODY); type.setForeground(UIConstants.TEXT_SECONDARY);
-            JLabel price = new JLabel(String.format("%,.0f d / dem", (double) selectedPhong.getGiaTheoNgay()));
+            double giaHH = bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
+            JLabel price = new JLabel(String.format("%,.0f d / dem", giaHH));
             price.setFont(new Font("Segoe UI",Font.BOLD,15)); price.setForeground(UIConstants.PRIMARY);
             JLabel view  = new JLabel("View: " + selectedPhong.getView());
             view.setFont(UIConstants.FONT_SMALL); view.setForeground(UIConstants.TEXT_MUTED);
@@ -349,6 +364,7 @@ public class CheckinDialog extends JDialog {
                 txtTenKH.setText(kh.getHoTen());
                 txtSDT.setText(kh.getSdt() != null ? kh.getSdt() : "");
                 txtEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
+                if (kh.getQuocTich() != null) cboQuocTich.setSelectedItem(kh.getQuocTich());
                 errTenKH.setText(" "); errSDT.setText(" "); errEmail.setText(" ");
                 findResultLbl.setText("[OK] Tìm thấy: " + kh.getHoTen() + " - Đã điền tự động");
                 findResultCard.setBackground(new Color(0xF0FDF4));
@@ -387,7 +403,45 @@ public class CheckinDialog extends JDialog {
         formCard.add(Box.createVerticalStrut(8));
         formCard.add(fieldBlock("So dien thoai *",      txtSDT,   errSDT,   null, true));
         formCard.add(Box.createVerticalStrut(8));
+
+        cboQuocTich = new ModernComboBox<>(new String[]{"Việt Nam", "Quốc tế"});
+        formCard.add(fieldBlock("Quoc tich",            cboQuocTich, null, null, false));
+        formCard.add(Box.createVerticalStrut(8));
+        
         formCard.add(fieldBlock("Email",                txtEmail, errEmail, null, false));
+        formCard.add(Box.createVerticalStrut(12));
+
+        // Identity Verification Image Section
+        JLabel lblIdTitle = new JLabel("XAC MINH DANH TINH (ANH CCCD/PASSPORT)");
+        lblIdTitle.setFont(UIConstants.FONT_SMALL_BOLD); lblIdTitle.setForeground(UIConstants.TEXT_SECONDARY);
+        formCard.add(lblIdTitle);
+        formCard.add(Box.createVerticalStrut(8));
+
+        JPanel idBox = new JPanel(new BorderLayout(12, 0));
+        idBox.setOpaque(true); idBox.setBackground(Color.WHITE);
+        idBox.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0xE2E8F0), 1),
+            BorderFactory.createEmptyBorder(8, 8, 8, 8)));
+
+        lblImagePreview = new JLabel("Chua co anh", SwingConstants.CENTER);
+        lblImagePreview.setPreferredSize(new Dimension(100, 64));
+        lblImagePreview.setOpaque(true); lblImagePreview.setBackground(new Color(0xF1F5F9));
+        lblImagePreview.setFont(UIConstants.FONT_SMALL);
+        lblImagePreview.setBorder(BorderFactory.createLineBorder(new Color(0xCBD5E1), 1, true));
+
+        RoundedButton btnUpload = new RoundedButton("Chup / Tai len anh", UIConstants.PRIMARY, Color.WHITE);
+        btnUpload.setPreferredSize(new Dimension(140, 32));
+        btnUpload.addActionListener(e -> chooseCCCDImage());
+
+        JPanel idActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4)); idActions.setOpaque(false);
+        idActions.add(btnUpload);
+        JLabel idHint = new JLabel("Dinh dang: JPG, PNG. Yeu cau ro net."); 
+        idHint.setFont(UIConstants.FONT_SMALL); idHint.setForeground(UIConstants.TEXT_MUTED);
+        idActions.add(idHint);
+
+        idBox.add(lblImagePreview, BorderLayout.WEST);
+        idBox.add(idActions, BorderLayout.CENTER);
+        formCard.add(idBox);
 
         // Dung JScrollPane de dam bao khong bi cat
         JPanel scrollContent = new JPanel(); scrollContent.setOpaque(false);
@@ -430,10 +484,14 @@ public class CheckinDialog extends JDialog {
         pickerNgayTra  = new DateTimePicker(selectedDatPhong != null && selectedDatPhong.getNgayTraDK_Date() != null
             ? selectedDatPhong.getNgayTraDK_Date() : new Date(System.currentTimeMillis() + 86_400_000L));
 
-        spnSoKhach = new JSpinner(new SpinnerNumberModel(
-            selectedDatPhong != null && selectedDatPhong.getSoKhach() > 0 ? selectedDatPhong.getSoKhach() : 1,
-            1, 10, 1));
+        // Sức chứa tiêu chuẩn + 2 người (giường phụ/nệm) = tối đa tuyệt đối
+        int maxPax = selectedPhong != null ? selectedPhong.getSucChua() + 2 : 10;
+        int initVal = selectedDatPhong != null && selectedDatPhong.getSoKhach() > 0 
+            ? Math.min(selectedDatPhong.getSoKhach(), maxPax) : 1;
+        spnSoKhach = new JSpinner(new SpinnerNumberModel(initVal, 1, maxPax, 1));
         spnSoKhach.setFont(UIConstants.FONT_BODY);
+        spnSoKhach.setToolTipText("Sức chứa tiêu chuẩn: " + (selectedPhong != null ? selectedPhong.getSucChua() : "?") 
+            + " | Tối đa cho phép: " + maxPax);
 
         JPanel fields = new JPanel(new GridLayout(3, 1, 0, 14)); fields.setOpaque(false);
         fields.add(fieldRow("Ngay & gio nhan phong *",    pickerNgayNhan));
@@ -451,72 +509,254 @@ public class CheckinDialog extends JDialog {
     }
 
     private JPanel buildStep4() {
-        JPanel panel = new JPanel(new BorderLayout()); panel.setOpaque(false);
-        panel.setBorder(BorderFactory.createEmptyBorder(16,0,0,0));
-        JLabel title = new JLabel("Them dich vu (neu co)"); title.setFont(UIConstants.FONT_HEADER);
+        JPanel panel = new JPanel(new BorderLayout(15, 0));
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
 
         allDichVu = dichVuService.getActive();
-        String[] names = allDichVu.stream().map(DichVu::getTenDV).toArray(String[]::new);
-        cboDV  = new JComboBox<>(names.length > 0 ? names : new String[]{"Khong co dich vu"}); cboDV.setFont(UIConstants.FONT_BODY);
-        spnSLDV = new JSpinner(new SpinnerNumberModel(1, 1, 100, 1)); spnSLDV.setFont(UIConstants.FONT_BODY);
-        spnSLDV.setPreferredSize(new Dimension(70, 34));
 
-        JButton btnAddDV = new JButton("+ Them"); btnAddDV.setFont(UIConstants.FONT_SMALL_BOLD);
-        btnAddDV.setBackground(UIConstants.SUCCESS); btnAddDV.setForeground(Color.WHITE);
-        btnAddDV.setBorderPainted(false); btnAddDV.setFocusPainted(false);
-        btnAddDV.addActionListener(e -> {
-            int idx = cboDV.getSelectedIndex();
-            if (idx < 0 || allDichVu.isEmpty()) return;
-            DichVu dv = allDichVu.get(idx);
-            int sl = (int) spnSLDV.getValue();
-            SuDungDichVu sddv = new SuDungDichVu();
-            sddv.setDichVu(dv);
-            sddv.setSoLuong(sl);
-            sddv.setDonGiaLuu(dv.getGia());
-            sddv.setThoiDiem(java.time.LocalDateTime.now());
-            selectedDV.add(sddv);
-            refreshDVList();
-        });
+        // --- LEFT: Service Catalog (Grid of Cards) ---
+        JPanel catalogPanel = new JPanel(new BorderLayout(0, 10));
+        catalogPanel.setOpaque(false);
 
-        JPanel addRow = new JPanel(new BorderLayout(8, 0)); addRow.setOpaque(false);
-        addRow.add(cboDV, BorderLayout.CENTER);
-        JPanel slBtn = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0)); slBtn.setOpaque(false);
-        JLabel lblSL = new JLabel("SL:"); lblSL.setFont(UIConstants.FONT_BODY);
-        slBtn.add(lblSL); slBtn.add(spnSLDV); slBtn.add(btnAddDV);
-        addRow.add(slBtn, BorderLayout.EAST);
+        JLabel lblTitle = new JLabel("Danh muc dich vu");
+        lblTitle.setFont(UIConstants.FONT_HEADER);
+        catalogPanel.add(lblTitle, BorderLayout.NORTH);
 
-        dvListPanel = new JPanel(); dvListPanel.setOpaque(false); dvListPanel.setLayout(new BoxLayout(dvListPanel, BoxLayout.Y_AXIS));
-        lblTongDV   = new JLabel("Tong dich vu: 0d"); lblTongDV.setFont(UIConstants.FONT_BODY_BOLD); lblTongDV.setForeground(UIConstants.PRIMARY);
+        // Container for cards
+        JPanel grid = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        grid.setOpaque(false);
+        // We'll set a preferred width to force wrapping in the scroll pane
+        grid.setPreferredSize(new Dimension(310, (allDichVu.size() / 2 + 1) * 110));
 
-        JPanel content = new JPanel(); content.setOpaque(false); content.setLayout(new BoxLayout(content,BoxLayout.Y_AXIS));
-        content.add(title); content.add(Box.createVerticalStrut(16)); content.add(addRow);
-        content.add(Box.createVerticalStrut(12)); content.add(dvListPanel);
-        content.add(Box.createVerticalStrut(8)); content.add(lblTongDV);
-        panel.add(content, BorderLayout.NORTH);
+        for (DichVu dv : allDichVu) {
+            grid.add(createServiceCard(dv));
+        }
+
+        JScrollPane scrollCatalog = new JScrollPane(grid);
+        scrollCatalog.setBorder(null);
+        scrollCatalog.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollCatalog.setOpaque(false);
+        scrollCatalog.getViewport().setOpaque(false);
+        scrollCatalog.getVerticalScrollBar().setUnitIncrement(12);
+        catalogPanel.add(scrollCatalog, BorderLayout.CENTER);
+
+        // --- RIGHT: Shopping Cart (Sidebar) ---
+        JPanel cartPanel = new JPanel(new BorderLayout());
+        cartPanel.setBackground(new Color(0xF8FAFC));
+        cartPanel.setPreferredSize(new Dimension(240, 0));
+        cartPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0xE2E8F0)),
+            BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        ));
+
+        // Modern Header for Cart
+        JPanel cartHdr = new JPanel(new BorderLayout());
+        cartHdr.setOpaque(false);
+        cartHdr.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        
+        JLabel lblCartTitle = new JLabel("Giỏ hàng");
+        lblCartTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblCartTitle.setForeground(new Color(0x334155));
+        
+        lblTongDV = new JLabel("0đ");
+        lblTongDV.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblTongDV.setForeground(UIConstants.PRIMARY);
+        
+        cartHdr.add(lblCartTitle, BorderLayout.WEST);
+        cartHdr.add(lblTongDV, BorderLayout.EAST);
+        cartPanel.add(cartHdr, BorderLayout.NORTH);
+
+        dvListPanel = new JPanel();
+        dvListPanel.setOpaque(false);
+        dvListPanel.setLayout(new BoxLayout(dvListPanel, BoxLayout.Y_AXIS));
+        
+        JScrollPane scrollCart = new JScrollPane(dvListPanel);
+        scrollCart.setOpaque(false);
+        scrollCart.getViewport().setOpaque(false);
+        scrollCart.setBorder(null);
+        cartPanel.add(scrollCart, BorderLayout.CENTER);
+
+        // Bottom action (optional, can stay empty or add clear all)
+        JPanel cartBottom = new JPanel(new BorderLayout());
+        cartBottom.setOpaque(false);
+        cartPanel.add(cartBottom, BorderLayout.SOUTH);
+
+        panel.add(catalogPanel, BorderLayout.CENTER);
+        panel.add(cartPanel, BorderLayout.EAST);
+
         return panel;
+    }
+
+    private JPanel createServiceCard(DichVu dv) {
+        JPanel card = new JPanel(new BorderLayout(8, 4));
+        card.setPreferredSize(new Dimension(140, 95));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0xEDF2F7)),
+            BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        ));
+
+        // Info
+        String name = dv.getTenDV();
+        JLabel lblName = new JLabel("<html><body style='width: 100px;'>" + name + "</body></html>");
+        lblName.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblName.setForeground(new Color(0x1A202C));
+
+        JLabel lblPrice = new JLabel(String.format("%,.0fd", dv.getDonGia()));
+        lblPrice.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblPrice.setForeground(UIConstants.SUCCESS);
+
+        JPanel info = new JPanel(new GridLayout(2, 1));
+        info.setOpaque(false);
+        info.add(lblName);
+        info.add(lblPrice);
+
+        // Add Button
+        JButton btnAdd = new JButton("Them");
+        btnAdd.setFont(UIConstants.FONT_SMALL_BOLD);
+        btnAdd.setBackground(UIConstants.PRIMARY);
+        btnAdd.setForeground(Color.WHITE);
+        btnAdd.setFocusPainted(false);
+        btnAdd.setBorderPainted(false);
+        btnAdd.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnAdd.addActionListener(e -> addOrIncrementDV(dv, 1));
+
+        card.add(info, BorderLayout.CENTER);
+        card.add(btnAdd, BorderLayout.SOUTH);
+
+        return card;
+    }
+
+    private void addOrIncrementDV(DichVu dv, int sl) {
+        // Check if already in cart
+        for (SuDungDichVu sddv : selectedDV) {
+            String mid = sddv.getDichVu() != null ? sddv.getDichVu().getMaDV() : "";
+            if (mid.equals(dv.getMaDV())) {
+                sddv.setSoLuong(sddv.getSoLuong() + sl);
+                refreshDVList();
+                return;
+            }
+        }
+        // New item
+        SuDungDichVu sddv = new SuDungDichVu();
+        sddv.setDichVu(dv);
+        sddv.setSoLuong(sl);
+        sddv.setDonGiaLuu(dv.getGia());
+        sddv.setThoiDiem(java.time.LocalDateTime.now());
+        selectedDV.add(sddv);
+        refreshDVList();
     }
 
     private void refreshDVList() {
         dvListPanel.removeAll();
         double total = 0;
+        
         for (int i = 0; i < selectedDV.size(); i++) {
-            SuDungDichVu sddv = selectedDV.get(i);
-            JPanel row = new JPanel(new BorderLayout()); row.setOpaque(false);
-            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-            String dvName = sddv.getDichVu() != null ? sddv.getDichVu().getTenDV() : "Dich vu";
-            JLabel info = new JLabel("* " + dvName + "  x" + sddv.getSoLuong()); info.setFont(UIConstants.FONT_BODY);
-            JLabel amt  = new JLabel(String.format("%,.0fd", sddv.tinhThanhTien())); amt.setFont(UIConstants.FONT_BODY_BOLD); amt.setForeground(UIConstants.PRIMARY);
             final int idx = i;
-            JButton del = new JButton("X"); del.setFont(UIConstants.FONT_SMALL); del.setForeground(UIConstants.DANGER);
-            del.setBorderPainted(false); del.setContentAreaFilled(false); del.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            del.addActionListener(e -> { selectedDV.remove(idx); refreshDVList(); });
-            JPanel r = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0)); r.setOpaque(false); r.add(amt); r.add(del);
-            row.add(info, BorderLayout.WEST); row.add(r, BorderLayout.EAST);
+            SuDungDichVu sddv = selectedDV.get(i);
+            
+            // Row container - Compact height 42px
+            JPanel row = new JPanel(new BorderLayout(10, 0));
+            row.setOpaque(false);
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+            row.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xF1F5F9)));
+
+            // Left Stack: Name & Subtotal
+            JPanel left = new JPanel(new GridLayout(2, 1, 0, 0));
+            left.setOpaque(false);
+            
+            JLabel lblName = new JLabel(truncate(sddv.getDichVu() != null ? sddv.getDichVu().getTenDV() : "Dịch vụ", 20));
+            lblName.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            lblName.setForeground(new Color(0x334155));
+            
+            JLabel lblSub = new JLabel(String.format("%,.0f đ", sddv.tinhThanhTien()));
+            lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            lblSub.setForeground(UIConstants.PRIMARY);
+            
+            left.add(lblName);
+            left.add(lblSub);
+
+            // Right Stack: Pill Qty Picker & Delete
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+            actions.setOpaque(false);
+            actions.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+
+            // Modern Pill Picker
+            JPanel pill = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            pill.setBackground(Color.WHITE);
+            pill.setBorder(BorderFactory.createLineBorder(new Color(0xE2E8F0), 1));
+            
+            JButton btnMin = createPillBtn("-", false);
+            JLabel lblQty = new JLabel(String.valueOf(sddv.getSoLuong()), SwingConstants.CENTER);
+            lblQty.setPreferredSize(new Dimension(28, 22));
+            lblQty.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            JButton btnPlus = createPillBtn("+", true);
+
+            btnMin.addActionListener(e -> { if (sddv.getSoLuong() > 1) { sddv.setSoLuong(sddv.getSoLuong() - 1); } else { selectedDV.remove(idx); } refreshDVList(); });
+            btnPlus.addActionListener(e -> { sddv.setSoLuong(sddv.getSoLuong() + 1); refreshDVList(); });
+
+            pill.add(btnMin);
+            pill.add(lblQty);
+            pill.add(btnPlus);
+
+            // Simple Delete Icon
+            JButton btnDel = new JButton("\u00d7");
+            btnDel.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+            btnDel.setForeground(new Color(0x94A3B8));
+            btnDel.setBorder(null);
+            btnDel.setOpaque(false);
+            btnDel.setContentAreaFilled(false);
+            btnDel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            btnDel.addActionListener(e -> { selectedDV.remove(idx); refreshDVList(); });
+            btnDel.addMouseListener(new java.awt.event.MouseAdapter() {
+                public void mouseEntered(java.awt.event.MouseEvent e) { btnDel.setForeground(new Color(0xEF4444)); }
+                public void mouseExited(java.awt.event.MouseEvent e) { btnDel.setForeground(new Color(0x94A3B8)); }
+            });
+
+            actions.add(pill);
+            actions.add(btnDel);
+
+            row.add(left, BorderLayout.CENTER);
+            row.add(actions, BorderLayout.EAST);
+
             dvListPanel.add(row);
             total += sddv.tinhThanhTien();
         }
-        lblTongDV.setText(String.format("Tong dich vu: %,.0fd", total));
-        dvListPanel.revalidate(); dvListPanel.repaint();
+
+        dvListPanel.add(Box.createVerticalGlue());
+
+        if (lblTongDV != null) {
+            lblTongDV.setText(String.format("%,.0f đ", total));
+        }
+
+        if (selectedDV.isEmpty()) {
+            JLabel empty = new JLabel("Giỏ hàng trống", SwingConstants.CENTER);
+            empty.setFont(UIConstants.FONT_SMALL);
+            empty.setForeground(UIConstants.TEXT_MUTED);
+            empty.setAlignmentX(Component.CENTER_ALIGNMENT);
+            dvListPanel.add(Box.createVerticalStrut(60));
+            dvListPanel.add(empty);
+        }
+
+        dvListPanel.revalidate();
+        dvListPanel.repaint();
+    }
+
+    private JButton createPillBtn(String text, boolean plus) {
+        JButton btn = new JButton(text);
+        btn.setPreferredSize(new Dimension(22, 22));
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setFocusPainted(false);
+        btn.setBorder(null);
+        btn.setBackground(new Color(0xF8FAFC));
+        btn.setForeground(new Color(0x64748B));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) { btn.setBackground(new Color(0xF1F5F9)); btn.setForeground(UIConstants.PRIMARY); }
+            public void mouseExited(java.awt.event.MouseEvent e) { btn.setBackground(new Color(0xF8FAFC)); btn.setForeground(new Color(0x64748B)); }
+        });
+        return btn;
     }
 
     private JPanel buildStep5() {
@@ -594,15 +834,25 @@ public class CheckinDialog extends JDialog {
             card.add(Box.createVerticalStrut(8));
             double totalDV = 0;
             for (SuDungDichVu s : selectedDV) {
-                String dvLine = s.getDichVu() != null
-                    ? s.getDichVu().getTenDV() + " x" + s.getSoLuong()
-                      + "  =  " + String.format("%,.0f d", s.tinhThanhTien())
-                    : "Dich vu";
-                card.add(summaryRow("DV", dvLine, new Color(0x374151)));
-                card.add(Box.createVerticalStrut(3));
+                String dvName = s.getDichVu() != null ? s.getDichVu().getTenDV() : "DV";
+                card.add(summaryRow(dvName + " x" + s.getSoLuong(), 
+                    String.format("%,.0f d", s.tinhThanhTien()), UIConstants.TEXT_SECONDARY));
                 totalDV += s.tinhThanhTien();
             }
-            card.add(summaryRow("Tong DV", String.format("%,.0f d", totalDV), UIConstants.PRIMARY));
+            card.add(Box.createVerticalStrut(10));
+            card.add(summaryRow("Tổng dịch vụ", String.format("%,.0f d", totalDV), UIConstants.PRIMARY));
+            
+            double giaHH = bangGiaService.layGiaHienHanh(selectedPhong != null && selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
+            
+            card.add(summaryRow("TIEN PHONG (TAM TINH)", String.format("%,.0f d", giaHH), UIConstants.TEXT_PRIMARY));
+            card.add(summaryRow("TIEN DICH VU", String.format("%,.0f d", totalDV), UIConstants.TEXT_PRIMARY));
+            card.add(Box.createVerticalStrut(15));
+            card.add(new JSeparator());
+            card.add(Box.createVerticalStrut(12));
+            card.add(summaryRow("T?NG THANH TOAN", String.format("%,.0f d", giaHH + totalDV), UIConstants.PRIMARY));
+        } else if (selectedPhong != null) {
+            double giaHH = bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
+            card.add(summaryRow("T?NG THANH TOAN", String.format("%,.0f d", giaHH), UIConstants.PRIMARY));
         }
 
         JPanel content = new JPanel(); content.setOpaque(false);
@@ -651,7 +901,41 @@ public class CheckinDialog extends JDialog {
         btnNext = new RoundedButton("Tiep theo >>", UIConstants.PRIMARY, Color.WHITE);
 
         btnBack.addActionListener(e -> { if (currentStep > 1) showStep(currentStep - 1); else dispose(); });
-        btnNext.addActionListener(e -> { if (currentStep < TOTAL_STEPS) showStep(currentStep + 1); else doCheckin(); });
+        btnNext.addActionListener(e -> { 
+            // ----- Tích hợp Logic Phụ Thu Ở Ghép / Giường Phụ (Bước 3) -----
+            if (currentStep == 3) {
+                int soKhach = (int) spnSoKhach.getValue();
+                if (selectedPhong != null) {
+                    int sucChuaTieuChuan = selectedPhong.getSucChua(); // Sức chứa tiêu chuẩn
+                    if (soKhach > sucChuaTieuChuan + 2) {
+                        // Hard Block: Không cho phép thuê quá đông so với tiêu chuẩn an toàn PCCC
+                        NotificationManager.showError("Quá tải sức chứa", 
+                            "LỖI: Sức chứa của phòng tối đa chỉ cho phép " + (sucChuaTieuChuan + 2) + " người.\n"
+                            + "Vui lòng nâng hạng phòng!");
+                        return;
+                    } else if (soKhach > sucChuaTieuChuan) {
+                        // Soft Warning + Tự động thêm phụ thu
+                        int extra = soKhach - sucChuaTieuChuan;
+                        int confirm = JOptionPane.showConfirmDialog(this,
+                            "CẢNH BÁO QUY ĐỊNH:\n"
+                            + "Phòng đang chọn có sức chứa tiêu chuẩn là " + sucChuaTieuChuan + " người.\n"
+                            + "Dữ liệu nhập: " + soKhach + " người (Vượt mức " + extra + " người).\n\n"
+                            + "Hệ thống sẽ TỰ ĐỘNG thêm phí phụ thu " + extra + " người lớn vào danh sách dịch vụ.\n"
+                            + "Bạn có thể điều chỉnh (người lớn/trẻ em) ở Bước 4 - Dịch vụ.\n\n"
+                            + "Bạn có muốn tiếp tục?",
+                            "Phụ thu ghép người", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                        if (confirm != JOptionPane.YES_OPTION) {
+                            return;
+                        }
+                        // Tự động thêm dịch vụ "Phụ thu người lớn" (DV009) nếu chưa có
+                        autoAddSurcharge(extra);
+                    }
+                }
+            }
+            
+            if (currentStep < TOTAL_STEPS) showStep(currentStep + 1); 
+            else doCheckin(); 
+        });
 
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0)); btns.setOpaque(false);
         btns.add(btnBack); btns.add(btnNext);
@@ -693,9 +977,28 @@ public class CheckinDialog extends JDialog {
         repaint();
     }
 
+    private String formatName(String name) {
+        if (name == null || name.isBlank()) return "";
+        String[] words = name.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.length() > 0) {
+                sb.append(Character.toUpperCase(w.charAt(0)));
+                if (w.length() > 1) {
+                    sb.append(w.substring(1).toLowerCase());
+                }
+                sb.append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
     private boolean validateTenKH() {
         if (txtTenKH == null || errTenKH == null) return true;
         String tenKH = txtTenKH.getText().trim();
+        tenKH = formatName(tenKH);
+        txtTenKH.setText(tenKH);
+        
         errTenKH.setText(" ");
         if (tenKH.isEmpty()) {
             errTenKH.setText("Bắt buộc - Vui lòng nhập họ và tên khách hàng");
@@ -747,7 +1050,7 @@ public class CheckinDialog extends JDialog {
         if (lblInfo == null) return;
         String info = selectedPhong != null
             ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
-              + " - " + String.format("%,.0fd/dem", (double) selectedPhong.getGiaTheoNgay())
+              + " - " + String.format("%,.0fd/dem", (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : ""))
             : "Chon phong de bat dau";
         lblInfo.setText(info);
     }
@@ -769,12 +1072,12 @@ public class CheckinDialog extends JDialog {
         if (!vTen || !vSdt || !vCccd || !vEmail) {
             showStep(2); return;
         }
-        if (selectedPhong == null) { JOptionPane.showMessageDialog(this, "Chua co phong duoc chon!"); return; }
+        if (selectedPhong == null) { NotificationManager.showWarning("Cảnh báo", "Chưa có phòng được chọn!"); return; }
 
         Date ngayNhan = pickerNgayNhan.getDate();
         Date ngayTra  = pickerNgayTra.getDate();
         if (!ngayTra.after(ngayNhan)) {
-            JOptionPane.showMessageDialog(this, "Ngay tra phai sau ngay nhan!");
+            NotificationManager.showWarning("Lỗi ngày tháng", "Ngày trả phải sau ngày nhận!");
             showStep(3);
             return;
         }
@@ -785,11 +1088,22 @@ public class CheckinDialog extends JDialog {
             KhachHang kh = new KhachHang();
             kh.setHoTen(tenKH); kh.setSdt(sdt);
             kh.setCccd(txtCCCD != null ? txtCCCD.getText().trim() : "");
+            kh.setQuocTich(cboQuocTich.getSelectedItem().toString());
+            
+            // Luu anh CCCD neu co
+            String savedPath = saveCCCDImage(kh.getMaKhachHang() != null ? kh.getMaKhachHang() : "NEW_GUEST");
+            kh.setAnhCCCD(savedPath);
+
             String err = khService.them(kh);
-            if (err != null) { JOptionPane.showMessageDialog(this, "Loi tao khach: " + err); return; }
+            if (err != null) { NotificationManager.showError("Lỗi", "Lỗi tạo khách: " + err); return; }
             selectedKhach = khService.getByCCCD(kh.getCccd());
             if (selectedKhach == null) { selectedKhach = kh; }
         } else {
+            // Cap nhat anh CCCD moi neu duoc chon
+            if (selectedImagePath != null) {
+                String savedPath = saveCCCDImage(selectedKhach.getMaKhachHang());
+                selectedKhach.setAnhCCCD(savedPath);
+            }
             selectedKhach.setTrangThai("Dang o");
             khService.sua(selectedKhach);
         }
@@ -816,25 +1130,40 @@ public class CheckinDialog extends JDialog {
 
             String errDp = datPhongService.them(dp);
             if (errDp != null) {
-                JOptionPane.showMessageDialog(this, "Loi tao dat phong: " + errDp);
+                NotificationManager.showError("Lỗi", "Lỗi tạo đặt phòng: " + errDp);
                 return;
             }
             selectedDatPhong = dp;
         } else {
-            selectedDatPhong.setTrangThai(TrangThaiDatPhong.CHECKED_IN);
+            // Logic cho khách đoàn/nhiều phòng: Chỉ chuyển hẳn sang CHECKED_IN khi tất cả phòng đã nhận
+            boolean allCheckedIn = true;
+            if (selectedDatPhong.getDsChiTiet() != null && selectedDatPhong.getDsChiTiet().size() > 1) {
+                for (ChiTietDatPhong item : selectedDatPhong.getDsChiTiet()) {
+                    if (item.getPhong().getMaPhong().equals(selectedPhong.getMaPhong())) continue;
+                    
+                    Phong p = phongService.getPhongById(item.getPhong().getMaPhong());
+                    if (p != null && p.getTrangThai() != entity.enums.TrangThaiPhong.OCCUPIED) {
+                        allCheckedIn = false;
+                        break;
+                    }
+                }
+            }
+            
+            selectedDatPhong.setTrangThai(allCheckedIn ? TrangThaiDatPhong.CHECKED_IN : TrangThaiDatPhong.PARTIALLY_CHECKED_IN);
             String errDp = datPhongService.sua(selectedDatPhong);
             if (errDp != null) {
-                JOptionPane.showMessageDialog(this, "Loi cap nhat dat phong: " + errDp);
+                NotificationManager.showError("Lỗi", "Lỗi cập nhật trạng thái đơn đặt: " + errDp);
                 return;
             }
         }
 
         ct.setDatPhong(selectedDatPhong);
         ct.setNgayNhanThucTe(ldtNhan);
-        ct.setGiaThucTeChot(selectedPhong.getGiaTheoNgay());
+        ct.setGiaThucTeChot(bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : ""));
+        ct.setKhachHang(selectedKhach); // Gán người lưu trú thực tế cho phòng này
 
         String err = thuePhongService.checkIn(ct);
-        if (err != null) { JOptionPane.showMessageDialog(this, "Loi check-in: " + err); return; }
+        if (err != null) { NotificationManager.showError("Lỗi", "Lỗi check-in: " + err); return; }
 
         java.util.List<String> failedServices = new ArrayList<>();
         for (SuDungDichVu sddv : selectedDV) {
@@ -851,21 +1180,99 @@ public class CheckinDialog extends JDialog {
         }
 
         if (!failedServices.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "Check-in thanh cong nhung mot so dich vu chua luu duoc:\n- " + String.join("\n- ", failedServices),
-                "Canh bao",
-                JOptionPane.WARNING_MESSAGE);
+            NotificationManager.showWarning("Cảnh báo dịch vụ",
+                "Check-in thành công nhưng một số dịch vụ chưa lưu được:\n- " + String.join("\n- ", failedServices));
         }
 
         confirmed = true;
-
-        JOptionPane.showMessageDialog(this,
-            "Check-in thanh cong!\nMa phieu: " + ct.getMaChiTiet(),
-            "Thanh cong", JOptionPane.INFORMATION_MESSAGE);
+        NotificationManager.showSuccess("Check-in thành công", "Phòng " + selectedPhong.getSoPhong() + " đã bắt đầu lưu trú.");
         dispose();
     }
 
+    private void chooseCCCDImage() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Chon anh CCCD/Passport");
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "jpeg", "png"));
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            selectedImagePath = file.getAbsolutePath();
+            
+            // Preview thumbnail
+            try {
+                ImageIcon icon = new ImageIcon(selectedImagePath);
+                Image img = icon.getImage().getScaledInstance(100, 64, Image.SCALE_SMOOTH);
+                lblImagePreview.setIcon(new ImageIcon(img));
+                lblImagePreview.setText("");
+            } catch (Exception e) {
+                lblImagePreview.setText("Loi anh");
+            }
+        }
+    }
+
+    private String saveCCCDImage(String maKH) {
+        if (selectedImagePath == null) return null;
+        try {
+            java.io.File source = new java.io.File(selectedImagePath);
+            String ext = selectedImagePath.substring(selectedImagePath.lastIndexOf("."));
+            String fileName = maKH + "_CCCD" + ext;
+            java.nio.file.Path destDir = java.nio.file.Paths.get("img", "customers");
+            if (!java.nio.file.Files.exists(destDir)) java.nio.file.Files.createDirectories(destDir);
+            
+            java.nio.file.Path destPath = destDir.resolve(fileName);
+            java.nio.file.Files.copy(source.toPath(), destPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return "img/customers/" + fileName;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public boolean isConfirmed() { return confirmed; }
+
+    /**
+     * Tự động thêm dịch vụ "Phụ thu người lớn" vào selectedDV khi số khách vượt sức chứa.
+     * Nếu đã có sẵn dịch vụ phụ thu, cập nhật số lượng thay vì thêm mới.
+     */
+    private void autoAddSurcharge(int extraPeople) {
+        // Tìm dịch vụ "Phụ thu người lớn" trong danh sách dịch vụ
+        DichVu dvPhuThu = null;
+        for (DichVu dv : allDichVu) {
+            if (dv.getTenDV() != null && dv.getTenDV().contains("Phụ thu người lớn")) {
+                dvPhuThu = dv;
+                break;
+            }
+        }
+        if (dvPhuThu == null) {
+            // Fallback: tìm bất kỳ dịch vụ có tên chứa "Phụ thu"
+            for (DichVu dv : allDichVu) {
+                if (dv.getTenDV() != null && dv.getTenDV().toLowerCase().contains("phụ thu")) {
+                    dvPhuThu = dv;
+                    break;
+                }
+            }
+        }
+        if (dvPhuThu == null) return; // Không tìm thấy dịch vụ phụ thu
+
+        // Kiểm tra xem đã có phụ thu trong danh sách chưa
+        for (SuDungDichVu sddv : selectedDV) {
+            if (sddv.getDichVu() != null && sddv.getDichVu().getTenDV() != null
+                    && sddv.getDichVu().getTenDV().contains("Phụ thu")) {
+                // Đã có → cập nhật số lượng
+                sddv.setSoLuong(extraPeople);
+                refreshDVList();
+                return;
+            }
+        }
+
+        // Chưa có → thêm mới
+        SuDungDichVu sddv = new SuDungDichVu();
+        sddv.setDichVu(dvPhuThu);
+        sddv.setSoLuong(extraPeople);
+        sddv.setDonGiaLuu(dvPhuThu.getGia());
+        sddv.setThoiDiem(java.time.LocalDateTime.now());
+        selectedDV.add(sddv);
+        refreshDVList();
+    }
 
     // ---- Helpers ----
     private JTextField styledField(String placeholder) {

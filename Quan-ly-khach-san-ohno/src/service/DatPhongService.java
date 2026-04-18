@@ -6,6 +6,7 @@ import entity.enums.TrangThaiDatPhong;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class DatPhongService {
@@ -15,6 +16,10 @@ public class DatPhongService {
     private final DatPhongDAO        datPhongDAO = new DatPhongDAO();
     private final PhongDAO           phongDAO    = new PhongDAO();
     private final ChiTietDatPhongDAO ctDAO       = new ChiTietDatPhongDAO();
+    private final HoaDonDAO          hoaDonDAO   = new HoaDonDAO();
+    private final ChiTietHoaDonDAO   cthdDAO     = new ChiTietHoaDonDAO();
+    private final NhanVienDAO        nhanVienDAO = new NhanVienDAO();
+    private final SuDungDichVuDAO    sddvDAO     = new SuDungDichVuDAO();
 
     public List<DatPhong> getAll()               { return datPhongDAO.getAll(); }
     public DatPhong getById(String id)           { return datPhongDAO.getById(id); }
@@ -46,22 +51,10 @@ public class DatPhongService {
         if (dp.getSoLuongKhach() <= 0)
             return "Số lượng khách phải lớn hơn 0!";
         
-        // Validate sức chứa phòng
-        if (dp.getDsChiTiet() != null) {
-            for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
-                if (ct.getPhong() != null) {
-                    Phong p = phongDAO.getById(ct.getPhong().getMaPhong());
-                    if (p != null && p.getLoaiPhong() != null) {
-                        if (dp.getSoLuongKhach() > p.getLoaiPhong().getSucChua()) {
-                            return "Phòng " + p.getMaPhong() + " chỉ chứa tối đa " 
-                                   + p.getLoaiPhong().getSucChua() + " người!";
-                        }
-                    }
-                }
-            }
-        }
+        // Validate sức chứa tổng thể (đã xử lý ở UI)
+        // Bỏ qua chặn sức chứa từng phòng để hỗ trợ khách đoàn
         
-        if (dp.getTrangThai() == null) dp.setTrangThai(TrangThaiDatPhong.CONFIRMED);
+        if (dp.getTrangThai() == null) dp.setTrangThai(TrangThaiDatPhong.PENDING);
         
         // Generate maDatPhong if not set
         if (dp.getMaDatPhong() == null || dp.getMaDatPhong().isEmpty()) {
@@ -86,6 +79,20 @@ public class DatPhongService {
                 }
             }
         }
+
+        // Insert dánh sách dịch vụ đi kèm (nếu có)
+        if (dp.getDsDichVu() != null && !dp.getDsDichVu().isEmpty()) {
+            SuDungDichVuDAO sddvDAO = new SuDungDichVuDAO();
+            for (SuDungDichVu s : dp.getDsDichVu()) {
+                // Link tới ChiTiet đầu tiên nếu cần maChiTiet (hoặc DAO tự map maDatPhong)
+                if (s.getCtdp() == null && dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
+                    s.setCtdp(dp.getDsChiTiet().get(0));
+                }
+                if (!sddvDAO.insert(s)) {
+                    LOGGER.warning("Không lưu được dịch vụ: " + s.getTenDichVu());
+                }
+            }
+        }
         
         LOGGER.info("Đặt phòng thành công: " + dp.getMaDatPhong());
         return null;
@@ -94,13 +101,19 @@ public class DatPhongService {
     public String huyDatPhong(String maDatPhong) {
         DatPhong dp = datPhongDAO.getById(maDatPhong);
         if (dp == null) return "Không tìm thấy đặt phòng!";
-        if (dp.getTrangThai() == TrangThaiDatPhong.CHECKED_IN) 
-            return "Không thể hủy đặt phòng đang ở!";
-        if (dp.getTrangThai() == TrangThaiDatPhong.CHECKED_OUT) 
-            return "Không thể hủy đặt phòng đã check-out!";
-        dp.setTrangThai(TrangThaiDatPhong.CANCELLED);
-        boolean ok = datPhongDAO.update(dp);
-        return ok ? null : "Lỗi hủy đặt phòng!";
+        
+        // Chỉ cho phép hủy đơn PENDING, CONFIRMED, WAITLIST
+        if (dp.getTrangThai() != TrangThaiDatPhong.PENDING && 
+            dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED && 
+            dp.getTrangThai() != TrangThaiDatPhong.WAITLIST) {
+            return "Không thể hủy đơn đặt ở trạng thái: " + dp.getTrangThai();
+        }
+
+        if (datPhongDAO.softDelete(maDatPhong)) {
+            LogService.addLog("Hủy đặt phòng", "Nghiệp vụ", "Hủy đơn " + maDatPhong);
+            return null;
+        }
+        return "Lỗi khi hủy đơn đặt phòng!";
     }
 
     public boolean updateTrangThai(String maDatPhong, TrangThaiDatPhong trangThai) {
@@ -123,32 +136,177 @@ public class DatPhongService {
     public String generateMaDatPhong() { return datPhongDAO.generateMaDatPhong(); }
     public String them(DatPhong dp) { return datPhong(dp); }
     public String sua(DatPhong dp) { return datPhongDAO.update(dp) ? null : "Lỗi cập nhật!"; }
+    /**
+     * Xóa hoàn toàn đơn đặt phòng khỏi hệ thống (Hard delete).
+     * Chỉ dùng cho các đơn nháp (PENDING), đơn đã hủy (CANCELLED) không có ràng buộc thanh toán.
+     */
+    public String xoaDatPhong(String maDatPhong) {
+        DatPhong dp = getById(maDatPhong);
+        if (dp == null) return "Không tìm thấy đặt phòng để xóa!";
+
+        // 1. Kiểm tra trạng thái an toàn
+        if (dp.getTrangThai() != TrangThaiDatPhong.PENDING && 
+            dp.getTrangThai() != TrangThaiDatPhong.CANCELLED &&
+            dp.getTrangThai() != TrangThaiDatPhong.WAITLIST) {
+            return "Chỉ có thể xóa hoàn toàn các đơn PENDING hoặc CANCELLED. Đơn này đang ở trạng thái: " + dp.getTrangThai();
+        }
+
+        // 2. Kiểm tra ràng buộc hóa đơn (Cực kỳ quan trọng để giữ lịch sử Checkout/No-show)
+        if (hoaDonDAO.countByDatPhong(maDatPhong) > 0) {
+            return "Đơn đặt này đã có hóa đơn liên quan (có thể là phí No-show hoặc Tiền phòng). Không thể xóa để bảo toàn dữ liệu tài chính!";
+        }
+
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            
+            // Xóa dữ liệu rác liên quan (dùng cho đơn PENDING/CANCELLED)
+            sddvDAO.deleteByDatPhong(maDatPhong);
+            ctDAO.deleteByDatPhong(maDatPhong);
+            
+            if (datPhongDAO.deleteHard(maDatPhong)) {
+                db.commitTransaction();
+                LogService.addLog("Xóa đặt phòng", "Nghiệp vụ", "Xóa vĩnh viễn đơn " + maDatPhong);
+                return null;
+            } else {
+                db.rollbackTransaction();
+                return "Lỗi khi thực thi xóa dữ liệu!";
+            }
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi xoaDatPhong: " + maDatPhong, e);
+            return "Lỗi hệ thống: " + e.getMessage();
+        }
+    }
 
     /**
-     * Tìm các đơn đặt phòng quá hạn check-in (no-show).
+     * Tìm các đơn đặt phòng quá hạn check-in (No-show) bằng SQL.
      */
     public List<DatPhong> getNoShowBookings(int hoursOverdue) {
+        return datPhongDAO.getPotentialNoShows(hoursOverdue);
+    }
+
+    /**
+     * Đánh dấu đơn đặt phòng là No-show và xử lý tài chính (phạt tiền cọc).
+     * @param maDatPhong Mã đơn đặt phòng
+     * @param maNhanVien Mã nhân viên thực hiện (để gán vào hóa đơn phạt)
+     * @param penalty Phí phạt (thường là tiền cọc, hoặc số tiền nhập từ UI)
+     */
+    public String markNoShow(String maDatPhong, String maNhanVien, double penalty) {
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            
+            DatPhong dp = datPhongDAO.getById(maDatPhong);
+            if (dp == null) {
+                db.rollbackTransaction();
+                return "Không tìm thấy đặt phòng!";
+            }
+            if (dp.getTrangThai() != entity.enums.TrangThaiDatPhong.CONFIRMED && 
+                dp.getTrangThai() != entity.enums.TrangThaiDatPhong.PENDING) {
+                db.rollbackTransaction();
+                return "Chỉ có thể đánh dấu No-show cho đơn PENDING hoặc CONFIRMED!";
+            }
+
+            // Nếu không truyền phí phạt (<=0), mặc định lấy tiền cọc
+            if (penalty < 0) penalty = dp.getTienDatCoc();
+
+            // 1. Phạt tiền cọc / phí No-show (nếu có)
+            if (penalty > 0) {
+                HoaDon hd = new HoaDon();
+                hd.setMaHoaDon(hoaDonDAO.generateMaHD());
+                hd.setDatPhong(dp);
+                hd.setNhanVien(nhanVienDAO.getById(maNhanVien));
+                hd.setNgayLap(LocalDateTime.now());
+                hd.setTongThanhToan(penalty);
+                hd.setTrangThai(entity.enums.TrangThaiThanhToan.PAID);
+                hd.setPhuongThucThanhToan("DEPOSIT"); // Khấu trừ từ tiền cọc
+
+                if (!hoaDonDAO.insert(hd)) {
+                    db.rollbackTransaction();
+                    return "Lỗi tạo hóa đơn phạt No-show!";
+                }
+
+                // Chi tiết hóa đơn
+                ChiTietHoaDon cthd = new ChiTietHoaDon();
+                cthd.setHoaDon(hd);
+                cthd.setLoaiChiTiet(entity.enums.LoaiChiTietHoaDon.DICH_VU);
+                cthd.setNoiDung("Phí phạt No-show (Khấu trừ toàn bộ tiền cọc)");
+                cthd.setSoLuong(1);
+                cthd.setDonGia(penalty);
+                cthd.setThanhTien(penalty);
+                
+                if (!cthdDAO.insert(cthd)) {
+                    db.rollbackTransaction();
+                    return "Lỗi tạo chi tiết hóa đơn phạt!";
+                }
+            }
+
+            // 2. Chuyển trạng thái đặt phòng
+            dp.setTrangThai(entity.enums.TrangThaiDatPhong.NO_SHOW);
+            dp.setPhiNoShow(penalty);
+            dp.setGhiChu((dp.getGhiChu() != null ? dp.getGhiChu() + " | " : "") + 
+                         "No-show: KH không đến. Phạt: " + String.format("%,.0fđ", penalty));
+            
+            if (!datPhongDAO.update(dp)) {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật trạng thái đặt phòng!";
+            }
+
+            db.commitTransaction();
+            LOGGER.info("Mark No-show success: " + maDatPhong + ", Penalty: " + penalty);
+            return null;
+
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(java.util.logging.Level.SEVERE, "Lỗi khi xử lý No-show", e);
+            return "Lỗi hệ thống: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Legacy method for simple status update (no penalty logic)
+     */
+    public String markNoShow(String maDatPhong) {
+        return markNoShow(maDatPhong, "NV001", -1); // -1 triggers default to deposit logic
+    }
+
+    /**
+     * Tìm các đơn CONFIRMED có ngày nhận trong vòng hoursAhead tiếng tới (sắp check-in).
+     */
+    public List<DatPhong> getUpcomingArrivals(int hoursAhead) {
         List<DatPhong> result = new ArrayList<>();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now  = LocalDateTime.now();
+        LocalDateTime end  = now.plusHours(hoursAhead);
+        LocalDateTime start = now.minusHours(2); // Cho phép trễ tối đa 2 tiếng (chưa thành no-show)
+        
         for (DatPhong dp : datPhongDAO.getAll()) {
             if (dp.getTrangThai() == TrangThaiDatPhong.CONFIRMED
-                && dp.getNgayNhanDuKien() != null
-                && dp.getNgayNhanDuKien().plusHours(hoursOverdue).isBefore(now)) {
-                result.add(dp);
+                && dp.getNgayNhanDuKien() != null) {
+                
+                LocalDateTime thoiGianNhan = dp.getNgayNhanDuKien();
+                // Thuộc khoảng: (Bây giờ - 2 tiếng) <= Thời gian nhận <= (Bây giờ + hoursAhead)
+                if (!thoiGianNhan.isBefore(start) && !thoiGianNhan.isAfter(end)) {
+                    result.add(dp);
+                }
             }
         }
         return result;
     }
 
     /**
-     * Đánh dấu đơn đặt phòng là No-show.
+     * Tìm các đơn PENDING lâu hơn hoursOld tiếng mà chưa được xác nhận.
      */
-    public String markNoShow(String maDatPhong) {
-        DatPhong dp = datPhongDAO.getById(maDatPhong);
-        if (dp == null) return "Không tìm thấy đặt phòng!";
-        if (dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED) return "Chỉ hủy đơn đã xác nhận!";
-        dp.setTrangThai(TrangThaiDatPhong.CANCELLED);
-        dp.setGhiChu((dp.getGhiChu() != null ? dp.getGhiChu() + " | " : "") + "No-show: KH không đến");
-        return datPhongDAO.update(dp) ? null : "Lỗi cập nhật!";
+    public List<DatPhong> getLongPendingBookings(int hoursOld) {
+        List<DatPhong> result = new ArrayList<>();
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(hoursOld);
+        for (DatPhong dp : datPhongDAO.getAll()) {
+            if (dp.getTrangThai() == TrangThaiDatPhong.PENDING
+                && dp.getNgayDat() != null
+                && dp.getNgayDat().isBefore(cutoff)) {
+                result.add(dp);
+            }
+        }
+        return result;
     }
 }

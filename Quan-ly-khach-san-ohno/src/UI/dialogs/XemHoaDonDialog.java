@@ -218,11 +218,163 @@ public class XemHoaDonDialog extends JDialog {
         footer.setBackground(Color.WHITE);
         footer.setBorder(BorderFactory.createMatteBorder(1,0,0,0,UIConstants.BORDER));
 
-        RoundedButton btnClose = new RoundedButton("Đóng", UIConstants.PRIMARY, Color.WHITE);
+        RoundedButton btnPrint = new RoundedButton("🖨 In lại hóa đơn", UIConstants.SUCCESS, Color.WHITE);
+        btnPrint.addActionListener(e -> printHoaDon());
+
+        RoundedButton btnExportPDF = new RoundedButton("PDF Xuất file", new Color(0xDC2626), Color.WHITE);
+        btnExportPDF.addActionListener(e -> util.PDFExporter.exportHoaDon(this, hoaDon, dsChiTiet));
+
+        RoundedButton btnClose = new RoundedButton("Đóng", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
         btnClose.addActionListener(e -> dispose());
 
+        footer.add(btnExportPDF);
+        footer.add(btnPrint);
         footer.add(btnClose);
         return footer;
+    }
+
+    // ---- PRINT ----
+    public void printHoaDon() {
+        JPanel printPanel = buildPrintPanel();
+        
+        // Kích hoạt Layout Manager chìm bằng 1 frame ảo để load các Sub-Panel
+        JWindow dummyWindow = new JWindow();
+        dummyWindow.getContentPane().add(printPanel);
+        dummyWindow.pack();
+
+        java.awt.print.PrinterJob job = java.awt.print.PrinterJob.getPrinterJob();
+        job.setJobName("HoaDon_" + hoaDon.getMaHoaDon());
+
+        job.setPrintable((graphics, pageFormat, pageIndex) -> {
+            if (pageIndex > 0)
+                return java.awt.print.Printable.NO_SUCH_PAGE;
+            Graphics2D g2 = (Graphics2D) graphics;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            double scaleX = pageFormat.getImageableWidth() / printPanel.getPreferredSize().getWidth();
+            double scaleY = pageFormat.getImageableHeight() / printPanel.getPreferredSize().getHeight();
+            double scale = Math.min(scaleX, scaleY);
+            g2.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+            g2.scale(scale, scale);
+            
+            printPanel.printAll(g2);
+            return java.awt.print.Printable.PAGE_EXISTS;
+        });
+
+        if (job.printDialog()) {
+            try {
+                job.print();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi in: " + ex.getMessage(), "Lỗi in", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+        dummyWindow.dispose();
+    }
+
+    private JPanel buildPrintPanel() {
+        JPanel panel = new JPanel();
+        panel.setBackground(Color.WHITE);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setPreferredSize(new Dimension(500, 750));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String ngay = hoaDon.getNgayLap() != null ? hoaDon.getNgayLap().format(dtf) : "—";
+        
+        JLabel title = new JLabel("HÓA ĐƠN THANH TOÁN (BẢN SAO)", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel maHD = new JLabel("Mã HĐ: " + hoaDon.getMaHoaDon(), SwingConstants.CENTER);
+        maHD.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        maHD.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel lblNgay = new JLabel("Nhân viên In: " + (hoaDon.getNhanVien() != null ? hoaDon.getNhanVien().getMaNhanVien() : "Admin") + " - Ngày xuất gốc: " + ngay, SwingConstants.CENTER);
+        lblNgay.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblNgay.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(2));
+        panel.add(maHD);
+        panel.add(lblNgay);
+        panel.add(Box.createVerticalStrut(12));
+        panel.add(printSep());
+        panel.add(Box.createVerticalStrut(8));
+
+        String tenKH = "Khách vãng lai";
+        String sdt = "—";
+        if (hoaDon.getDatPhong() != null) {
+            entity.DatPhong dp = new service.DatPhongService().getById(hoaDon.getDatPhong().getMaDatPhong());
+            if(dp != null && dp.getKhachHang() != null) {
+                 entity.KhachHang kh = new service.KhachHangService().getById(dp.getKhachHang().getMaKhachHang());
+                 if (kh != null) {
+                     tenKH = kh.getHoTen();
+                     if (kh.getSoDienThoai() != null) sdt = kh.getSoDienThoai();
+                 }
+            }
+        }
+
+        // Khách hàng
+        panel.add(printRow("Khách hàng:", tenKH));
+        panel.add(printRow("Số ĐT:", sdt));
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(printSep());
+        panel.add(Box.createVerticalStrut(8));
+
+        // Chi tiết
+        for (ChiTietHoaDon ct : dsChiTiet) {
+            String lblName = ct.getNoiDung();
+            if (ct.getSoLuong() > 1) {
+                lblName += " (SL: " + ct.getSoLuong() + " x " + String.format("%,.0f đ", ct.getDonGia()) + ")";
+            }
+            panel.add(printRow(lblName, String.format("%,.0f đ", ct.getThanhTien())));
+        }
+        
+        if (hoaDon.getTienGiamKhuyenMai() > 0) {
+             panel.add(printRow("Giảm giá/Khuyến mãi:", "-" + String.format("%,.0f đ", hoaDon.getTienGiamKhuyenMai())));
+        }
+
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(printSep());
+        panel.add(Box.createVerticalStrut(8));
+
+        JLabel total = new JLabel("TỔNG THANH TOÁN:   " + String.format("%,.0f đ", hoaDon.getTongThanhToan()));
+        total.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        total.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(total);
+        panel.add(Box.createVerticalStrut(16));
+        
+        JLabel thanks = new JLabel("Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ!", SwingConstants.CENTER);
+        thanks.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        thanks.setForeground(Color.GRAY);
+        thanks.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(thanks);
+        return panel;
+    }
+
+    private JPanel printRow(String label, String value) {
+        JPanel r = new JPanel(new BorderLayout());
+        r.setBackground(Color.WHITE);
+        r.setOpaque(true);
+        r.setPreferredSize(new Dimension(450, 22));
+        r.setMaximumSize(new Dimension(450, 22));
+        r.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JLabel k = new JLabel(label);
+        k.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        k.setPreferredSize(new Dimension(280, 20)); // Adjusted to fit longer names
+        
+        JLabel v = new JLabel(value, SwingConstants.RIGHT);
+        v.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        
+        r.add(k, BorderLayout.WEST);
+        r.add(v, BorderLayout.EAST);
+        return r;
+    }
+
+    private JSeparator printSep() {
+        JSeparator sep = new JSeparator();
+        sep.setPreferredSize(new Dimension(450, 1));
+        sep.setMaximumSize(new Dimension(450, 1));
+        sep.setAlignmentX(Component.CENTER_ALIGNMENT);
+        return sep;
     }
 }
 

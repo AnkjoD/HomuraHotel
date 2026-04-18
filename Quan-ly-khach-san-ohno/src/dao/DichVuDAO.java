@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.*;
@@ -20,7 +20,7 @@ public class DichVuDAO {
     public List<DichVu> getAll() {
         List<DichVu> list = new ArrayList<>();
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT * FROM DichVu ORDER BY tenDichVu")) {
+             ResultSet rs = st.executeQuery("SELECT * FROM DichVu WHERE trangThai=1 ORDER BY tenDichVu")) {
             while (rs.next()) list.add(mapRow(rs));
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return list;
@@ -66,7 +66,7 @@ public class DichVuDAO {
     }
 
     public boolean delete(String maDichVu) {
-        try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM DichVu WHERE maDichVu=?")) {
+        try (PreparedStatement ps = getConn().prepareStatement("UPDATE DichVu SET trangThai=0 WHERE maDichVu=?")) {
             ps.setString(1, maDichVu);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); return false; }
@@ -89,7 +89,7 @@ public class DichVuDAO {
 
     public List<DichVu> search(String kw, String type, String status) {
         List<DichVu> list = new ArrayList<>();
-        StringBuilder sb = new StringBuilder("SELECT * FROM DichVu WHERE 1=1 ");
+        StringBuilder sb = new StringBuilder("SELECT * FROM DichVu WHERE trangThai=1 ");
         if (kw != null && !kw.isEmpty()) sb.append("AND tenDichVu LIKE ? ");
         if (type != null && !type.equals("Tất cả loại")) sb.append("AND loai = ? ");
         if (status != null && !status.equals("Tất cả")) {
@@ -111,7 +111,7 @@ public class DichVuDAO {
 
     public int countAll() {
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu")) {
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu WHERE trangThai=1")) {
             if (rs.next()) return rs.getInt(1);
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return 0;
@@ -121,7 +121,7 @@ public class DichVuDAO {
 
     public double getGiaTrungBinh() {
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT AVG(donGiaHienTai) FROM DichVu")) {
+             ResultSet rs = st.executeQuery("SELECT AVG(donGiaHienTai) FROM DichVu WHERE trangThai=1")) {
             if (rs.next()) return rs.getDouble(1);
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
         return 0;

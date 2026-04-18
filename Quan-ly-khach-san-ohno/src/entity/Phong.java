@@ -15,7 +15,9 @@ public class Phong {
     private double giaTheoNgay;
     private TrangThaiPhong trangThai;
     private String tenKhachHienTai;
-
+    private LocalDateTime checkInTime;
+    private LocalDateTime expectedCheckOutTime;
+    
     private LoaiPhong loaiPhong;
     private HuongNhin huongNhin;    // FK → HuongNhin table
     private List<LichSuTrangThaiPhong> dsLichSu = new ArrayList<>();
@@ -86,6 +88,12 @@ public class Phong {
 
     public String getTenKhachHienTai() { return tenKhachHienTai; }
     public void setTenKhachHienTai(String tenKhachHienTai) { this.tenKhachHienTai = tenKhachHienTai; }
+
+    public LocalDateTime getCheckInTime() { return checkInTime; }
+    public void setCheckInTime(LocalDateTime checkInTime) { this.checkInTime = checkInTime; }
+
+    public LocalDateTime getExpectedCheckOutTime() { return expectedCheckOutTime; }
+    public void setExpectedCheckOutTime(LocalDateTime expectedCheckOutTime) { this.expectedCheckOutTime = expectedCheckOutTime; }
 
     public String getSoPhong() { return maPhong; }
     public void setSoPhong(String soPhong) { this.maPhong = soPhong; }

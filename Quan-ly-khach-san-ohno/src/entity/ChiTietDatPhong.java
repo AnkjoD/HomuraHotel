@@ -13,9 +13,11 @@ public class ChiTietDatPhong {
     private LocalDateTime ngayTraThucTe;
     private double giaThucTeChot;
     private double phuPhiPhatSinh;
+    private boolean daThanhToan; // 0 = Chưa/Đang treo, 1 = Đã thanh toán (Master Bill Routing)
 
     private Phong phong;
     private DatPhong datPhong;
+    private KhachHang khachHang; // Người lưu trú thực tế của phòng này
     private NhanVien nhanVien;
     private List<SuDungDichVu> dsSuDungDichVu = new ArrayList<>();
 
@@ -51,6 +53,9 @@ public class ChiTietDatPhong {
     public double getPhuPhiPhatSinh() { return phuPhiPhatSinh; }
     public void setPhuPhiPhatSinh(double phuPhiPhatSinh) { this.phuPhiPhatSinh = phuPhiPhatSinh; }
 
+    public boolean isDaThanhToan() { return daThanhToan; }
+    public void setDaThanhToan(boolean daThanhToan) { this.daThanhToan = daThanhToan; }
+
     public Phong getPhong() { return phong; }
     public void setPhong(Phong phong) { this.phong = phong; }
 
@@ -62,6 +67,19 @@ public class ChiTietDatPhong {
 
     public List<SuDungDichVu> getDsSuDungDichVu() { return dsSuDungDichVu; }
     public void setDsSuDungDichVu(List<SuDungDichVu> dsSuDungDichVu) { this.dsSuDungDichVu = dsSuDungDichVu; }
+
+    public KhachHang getKhachHang() { return khachHang; }
+    public void setKhachHang(KhachHang khachHang) { this.khachHang = khachHang; }
+
+    /**
+     * Lấy người lưu trú thực tế: ưu tiên khách riêng của phòng,
+     * fallback về khách của đơn đặt nếu chưa gán.
+     */
+    public KhachHang resolveKhachHang() {
+        if (khachHang != null) return khachHang;
+        if (datPhong != null) return datPhong.getKhachHang();
+        return null;
+    }
 
     // Compatibility aliases for legacy UI
     public String  getMaThue()      { return maChiTiet; }

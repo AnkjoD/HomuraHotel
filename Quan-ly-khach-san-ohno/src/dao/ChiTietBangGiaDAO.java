@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.ChiTietBangGia;
@@ -50,26 +50,49 @@ public class ChiTietBangGiaDAO {
     }
 
     public boolean insert(ChiTietBangGia ct) {
-        String sql = "INSERT INTO ChiTietBangGia(maBangGia, maLoaiPhong, giaTheoNgay, giaTheoGio, phuPhiTraTre) VALUES(?,?,?,?,?)";
+        String sql = "INSERT INTO ChiTietBangGia(maBangGia, maLoaiPhong, giaTheoNgay, giaTheoGio, phuPhiTraTre, giaCuoiTuan) VALUES(?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getBangGia().getMaBangGia());
             ps.setString(2, ct.getLoaiPhong().getMaLoaiPhong());
             ps.setDouble(3, ct.getGiaNgay());
             ps.setDouble(4, ct.getGiaGioDau());
             ps.setDouble(5, ct.getPhuPhiTraTre());
+            ps.setDouble(6, ct.getGiaCuoiTuan());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); return false; }
+        } catch (SQLException e) {
+            // Fallback without giaCuoiTuan
+            String sqlFb = "INSERT INTO ChiTietBangGia(maBangGia, maLoaiPhong, giaTheoNgay, giaTheoGio, phuPhiTraTre) VALUES(?,?,?,?,?)";
+            try (PreparedStatement ps2 = getConn().prepareStatement(sqlFb)) {
+                ps2.setString(1, ct.getBangGia().getMaBangGia());
+                ps2.setString(2, ct.getLoaiPhong().getMaLoaiPhong());
+                ps2.setDouble(3, ct.getGiaNgay());
+                ps2.setDouble(4, ct.getGiaGioDau());
+                ps2.setDouble(5, ct.getPhuPhiTraTre());
+                return ps2.executeUpdate() > 0;
+            } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", ex); return false; }
+        }
     }
 
     public boolean update(ChiTietBangGia ct) {
-        String sql = "UPDATE ChiTietBangGia SET giaTheoNgay=?, giaTheoGio=?, phuPhiTraTre=? WHERE maChiTietBangGia=?";
+        String sql = "UPDATE ChiTietBangGia SET giaTheoNgay=?, giaTheoGio=?, phuPhiTraTre=?, giaCuoiTuan=? WHERE maChiTietBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setDouble(1, ct.getGiaNgay());
             ps.setDouble(2, ct.getGiaGioDau());
             ps.setDouble(3, ct.getPhuPhiTraTre());
-            ps.setInt(4, ct.getMaChiTiet());
+            ps.setDouble(4, ct.getGiaCuoiTuan());
+            ps.setInt(5, ct.getMaChiTiet());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", e); return false; }
+        } catch (SQLException e) {
+            // Fallback without giaCuoiTuan
+            String sqlFb = "UPDATE ChiTietBangGia SET giaTheoNgay=?, giaTheoGio=?, phuPhiTraTre=? WHERE maChiTietBangGia=?";
+            try (PreparedStatement ps2 = getConn().prepareStatement(sqlFb)) {
+                ps2.setDouble(1, ct.getGiaNgay());
+                ps2.setDouble(2, ct.getGiaGioDau());
+                ps2.setDouble(3, ct.getPhuPhiTraTre());
+                ps2.setInt(4, ct.getMaChiTiet());
+                return ps2.executeUpdate() > 0;
+            } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Database error in ChiTietBangGiaDAO", ex); return false; }
+        }
     }
 
     public boolean deleteByBangGia(String maBangGia) {
@@ -93,6 +116,7 @@ public class ChiTietBangGiaDAO {
         try { ct.setGiaNgay(rs.getDouble("giaTheoNgay")); } catch (Exception e) {}
         try { ct.setGiaGioDau(rs.getDouble("giaTheoGio")); } catch (Exception e) {}
         try { ct.setPhuPhiTraTre(rs.getDouble("phuPhiTraTre")); } catch (Exception e) {}
+        try { ct.setGiaCuoiTuan(rs.getDouble("giaCuoiTuan")); } catch (Exception e) {}
         
         return ct;
     }

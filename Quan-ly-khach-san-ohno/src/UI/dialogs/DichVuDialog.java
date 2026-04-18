@@ -14,8 +14,8 @@ public class DichVuDialog extends JDialog {
     private final DichVu        entity;
     private boolean confirmed = false;
 
-    private JTextField    txtTen, txtGia, txtDonVi, txtSLMin, txtMoTa;
-    private JComboBox<String> cboLoai, cboTrangThai;
+    private ModernTextField    txtTen, txtGia, txtDonVi, txtSLMin, txtMoTa;
+    private ModernComboBox<String> cboLoai, cboTrangThai;
 
     public DichVuDialog(Frame parent, DichVu dv) {
         super(parent, dv == null ? "Thêm dịch vụ mới" : "Chỉnh sửa – " + dv.getTenDV(), true);
@@ -31,28 +31,41 @@ public class DichVuDialog extends JDialog {
         JPanel root = new JPanel(new BorderLayout()); root.setBackground(Color.WHITE);
 
         // Header
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(UIConstants.PRIMARY);
-        header.setBorder(BorderFactory.createEmptyBorder(16,24,16,24));
+        JPanel header = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setPaint(new GradientPaint(0, 0, UIConstants.PRIMARY, 0, getHeight(), UIConstants.PRIMARY_DARK));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
+        header.setBorder(BorderFactory.createEmptyBorder(18, 24, 18, 24));
         JLabel title = new JLabel(entity==null?"Thêm dịch vụ mới":"Chỉnh sửa dịch vụ");
-        title.setFont(new Font("Segoe UI",Font.BOLD,17)); title.setForeground(Color.WHITE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22)); 
+        title.setForeground(Color.WHITE);
         JLabel sub = new JLabel(entity!=null?"Mã: "+entity.getMaDV():"Mã sẽ được tự động tạo");
-        sub.setFont(UIConstants.FONT_SMALL); sub.setForeground(new Color(255,255,255,180));
+        sub.setFont(UIConstants.FONT_SMALL); 
+        sub.setForeground(new Color(255,255,255,180));
         JPanel hl = new JPanel(); hl.setOpaque(false); hl.setLayout(new BoxLayout(hl,BoxLayout.Y_AXIS));
-        hl.add(title); hl.add(sub);
+        hl.add(title); hl.add(Box.createVerticalStrut(2)); hl.add(sub);
         header.add(hl, BorderLayout.WEST);
 
         // Form
         JPanel body = new JPanel(new GridLayout(0,2,14,12));
         body.setBackground(Color.WHITE); body.setBorder(BorderFactory.createEmptyBorder(20,24,8,24));
 
-        txtTen   = f(); txtGia   = f(); txtGia.setText("0");
-        txtDonVi = f(); txtDonVi.setText("lần");
-        txtSLMin = f(); txtSLMin.setText("1");
-        txtMoTa  = f();
-        cboLoai      = new JComboBox<>(new String[]{"Ăn uống","Spa & Làm đẹp","Vận chuyển","Dịch vụ phòng","Khác"});
-        cboTrangThai = new JComboBox<>(new String[]{"Hoạt động","Tạm ngừng"});
-        cboLoai.setFont(UIConstants.FONT_BODY); cboTrangThai.setFont(UIConstants.FONT_BODY);
+        txtTen = new ModernTextField("Nhập tên dịch vụ..."); 
+        txtGia = new ModernTextField("0");
+        txtDonVi = new ModernTextField("lần");
+        txtSLMin = new ModernTextField("1");
+        txtMoTa = new ModernTextField("Mô tả thêm...");
+        
+        cboLoai = new ModernComboBox<>(new String[]{"Ăn uống","Spa & Làm đẹp","Vận chuyển","Dịch vụ phòng","Khác"});
+        cboTrangThai = new ModernComboBox<>(new String[]{"Hoạt động","Tạm ngừng"});
+        cboLoai.setPreferredSize(new Dimension(0, 40));
+        cboTrangThai.setPreferredSize(new Dimension(0, 40));
 
         body.add(lf("Tên dịch vụ *",  txtTen));    body.add(lf("Loại dịch vụ",   cboLoai));
         body.add(lf("Giá (đ) *",      txtGia));    body.add(lf("Đơn vị tính",    txtDonVi));
@@ -60,11 +73,18 @@ public class DichVuDialog extends JDialog {
         body.add(lf("Mô tả",          txtMoTa));   body.add(new JLabel());
 
         // Footer
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT,10,10));
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 14));
         footer.setBackground(Color.WHITE);
-        footer.setBorder(BorderFactory.createMatteBorder(1,0,0,0,UIConstants.BORDER));
-        RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        RoundedButton btnSave   = new RoundedButton(entity==null?"Thêm dịch vụ":"Lưu thay đổi", UIConstants.PRIMARY, Color.WHITE);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xF1F5F9)));
+
+        RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xF1F5F9), UIConstants.TEXT_SECONDARY);
+        btnCancel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnCancel.setPreferredSize(new Dimension(100, 42));
+
+        RoundedButton btnSave = new RoundedButton(entity == null ? "Thêm dịch vụ" : "Lưu thay đổi", 
+                UIConstants.PRIMARY, Color.WHITE);
+        btnSave.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnSave.setPreferredSize(new Dimension(160, 42));
         btnCancel.addActionListener(e -> dispose()); btnSave.addActionListener(e -> doSave());
         getRootPane().setDefaultButton(btnSave);
         footer.add(btnCancel); footer.add(btnSave);

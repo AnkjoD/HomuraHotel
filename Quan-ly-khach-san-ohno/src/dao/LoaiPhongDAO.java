@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.LoaiPhong;
@@ -20,22 +20,14 @@ public class LoaiPhongDAO {
     public List<LoaiPhong> getAll() {
         List<LoaiPhong> list = new ArrayList<>();
         try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT * FROM LoaiPhong ORDER BY tenLoaiPhong")) {
+             ResultSet rs = st.executeQuery("SELECT * FROM LoaiPhong WHERE trangThai=1 ORDER BY tenLoaiPhong")) {
             while (rs.next()) list.add(mapRow(rs));
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
         return list;
     }
 
     public List<LoaiPhong> getActive() {
-        List<LoaiPhong> list = new ArrayList<>();
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT * FROM LoaiPhong ORDER BY tenLoaiPhong")) {
-            while (rs.next()) {
-                LoaiPhong lp = mapRow(rs);
-                if (lp.isDangKinhDoanh()) list.add(lp);
-            }
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
-        return list;
+        return getAll(); // getAll already filters by trangThai=1
     }
 
     public LoaiPhong getById(String maLoaiPhong) {
@@ -48,31 +40,33 @@ public class LoaiPhongDAO {
     }
 
     public boolean insert(LoaiPhong lp) {
-        String sql = "INSERT INTO LoaiPhong(maLoaiPhong, tenLoaiPhong, soNguoiToiDa, moTa, giaTheoNgay) VALUES(?,?,?,?,?)";
+        String sql = "INSERT INTO LoaiPhong(maLoaiPhong, tenLoaiPhong, soNguoiToiDa, moTa, giaTheoNgay, trangThai) VALUES(?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, lp.getMaLoaiPhong());
             ps.setString(2, lp.getTenLoaiPhong());
             ps.setInt(3, lp.getSucChua());
             ps.setString(4, lp.getMoTa());
             ps.setDouble(5, lp.getGiaTheoNgay());
+            ps.setBoolean(6, lp.isDangKinhDoanh());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
     }
 
     public boolean update(LoaiPhong lp) {
-        String sql = "UPDATE LoaiPhong SET tenLoaiPhong=?, soNguoiToiDa=?, moTa=?, giaTheoNgay=? WHERE maLoaiPhong=?";
+        String sql = "UPDATE LoaiPhong SET tenLoaiPhong=?, soNguoiToiDa=?, moTa=?, giaTheoNgay=?, trangThai=? WHERE maLoaiPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, lp.getTenLoaiPhong());
             ps.setInt(2, lp.getSucChua());
             ps.setString(3, lp.getMoTa());
             ps.setDouble(4, lp.getGiaTheoNgay());
-            ps.setString(5, lp.getMaLoaiPhong());
+            ps.setBoolean(5, lp.isDangKinhDoanh());
+            ps.setString(6, lp.getMaLoaiPhong());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
     }
 
     public boolean delete(String maLoaiPhong) {
-        try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM LoaiPhong WHERE maLoaiPhong=?")) {
+        try (PreparedStatement ps = getConn().prepareStatement("UPDATE LoaiPhong SET trangThai=0 WHERE maLoaiPhong=?")) {
             ps.setString(1, maLoaiPhong);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); return false; }
@@ -106,6 +100,7 @@ public class LoaiPhongDAO {
         lp.setSucChua(rs.getInt("soNguoiToiDa"));
         lp.setMoTa(rs.getString("moTa"));
         try { lp.setGiaTheoNgay(rs.getDouble("giaTheoNgay")); } catch (Exception e) {}
+        try { lp.setDangKinhDoanh(rs.getBoolean("trangThai")); } catch (Exception e) { lp.setDangKinhDoanh(true); }
         return lp;
     }
 }

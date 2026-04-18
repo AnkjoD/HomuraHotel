@@ -15,7 +15,7 @@ public class Main {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             UIManager.put("Button.focus", new java.awt.Color(0, 0, 0, 0));
         } catch (Exception e) {
-            // fallback to default
+            // fallback to defaultadadad
         }
 
         SwingUtilities.invokeLater(() -> {

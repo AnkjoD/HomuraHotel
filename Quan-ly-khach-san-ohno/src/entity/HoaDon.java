@@ -13,6 +13,7 @@ public class HoaDon {
     private double tienGiamKhuyenMai;
     private double tongThanhToan;
     private TrangThaiThanhToan trangThai;
+    private String phuongThucThanhToan; // CASH, CARD, TRANSFER
 
     private List<ChiTietHoaDon> dsChiTietHoaDon = new ArrayList<>();
     private DatPhong datPhong;
@@ -43,6 +44,9 @@ public class HoaDon {
 
     public TrangThaiThanhToan getTrangThai() { return trangThai; }
     public void setTrangThai(TrangThaiThanhToan trangThai) { this.trangThai = trangThai; }
+
+    public String getPhuongThucThanhToan() { return phuongThucThanhToan; }
+    public void setPhuongThucThanhToan(String phuongThucThanhToan) { this.phuongThucThanhToan = phuongThucThanhToan; }
 
     public List<ChiTietHoaDon> getDsChiTietHoaDon() { return dsChiTietHoaDon; }
     public void setDsChiTietHoaDon(List<ChiTietHoaDon> dsChiTietHoaDon) { this.dsChiTietHoaDon = dsChiTietHoaDon; }

@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.KhachHang;
@@ -19,7 +19,7 @@ public class KhachHangDAO {
 
     public List<KhachHang> getAll() {
         List<KhachHang> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhachHang ORDER BY hoTen";
+        String sql = "SELECT * FROM KhachHang WHERE trangThai=1 ORDER BY hoTen";
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
@@ -31,15 +31,26 @@ public class KhachHangDAO {
         if (keyword == null || keyword.trim().isEmpty()) return getAll();
         
         List<KhachHang> list = new ArrayList<>();
-        String sql = "SELECT * FROM KhachHang WHERE hoTen LIKE ? OR sdt LIKE ? OR cccd LIKE ?";
+        String sql = "SELECT * FROM KhachHang WHERE (hoTen LIKE ? OR sdt LIKE ? OR cccd LIKE ? OR soHoChieu LIKE ?) AND trangThai=1";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             String kw = "%" + keyword.trim() + "%";
             ps.setString(1, kw);
             ps.setString(2, kw);
             ps.setString(3, kw);
+            ps.setString(4, kw);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); }
+        } catch (SQLException e) { 
+            // Fallback without soHoChieu
+            list.clear();
+            String sqlFallback = "SELECT * FROM KhachHang WHERE (hoTen LIKE ? OR sdt LIKE ? OR cccd LIKE ?) AND trangThai=1";
+            try (PreparedStatement ps = getConn().prepareStatement(sqlFallback)) {
+                String kw = "%" + keyword.trim() + "%";
+                ps.setString(1, kw); ps.setString(2, kw); ps.setString(3, kw);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) list.add(mapRow(rs));
+            } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", ex); }
+        }
         return list;
     }
 
@@ -73,8 +84,19 @@ public class KhachHangDAO {
         return null;
     }
 
+    /** Tìm khách hàng theo số hộ chiếu */
+    public KhachHang getByPassport(String soHoChieu) {
+        String sql = "SELECT * FROM KhachHang WHERE soHoChieu=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, soHoChieu);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return mapRow(rs);
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); }
+        return null;
+    }
+
     public boolean insert(KhachHang kh) {
-        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich) VALUES(?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, soVisa, ngayHetHanVisa, noiCapHoChieu, ngayNhapCanh, trangThai, anhCCCD, soLanO, tongChiTieu, diemTichLuy, hangKhachHang) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getMaKhachHang());
             ps.setString(2, kh.getHoTen());
@@ -83,22 +105,44 @@ public class KhachHangDAO {
             ps.setDate(5, kh.getNgaySinh() != null ? java.sql.Date.valueOf(kh.getNgaySinh()) : null);
             ps.setString(6, kh.getGioiTinh());
             ps.setString(7, kh.getQuocTich());
+            ps.setString(8, kh.getLoaiGiayTo() != null ? kh.getLoaiGiayTo() : "CCCD");
+            ps.setString(9, kh.getSoHoChieu());
+            ps.setString(10, kh.getSoVisa());
+            ps.setDate(11, kh.getNgayHetHanVisa() != null ? java.sql.Date.valueOf(kh.getNgayHetHanVisa()) : null);
+            ps.setString(12, kh.getNoiCapHoChieu());
+            ps.setDate(13, kh.getNgayNhapCanh() != null ? java.sql.Date.valueOf(kh.getNgayNhapCanh()) : null);
+            ps.setBoolean(14, !"Ngừng".equals(kh.getTrangThai()));
+            ps.setString(15, kh.getAnhCCCD());
+            ps.setInt(16, kh.getSoLanO());
+            ps.setDouble(17, kh.getTongChiTieu());
+            ps.setInt(18, kh.getDiemTichLuy());
+            ps.setString(19, kh.getHangKhachHang());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { 
-            // Fallback for older schema
-            String sqlFallback = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd) VALUES(?,?,?,?)";
-            try (PreparedStatement ps = getConn().prepareStatement(sqlFallback)) {
-                ps.setString(1, kh.getMaKhachHang());
-                ps.setString(2, kh.getHoTen());
-                ps.setString(3, kh.getSdt());
-                ps.setString(4, kh.getCccd());
-                return ps.executeUpdate() > 0;
-            } catch (SQLException ex) { ex.printStackTrace(); return false; }
+            // Attempt to update only primary columns if CRM columns aren't ready
+            return insertLegacy(kh);
         }
     }
 
+    private boolean insertLegacy(KhachHang kh) {
+        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, isKichHoat) VALUES(?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, kh.getMaKhachHang());
+            ps.setString(2, kh.getHoTen());
+            ps.setString(3, kh.getSdt());
+            ps.setString(4, kh.getCccd());
+            ps.setDate(5, kh.getNgaySinh() != null ? java.sql.Date.valueOf(kh.getNgaySinh()) : null);
+            ps.setString(6, kh.getGioiTinh());
+            ps.setString(7, kh.getQuocTich());
+            ps.setString(8, kh.getLoaiGiayTo());
+            ps.setString(9, kh.getSoHoChieu());
+            ps.setBoolean(10, true);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Insert failed", ex); return false; }
+    }
+
     public boolean update(KhachHang kh) {
-        String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=?, ngaySinh=?, gioiTinh=?, quocTich=? WHERE maKhachHang=?";
+        String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=?, ngaySinh=?, gioiTinh=?, quocTich=?, loaiGiayTo=?, soHoChieu=?, soVisa=?, ngayHetHanVisa=?, noiCapHoChieu=?, ngayNhapCanh=?, trangThai=?, anhCCCD=?, soLanO=?, tongChiTieu=?, diemTichLuy=?, hangKhachHang=? WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getHoTen());
             ps.setString(2, kh.getSdt());
@@ -106,19 +150,35 @@ public class KhachHangDAO {
             ps.setDate(4, kh.getNgaySinh() != null ? java.sql.Date.valueOf(kh.getNgaySinh()) : null);
             ps.setString(5, kh.getGioiTinh());
             ps.setString(6, kh.getQuocTich());
-            ps.setString(7, kh.getMaKhachHang());
+            ps.setString(7, kh.getLoaiGiayTo() != null ? kh.getLoaiGiayTo() : "CCCD");
+            ps.setString(8, kh.getSoHoChieu());
+            ps.setString(9, kh.getSoVisa());
+            ps.setDate(10, kh.getNgayHetHanVisa() != null ? java.sql.Date.valueOf(kh.getNgayHetHanVisa()) : null);
+            ps.setString(11, kh.getNoiCapHoChieu());
+            ps.setDate(12, kh.getNgayNhapCanh() != null ? java.sql.Date.valueOf(kh.getNgayNhapCanh()) : null);
+            ps.setBoolean(13, !"Ngừng".equals(kh.getTrangThai()));
+            ps.setString(14, kh.getAnhCCCD());
+            ps.setInt(15, kh.getSoLanO());
+            ps.setDouble(16, kh.getTongChiTieu());
+            ps.setInt(17, kh.getDiemTichLuy());
+            ps.setString(18, kh.getHangKhachHang());
+            ps.setString(19, kh.getMaKhachHang());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { 
-            // Fallback for older schema
-            String sqlFallback = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=? WHERE maKhachHang=?";
-            try (PreparedStatement ps = getConn().prepareStatement(sqlFallback)) {
-                ps.setString(1, kh.getHoTen());
-                ps.setString(2, kh.getSdt());
-                ps.setString(3, kh.getCccd());
-                ps.setString(4, kh.getMaKhachHang());
-                return ps.executeUpdate() > 0;
-            } catch (SQLException ex) { ex.printStackTrace(); return false; }
+            // Fallback
+            return updateLegacy(kh);
         }
+    }
+
+    private boolean updateLegacy(KhachHang kh) {
+        String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=? WHERE maKhachHang=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, kh.getHoTen());
+            ps.setString(2, kh.getSdt());
+            ps.setString(3, kh.getCccd());
+            ps.setString(4, kh.getMaKhachHang());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Update failed", ex); return false; }
     }
 
     public String generateMaKH() {
@@ -130,11 +190,21 @@ public class KhachHangDAO {
     }
 
     public boolean delete(String maKhachHang) {
-        String sql = "DELETE FROM KhachHang WHERE maKhachHang=?";
+        String sql = "UPDATE KhachHang SET trangThai=0 WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maKhachHang);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); return false; }
+    }
+
+    /** Lấy danh sách khách nước ngoài */
+    public List<KhachHang> getKhachNuocNgoai() {
+        List<KhachHang> list = new ArrayList<>();
+        String sql = "SELECT * FROM KhachHang WHERE quocTich IS NOT NULL AND quocTich <> N'Việt Nam' AND quocTich <> 'VN' AND trangThai=1 ORDER BY hoTen";
+        try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) list.add(mapRow(rs));
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); }
+        return list;
     }
 
     private KhachHang mapRow(ResultSet rs) throws SQLException {
@@ -151,8 +221,66 @@ public class KhachHangDAO {
         } catch (SQLException ignored) {
             // Ignore for backwards compatibility with old schema
         }
+        // Passport / Visa fields (safe read)
+        try {
+            kh.setLoaiGiayTo(rs.getString("loaiGiayTo"));
+        } catch (SQLException ignored) { }
+        try {
+            kh.setSoHoChieu(rs.getString("soHoChieu"));
+        } catch (SQLException ignored) { }
+        try {
+            kh.setSoVisa(rs.getString("soVisa"));
+        } catch (SQLException ignored) { }
+        try {
+            Date hhv = rs.getDate("ngayHetHanVisa");
+            if (hhv != null) kh.setNgayHetHanVisa(hhv.toLocalDate());
+        } catch (SQLException ignored) { }
+        try {
+            kh.setNoiCapHoChieu(rs.getString("noiCapHoChieu"));
+        } catch (SQLException ignored) { }
+        try {
+            Date nc = rs.getDate("ngayNhapCanh");
+            if (nc != null) kh.setNgayNhapCanh(nc.toLocalDate());
+        } catch (SQLException ignored) { }
+        try {
+            kh.setAnhCCCD(rs.getString("anhCCCD"));
+        } catch (SQLException ignored) { }
+        try { kh.setTrangThai(rs.getBoolean("trangThai") ? "Hoạt động" : "Ngừng"); } catch (Exception e) { kh.setTrangThai("Hoạt động"); }
+        
+        // CRM Mapping
+        try { kh.setSoLanO(rs.getInt("soLanO")); } catch (SQLException ignored) { }
+        try { kh.setTongChiTieu(rs.getDouble("tongChiTieu")); } catch (SQLException ignored) { }
+        try { kh.setDiemTichLuy(rs.getInt("diemTichLuy")); } catch (SQLException ignored) { }
+        try { kh.setHangKhachHang(rs.getString("hangKhachHang")); } catch (SQLException ignored) { }
+        
         return kh;
     }
+
+    /** Cập nhật thống kê CRM (nguyên tử) */
+    public boolean updateCRMStats(String maKh, double addedSpending, boolean incrementStay) {
+        String sql = "UPDATE KhachHang SET " +
+                     "soLanO = soLanO + ?, " +
+                     "tongChiTieu = tongChiTieu + ?, " +
+                     "diemTichLuy = diemTichLuy + ?, " +
+                     "hangKhachHang = CASE " +
+                     "  WHEN (soLanO + ?) >= 10 OR (tongChiTieu + ?) >= 20000000 THEN N'VIP (Gold)' " +
+                     "  WHEN (soLanO + ?) >= 3 OR (tongChiTieu + ?) >= 5000000 THEN N'Thân thiết (Silver)' " +
+                     "  ELSE N'Hạng Thường (Bronze)' " +
+                     "END " +
+                     "WHERE maKhachHang = ?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            int inc = incrementStay ? 1 : 0;
+            int points = (int) (addedSpending / 200000);
+            
+            ps.setInt(1, inc);
+            ps.setDouble(2, addedSpending);
+            ps.setInt(3, points);
+            ps.setInt(4, inc);
+            ps.setDouble(5, addedSpending);
+            ps.setInt(6, inc);
+            ps.setDouble(7, addedSpending);
+            ps.setString(8, maKh);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "CRM Update failed", e); return false; }
+    }
 }
-
-

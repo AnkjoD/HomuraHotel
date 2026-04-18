@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.KhuyenMai;
@@ -19,41 +19,101 @@ public class KhuyenMaiDAO {
     }
 
     public List<KhuyenMai> getAll() {
+        return search(null, null);
+    }
+
+    public List<KhuyenMai> search(String keyword, String status) {
         List<KhuyenMai> list = new ArrayList<>();
-        String sql = "SELECT * FROM KHUYEN_MAI ORDER BY ngayBatDau DESC";
-        try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); }
+        StringBuilder sql = new StringBuilder("SELECT * FROM KhuyenMai WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql.append(" AND (maKM LIKE ? OR tenKM LIKE ?)");
+            String k = "%" + keyword.trim() + "%";
+            params.add(k); params.add(k);
+        }
+
+        if (status != null && !status.equals("Tất cả")) {
+            if ("Hoạt động".equals(status)) {
+                sql.append(" AND trangThai = 1 AND ngayBatDau <= GETDATE() AND ngayKetThuc >= GETDATE()");
+            } else if ("Hết hạn".equals(status)) {
+                sql.append(" AND ngayKetThuc < GETDATE()");
+            } else if ("Tạm dừng".equals(status)) {
+                sql.append(" AND trangThai = 0");
+            }
+        }
+
+        sql.append(" ORDER BY ngayBatDau DESC");
+
+        try (PreparedStatement ps = getConn().prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Search error", e);
+        }
         return list;
     }
 
-    public KhuyenMai getById(String maKM) {
-        String sql = "SELECT * FROM KHUYEN_MAI WHERE maKM=?";
+    public KhuyenMai getByVoucherCode(String code) {
+        String sql = "SELECT * FROM KhuyenMai WHERE maKM=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-            ps.setString(1, maKM);
+            ps.setString(1, code);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error", e); }
         return null;
     }
 
     public boolean insert(KhuyenMai km) {
-        String sql = "INSERT INTO KHUYEN_MAI(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc) VALUES(?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhuyenMai(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu) VALUES(?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getMaKhuyenMai());
             ps.setString(2, km.getTenKhuyenMai());
-            ps.setString(3, km.getLoaiGiam() != null ? km.getLoaiGiam().name() : null);
+            ps.setString(3, km.getLoaiGiam().name());
             ps.setDouble(4, km.getGiaTriGiam());
-            ps.setTimestamp(5, km.getNgayBatDau() != null ? Timestamp.valueOf(km.getNgayBatDau()) : null);
-            ps.setTimestamp(6, km.getNgayKetThuc() != null ? Timestamp.valueOf(km.getNgayKetThuc()) : null);
+            ps.setTimestamp(5, Timestamp.valueOf(km.getNgayBatDau()));
+            ps.setTimestamp(6, Timestamp.valueOf(km.getNgayKetThuc()));
+            ps.setBoolean(7, km.isTrangThai());
+            ps.setInt(8, km.getSoLuong());
+            ps.setInt(9, km.getDaDung());
+            ps.setDouble(10, km.getDieuKienToiThieu());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhuyenMaiDAO", e); return false; }
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Insert error", e); return false; }
+    }
+
+    public boolean update(KhuyenMai km) {
+        String sql = "UPDATE KhuyenMai SET tenKM=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=? WHERE maKM=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, km.getTenKhuyenMai());
+            ps.setString(2, km.getLoaiGiam().name());
+            ps.setDouble(3, km.getGiaTriGiam());
+            ps.setTimestamp(4, Timestamp.valueOf(km.getNgayBatDau()));
+            ps.setTimestamp(5, Timestamp.valueOf(km.getNgayKetThuc()));
+            ps.setBoolean(6, km.isTrangThai());
+            ps.setInt(7, km.getSoLuong());
+            ps.setInt(8, km.getDaDung());
+            ps.setDouble(9, km.getDieuKienToiThieu());
+            ps.setString(10, km.getMaKhuyenMai());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Update error", e); return false; }
+    }
+
+    public boolean delete(String maKM) {
+        try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM KhuyenMai WHERE maKM=?")) {
+            ps.setString(1, maKM);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Delete error", e); return false; }
     }
 
     private KhuyenMai mapRow(ResultSet rs) throws SQLException {
         KhuyenMai km = new KhuyenMai();
         km.setMaKhuyenMai(rs.getString("maKM"));
-        km.setTenKhuyenMai(rs.getString("tenKM"));
+        km.setTenKM(rs.getString("tenKM"));
         
         String loaiStr = rs.getString("loaiGiam");
         if (loaiStr != null) {
@@ -65,12 +125,13 @@ public class KhuyenMaiDAO {
         }
         
         km.setGiaTriGiam(rs.getDouble("giaTriGiam"));
+        km.setNgayBatDau(rs.getTimestamp("ngayBatDau").toLocalDateTime());
+        km.setNgayKetThuc(rs.getTimestamp("ngayKetThuc").toLocalDateTime());
         
-        Timestamp start = rs.getTimestamp("ngayBatDau");
-        if (start != null) km.setNgayBatDau(start.toLocalDateTime());
-        
-        Timestamp end = rs.getTimestamp("ngayKetThuc");
-        if (end != null) km.setNgayKetThuc(end.toLocalDateTime());
+        km.setTrangThai(rs.getBoolean("trangThai"));
+        km.setSoLuong(rs.getInt("soLuong"));
+        km.setDaDung(rs.getInt("daDung"));
+        km.setDieuKienToiThieu(rs.getDouble("dieuKienToiThieu"));
         
         return km;
     }

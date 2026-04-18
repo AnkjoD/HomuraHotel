@@ -4,7 +4,6 @@ import database.DatabaseConnection;
 import entity.NhanVien;
 import entity.TaiKhoan;
 import entity.enums.VaiTro;
-import service.PasswordUtils;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -25,37 +24,17 @@ public class TaiKhoanDAO {
      * Nếu phát hiện mật khẩu plaintext, tự động nâng cấp sang hash.
      */
     public TaiKhoan dangNhap(String tenDangNhap, String matKhau) {
-        // Lấy tài khoản theo tên đăng nhập (không so sánh mật khẩu trong SQL)
         String sql = "SELECT tk.*, nv.hoTen, nv.sdt, nv.chucVu " +
                      "FROM TaiKhoan tk " +
                      "JOIN NhanVien nv ON tk.maNhanVien = nv.maNhanVien " +
-                     "WHERE tk.tenDangNhap=? AND tk.trangThai=1";
+                     "WHERE tk.tenDangNhap=? AND tk.matKhau=? AND tk.trangThai=1";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, tenDangNhap);
-            ps.setQueryTimeout(8);
+            ps.setString(2, matKhau);
+            ps.setQueryTimeout(5);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                String storedPassword = rs.getString("matKhau");
-
-                // Kiểm tra mật khẩu
-                boolean passwordMatch;
-                if (PasswordUtils.isHashed(storedPassword)) {
-                    // Mật khẩu đã hash → verify bằng PasswordUtils
-                    passwordMatch = PasswordUtils.verifyPassword(matKhau, storedPassword);
-                } else {
-                    // Mật khẩu plaintext legacy → so sánh trực tiếp
-                    passwordMatch = matKhau.equals(storedPassword);
-                    if (passwordMatch) {
-                        // Tự động nâng cấp: hash mật khẩu và lưu lại vào DB
-                        String hashed = PasswordUtils.hashPassword(matKhau);
-                        upgradePassword(tenDangNhap, hashed);
-                        LOGGER.info("Đã nâng cấp mật khẩu plaintext → hash cho tài khoản: " + tenDangNhap);
-                    }
-                }
-
-                if (passwordMatch) {
-                    return mapRow(rs);
-                }
+                return mapRow(rs);
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Lỗi đăng nhập", e);
@@ -64,16 +43,33 @@ public class TaiKhoanDAO {
     }
 
     /**
-     * Nâng cấp mật khẩu từ plaintext sang hash (silent upgrade).
+     * Kiểm tra tài khoản có tồn tại nhưng đang bị khóa không.
+     * Trả về true nếu tài khoản tồn tại, mật khẩu đúng, nhưng trangThai = 0.
      */
-    private void upgradePassword(String tenDangNhap, String hashedPassword) {
-        String sql = "UPDATE TaiKhoan SET matKhau=? WHERE tenDangNhap=?";
+    public boolean isAccountDisabled(String tenDangNhap, String matKhau) {
+        String sql = "SELECT trangThai FROM TaiKhoan WHERE tenDangNhap=? AND matKhau=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-            ps.setString(1, hashedPassword);
-            ps.setString(2, tenDangNhap);
+            ps.setString(1, tenDangNhap);
+            ps.setString(2, matKhau);
+            ps.setQueryTimeout(5);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return !rs.getBoolean("trangThai"); // trangThai=0 → bị khóa
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi kiểm tra trạng thái tài khoản", e);
+        }
+        return false;
+    }
+
+    /** Cập nhật thời gian đăng nhập cuối */
+    public void updateLanDangNhapCuoi(String tenDangNhap) {
+        String sql = "UPDATE TaiKhoan SET lanDangNhapCuoi = GETDATE() WHERE tenDangNhap=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, tenDangNhap);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "Không thể nâng cấp mật khẩu cho: " + tenDangNhap, e);
+            LOGGER.log(Level.WARNING, "Lỗi cập nhật lần đăng nhập cuối", e);
         }
     }
 
@@ -83,11 +79,7 @@ public class TaiKhoanDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, tk.getTenDangNhap());
             ps.setString(2, tk.getNhanVien().getMaNhanVien());
-            // Luôn hash mật khẩu trước khi lưu
-            String hashedPwd = PasswordUtils.isHashed(tk.getMatKhau()) 
-                ? tk.getMatKhau() 
-                : PasswordUtils.hashPassword(tk.getMatKhau());
-            ps.setString(3, hashedPwd);
+            ps.setString(3, tk.getMatKhau());
             ps.setString(4, tk.getVaiTro().name());
             ps.setBoolean(5, tk.isTrangThai());
             ps.setTimestamp(6, tk.getLanDangNhapCuoi() != null ? Timestamp.valueOf(tk.getLanDangNhapCuoi()) : null);
@@ -99,13 +91,9 @@ public class TaiKhoanDAO {
     }
 
     public boolean updateMatKhau(String tenDangNhap, String matKhauMoi) {
-        // Luôn hash mật khẩu mới
-        String hashedPwd = PasswordUtils.isHashed(matKhauMoi) 
-            ? matKhauMoi 
-            : PasswordUtils.hashPassword(matKhauMoi);
         String sql = "UPDATE TaiKhoan SET matKhau=? WHERE tenDangNhap=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-            ps.setString(1, hashedPwd);
+            ps.setString(1, matKhauMoi);
             ps.setString(2, tenDangNhap);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -119,6 +107,7 @@ public class TaiKhoanDAO {
         String sql = "SELECT tk.*, nv.hoTen, nv.sdt, nv.chucVu " +
                      "FROM TaiKhoan tk " +
                      "JOIN NhanVien nv ON tk.maNhanVien = nv.maNhanVien " +
+                     "WHERE tk.trangThai=1 " +
                      "ORDER BY nv.hoTen";
         try (Statement st = getConn().createStatement(); 
              ResultSet rs = st.executeQuery(sql)) {

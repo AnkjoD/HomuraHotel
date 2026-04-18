@@ -23,7 +23,8 @@ public class ThongKeDAO {
     // ---- Dashboard tổng quan ----
     public Map<String, Object> getDashboardStats() {
         Map<String, Object> stats = new LinkedHashMap<>();
-        try (Connection conn = getConn()) {
+        try {
+            Connection conn = getConn();
 
             try (PreparedStatement ps = conn.prepareStatement(
                     "SELECT COUNT(*) FROM Phong WHERE trangThai='AVAILABLE'")) {
@@ -67,7 +68,8 @@ public class ThongKeDAO {
     // ---- Thống kê theo kỳ ----
     public Map<String, Object> getThongKeKy(String ky) {
         Map<String, Object> stats = new LinkedHashMap<>();
-        try (Connection conn = getConn()) {
+        try {
+            Connection conn = getConn();
             stats.put("doanhThu",     sumRevenueByKy(conn, ky));
             stats.put("doanhThuDV",   sumServiceRevenueByKy(conn, ky));
 
@@ -92,11 +94,11 @@ public class ThongKeDAO {
     }
 
     // ---- Doanh thu theo ngày trong tháng ----
-    public List<long[]> getDoanhThuTheoNgay() {
+    public List<long[]> getDoanhThuTheoNgay(String ky) {
         List<long[]> result = new ArrayList<>();
         String sql = "SELECT DAY(ngayLap) AS ngay, ISNULL(SUM(tongThanhToan),0) AS dt " +
                      "FROM HoaDon " +
-                     "WHERE MONTH(ngayLap)=MONTH(GETDATE()) AND YEAR(ngayLap)=YEAR(GETDATE()) " +
+                     "WHERE " + getDateFilter("ngayLap", ky) + " " +
                      "GROUP BY DAY(ngayLap) ORDER BY ngay";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) result.add(new long[]{rs.getLong("ngay"), rs.getLong("dt")});
@@ -107,7 +109,18 @@ public class ThongKeDAO {
     }
 
     private String getDateFilter(String dateCol, String ky) {
-        switch (ky) {
+        if (ky != null && ky.startsWith("custom:")) {
+            String[] parts = ky.split(":");
+            if (parts.length == 3) {
+                String d1 = parts[1];
+                String d2 = parts[2];
+                if (d1.matches("\\d{4}-\\d{2}-\\d{2}") && d2.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    return dateCol + " >= '" + d1 + " 00:00:00' AND " + dateCol + " <= '" + d2 + " 23:59:59'";
+                }
+            }
+        }
+        
+        switch (ky != null ? ky : "thang") {
             case "7ngay":
                 return dateCol + " >= DATEADD(DAY,-7,GETDATE())";
             case "quy":
@@ -115,6 +128,7 @@ public class ThongKeDAO {
                        "AND YEAR(" + dateCol + ")=YEAR(GETDATE())";
             case "nam":
                 return "YEAR(" + dateCol + ")=YEAR(GETDATE())";
+            case "thang":
             default:
                 return "MONTH(" + dateCol + ")=MONTH(GETDATE()) AND YEAR(" + dateCol + ")=YEAR(GETDATE())";
         }
@@ -155,7 +169,7 @@ public class ThongKeDAO {
     }
 
     // ---- Top phòng doanh thu ----
-    public List<Map<String, Object>> getTopPhongDoanhThu(int topN) {
+    public List<Map<String, Object>> getTopPhongDoanhThu(int topN, String ky) {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT TOP " + topN + " ct.maPhong, lp.tenLoaiPhong, " +
@@ -164,7 +178,7 @@ public class ThongKeDAO {
             "JOIN ChiTietDatPhong ct ON hd.maDatPhong = ct.maDatPhong " +
             "JOIN Phong p ON ct.maPhong = p.maPhong " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
-            "WHERE MONTH(hd.ngayLap)=MONTH(GETDATE()) AND YEAR(hd.ngayLap)=YEAR(GETDATE()) " +
+            "WHERE " + getDateFilter("hd.ngayLap", ky) + " " +
             "GROUP BY ct.maPhong, lp.tenLoaiPhong ORDER BY dt DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
@@ -239,13 +253,13 @@ public class ThongKeDAO {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT TOP " + limit + " * FROM (" +
-            "  SELECT 'Nhận phòng' AS loai, ct.maPhong, kh.hoTen, ct.ngayNhanThucTe AS thoiGian " +
+            "  SELECT N'Nh\u1EADn ph\u00F2ng' AS loai, ct.maPhong, kh.hoTen, ct.ngayNhanThucTe AS thoiGian " +
             "  FROM ChiTietDatPhong ct " +
             "  JOIN DatPhong dp ON ct.maDatPhong=dp.maDatPhong " +
             "  JOIN KhachHang kh ON dp.maKhachHang=kh.maKhachHang " +
             "  WHERE ct.ngayNhanThucTe IS NOT NULL " +
             "  UNION ALL " +
-            "  SELECT 'Trả phòng', ct.maPhong, kh.hoTen, ct.ngayTraThucTe " +
+            "  SELECT N'Tr\u1EA3 ph\u00F2ng', ct.maPhong, kh.hoTen, ct.ngayTraThucTe " +
             "  FROM ChiTietDatPhong ct " +
             "  JOIN DatPhong dp ON ct.maDatPhong=dp.maDatPhong " +
             "  JOIN KhachHang kh ON dp.maKhachHang=kh.maKhachHang " +
@@ -267,11 +281,12 @@ public class ThongKeDAO {
     }
 
     // ---- Top dịch vụ ----
-    public List<Map<String, Object>> getTopDichVu(int topN) {
+    public List<Map<String, Object>> getTopDichVu(int topN, String ky) {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT TOP " + topN + " dv.tenDichVu, SUM(sddv.soLuong) AS soLan, " +
             "  SUM(sddv.soLuong * sddv.donGiaLucDung) AS doanhThu " +
             "FROM SuDungDichVu sddv JOIN DichVu dv ON sddv.maDichVu=dv.maDichVu " +
+            "WHERE " + getDateFilter("sddv.thoiGianDung", ky) + " " +
             "GROUP BY dv.tenDichVu ORDER BY soLan DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
@@ -290,14 +305,17 @@ public class ThongKeDAO {
     // ---- Cảnh báo & Nhắc nhở ----
     public List<Map<String, Object>> getAlerts() {
         List<Map<String, Object>> list = new ArrayList<>();
-        try (Connection conn = getConn()) {
+        try {
+            Connection conn = getConn();
 
             // Phòng đang vệ sinh
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery("SELECT maPhong FROM Phong WHERE trangThai='CLEANING'")) {
                 while (rs.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("title", "P." + rs.getString("maPhong") + " – Đang vệ sinh");
+                    String maPhong = rs.getString("maPhong");
+                    row.put("id", "cleaning_" + maPhong);
+                    row.put("title", "P." + maPhong + " – Đang vệ sinh");
                     row.put("desc",  "Cần kiểm tra & xác nhận sạch sẽ");
                     row.put("type",  "warning");
                     list.add(row);
@@ -309,7 +327,9 @@ public class ThongKeDAO {
                  ResultSet rs = st.executeQuery("SELECT maPhong FROM Phong WHERE trangThai='MAINTENANCE'")) {
                 while (rs.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("title", "P." + rs.getString("maPhong") + " – Đang bảo trì");
+                    String maPhong = rs.getString("maPhong");
+                    row.put("id", "maint_" + maPhong);
+                    row.put("title", "P." + maPhong + " – Đang bảo trì");
                     row.put("desc",  "Không cho khách thuê cho đến khi hoàn tất");
                     row.put("type",  "danger");
                     list.add(row);
@@ -319,7 +339,7 @@ public class ThongKeDAO {
             // Phòng quá hạn trả
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery(
-                    "SELECT ct.maPhong, kh.hoTen FROM ChiTietDatPhong ct " +
+                    "SELECT ct.maPhong, kh.hoTen, dp.ngayTraDuKien FROM ChiTietDatPhong ct " +
                     "JOIN DatPhong dp ON ct.maDatPhong=dp.maDatPhong " +
                     "JOIN KhachHang kh ON dp.maKhachHang=kh.maKhachHang " +
                     "WHERE ct.ngayTraThucTe IS NULL " +
@@ -327,12 +347,39 @@ public class ThongKeDAO {
                     "  AND dp.trangThai='CHECKED_IN'")) {
                 while (rs.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("title", "P." + rs.getString("maPhong") + " – Quá hạn trả phòng");
-                    row.put("desc",  rs.getString("hoTen") + " chưa check-out");
+                    Timestamp duKien = rs.getTimestamp("ngayTraDuKien");
+                    String timeStr = duKien != null ? new java.text.SimpleDateFormat("HH:mm").format(duKien) : "";
+                    
+                    row.put("title", "P." + rs.getString("maPhong") + " – Quá hạn trả (" + timeStr + ")");
+                    row.put("desc",  rs.getString("hoTen") + " chưa làm thủ tục trả phòng");
                     row.put("type",  "danger");
+                    row.put("id", "overdue_" + rs.getString("maPhong") + "_" + (duKien != null ? duKien.getTime() : 0));
                     list.add(row);
                 }
             }
+
+            // Phòng sắp đến giờ trả (trong 2 tiếng tới)
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery(
+                    "SELECT ct.maPhong, kh.hoTen, dp.ngayTraDuKien FROM ChiTietDatPhong ct " +
+                    "JOIN DatPhong dp ON ct.maDatPhong=dp.maDatPhong " +
+                    "JOIN KhachHang kh ON dp.maKhachHang=kh.maKhachHang " +
+                    "WHERE ct.ngayTraThucTe IS NULL " +
+                    "  AND dp.ngayTraDuKien BETWEEN GETDATE() AND DATEADD(HOUR, 2, GETDATE()) " +
+                    "  AND dp.trangThai='CHECKED_IN'")) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    Timestamp duKien = rs.getTimestamp("ngayTraDuKien");
+                    String timeStr = duKien != null ? new java.text.SimpleDateFormat("HH:mm").format(duKien) : "ngay";
+                    
+                    row.put("title", "P." + rs.getString("maPhong") + " – Sắp trả phòng");
+                    row.put("desc",  "Khách " + rs.getString("hoTen") + " dự kiến trả lúc " + timeStr);
+                    row.put("type",  "info");
+                    row.put("id", "upcoming_" + rs.getString("maPhong") + "_" + (duKien != null ? duKien.getTime() : 0));
+                    list.add(row);
+                }
+            }
+
 
             // Đặt phòng hôm nay chưa check-in
             try (Statement st = conn.createStatement();
@@ -343,7 +390,9 @@ public class ThongKeDAO {
                     "  AND dp.trangThai='CONFIRMED'")) {
                 while (rs.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("title", "Đặt " + rs.getString("maDatPhong") + " chưa check-in");
+                    String maDat = rs.getString("maDatPhong");
+                    row.put("id", "noshow_" + maDat);
+                    row.put("title", "Đặt " + maDat + " chưa check-in");
                     row.put("desc",  rs.getString("hoTen") + " dự kiến nhận phòng hôm nay");
                     row.put("type",  "info");
                     list.add(row);

@@ -1,4 +1,4 @@
-﻿package dao;
+package dao;
 
 import database.DatabaseConnection;
 import entity.HuongNhin;
@@ -27,19 +27,32 @@ public class PhongDAO {
         String sql =
             "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, " +
             "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
-            "kh.hoTen AS tenKhachHienTai " +
+            "(SELECT TOP 1 kh.hoTen " +
+            " FROM ChiTietDatPhong ct " +
+            " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
+            " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+            " WHERE ct.maPhong = p.maPhong " +
+            "   AND ct.ngayNhanThucTe IS NOT NULL " +
+            "   AND ct.ngayTraThucTe IS NULL " +
+            "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
+            " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai, " +
+            "(SELECT TOP 1 ct.ngayNhanThucTe FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianCheckIn, " +
+            "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
-            "LEFT JOIN ChiTietDatPhong ct ON ct.maPhong = p.maPhong " +
-            "  AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL " +
-            "LEFT JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
-            "LEFT JOIN KhachHang kh ON dp.maKhachHang = kh.maKhachHang";
+            "WHERE p.trangThai <> 'DELETED'";
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Phong p = mapRow(rs);
-                try { p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); } catch (Exception ignored) {}
+                try { 
+                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                    Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
+                    if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
+                    Timestamp tsOut = rs.getTimestamp("thoiGianTraDuKien");
+                    if (tsOut != null) p.setExpectedCheckOutTime(tsOut.toLocalDateTime());
+                } catch (Exception ignored) {}
                 list.add(p);
             }
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
@@ -48,7 +61,18 @@ public class PhongDAO {
 
     public Phong getById(String maPhong) {
         String sql = "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, " +
-                     "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin " +
+                     "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
+                     "(SELECT TOP 1 kh.hoTen " +
+                     " FROM ChiTietDatPhong ct " +
+                     " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
+                     " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                     " WHERE ct.maPhong = p.maPhong " +
+                     "   AND ct.ngayNhanThucTe IS NOT NULL " +
+                     "   AND ct.ngayTraThucTe IS NULL " +
+                     "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
+                     " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai, " +
+                     "(SELECT TOP 1 ct.ngayNhanThucTe FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianCheckIn, " +
+                     "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
                      "FROM Phong p " +
                      "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
                      "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
@@ -56,7 +80,17 @@ public class PhongDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return mapRow(rs);
+            if (rs.next()) {
+                Phong p = mapRow(rs);
+                try { 
+                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                    Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
+                    if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
+                    Timestamp tsOut = rs.getTimestamp("thoiGianTraDuKien");
+                    if (tsOut != null) p.setExpectedCheckOutTime(tsOut.toLocalDateTime());
+                } catch (Exception ignored) {}
+                return p;
+            }
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
         return null;
     }
@@ -69,7 +103,11 @@ public class PhongDAO {
             ps.setInt(3, p.getTang());
             ps.setString(4, p.getMaHuongNhin());
             ps.setString(5, p.getTrangThai() != null ? p.getTrangThai().name() : "AVAILABLE");
-            return ps.executeUpdate() > 0;
+            boolean ok = ps.executeUpdate() > 0;
+            if (ok) {
+                service.LogService.addLog("Thêm phòng", "Phòng " + p.getMaPhong(), "Thêm phòng mới vào hệ thống");
+            }
+            return ok;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
     }
 
@@ -81,7 +119,11 @@ public class PhongDAO {
             ps.setString(3, p.getMaHuongNhin());
             ps.setString(4, p.getTrangThai() != null ? p.getTrangThai().name() : "AVAILABLE");
             ps.setString(5, p.getMaPhong());
-            return ps.executeUpdate() > 0;
+            boolean ok = ps.executeUpdate() > 0;
+            if (ok) {
+                service.LogService.addLog("Sửa phòng", "Phòng " + p.getMaPhong(), "Cập nhật thông tin phòng");
+            }
+            return ok;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
     }
 
@@ -90,14 +132,16 @@ public class PhongDAO {
         String sql =
             "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, " +
             "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
-            "kh.hoTen AS tenKhachHienTai " +
+            "(SELECT TOP 1 kh.hoTen " +
+            " FROM ChiTietDatPhong ct " +
+            " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
+            " WHERE ct.maPhong = p.maPhong " +
+            "   AND ct.ngayNhanThucTe IS NOT NULL " +
+            "   AND ct.ngayTraThucTe IS NULL " +
+            " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai " +
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
-            "LEFT JOIN ChiTietDatPhong ct2 ON ct2.maPhong = p.maPhong " +
-            "  AND ct2.ngayNhanThucTe IS NOT NULL AND ct2.ngayTraThucTe IS NULL " +
-            "LEFT JOIN DatPhong dpCurr ON ct2.maDatPhong = dpCurr.maDatPhong " +
-            "LEFT JOIN KhachHang kh ON dpCurr.maKhachHang = kh.maKhachHang " +
             "WHERE lp.soNguoiToiDa >= ? " +
             "AND p.trangThai = 'AVAILABLE' " +
             "AND p.maPhong NOT IN (" +
@@ -122,11 +166,25 @@ public class PhongDAO {
     }
 
     public boolean delete(String maPhong) {
-        String sql = "DELETE FROM Phong WHERE maPhong=?";
+        String sql = "UPDATE Phong SET trangThai='DELETED' WHERE maPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
-            return ps.executeUpdate() > 0;
+            boolean ok = ps.executeUpdate() > 0;
+            if (ok) {
+                service.LogService.addLog("Xóa phòng", "Phòng " + maPhong, "Chuyển trạng thái phòng sang DELETED");
+            }
+            return ok;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); return false; }
+    }
+
+    public int countBookingReferences(String maPhong) {
+        String sql = "SELECT COUNT(*) FROM ChiTietDatPhong WHERE maPhong=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maPhong);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
+        return 0;
     }
 
     public List<Phong> search(String kw, String tang, String huongNhin) {
@@ -136,7 +194,7 @@ public class PhongDAO {
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
-            "WHERE 1=1 ");
+            "WHERE p.trangThai <> 'DELETED' ");
         if (kw != null && !kw.isEmpty()) sb.append("AND (p.maPhong LIKE ?) ");
         if (tang != null && !tang.isEmpty()) sb.append("AND p.tang = ? ");
         if (huongNhin != null && !huongNhin.isEmpty()) sb.append("AND hn.tenHuongNhin = ? ");
@@ -154,7 +212,7 @@ public class PhongDAO {
 
     public java.util.Map<String, Integer> getThongKeTrangThai() {
         java.util.Map<String, Integer> map = new java.util.HashMap<>();
-        String sql = "SELECT trangThai, COUNT(*) FROM Phong GROUP BY trangThai";
+        String sql = "SELECT trangThai, COUNT(*) FROM Phong WHERE trangThai <> 'DELETED' GROUP BY trangThai";
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
@@ -208,17 +266,34 @@ public class PhongDAO {
      * Dùng để validate trước khi đặt phòng.
      */
     public boolean isRoomAvailable(String maPhong, LocalDateTime from, LocalDateTime to) {
-        String sql =
+        return isRoomAvailable(maPhong, from, to, null);
+    }
+
+    /**
+     * Kiểm tra sẵn sàng của phòng, có thể loại trừ 1 mã đặt phòng (để gia hạn/đổi phòng chính nó).
+     */
+    public boolean isRoomAvailable(String maPhong, LocalDateTime from, LocalDateTime to, String excludeMaDatPhong) {
+        StringBuilder sql = new StringBuilder(
             "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
             "AND dp.trangThai IN ('CONFIRMED', 'CHECKED_IN') " +
             "AND dp.ngayNhanDuKien < ? " +
-            "AND dp.ngayTraDuKien > ?";
-        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            "AND dp.ngayTraDuKien > ?"
+        );
+        
+        if (excludeMaDatPhong != null && !excludeMaDatPhong.trim().isEmpty()) {
+            sql.append(" AND dp.maDatPhong <> ?");
+        }
+
+        try (PreparedStatement ps = getConn().prepareStatement(sql.toString())) {
             ps.setString(1, maPhong);
             ps.setTimestamp(2, Timestamp.valueOf(to));
             ps.setTimestamp(3, Timestamp.valueOf(from));
+            if (excludeMaDatPhong != null && !excludeMaDatPhong.trim().isEmpty()) {
+                ps.setString(4, excludeMaDatPhong);
+            }
+            
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1) == 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }

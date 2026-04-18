@@ -2,12 +2,14 @@ package ui;
 
 import ui.panels.*;
 import entity.NhanVien;
+import entity.enums.VaiTro;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.swing.*;
 import service.AuthService;
+import ui.components.NotificationManager;
 
 public class MainFrame extends JFrame {
 
@@ -15,28 +17,41 @@ public class MainFrame extends JFrame {
     private CardLayout cardLayout;
     private JLabel lblCurrentTime;
     private JLabel hotelLogoLabel;
+    private JPanel sidebar;
     private String activeMenu = "tongquan";
     private final java.util.Map<String, Long> lastRefreshAt = new java.util.HashMap<>();
     private final java.util.List<Runnable> menuUpdaters = new java.util.ArrayList<>();
-    private static final long REFRESH_COOLDOWN_MS = 7000;
+    private static final long REFRESH_COOLDOWN_MS = 2000;
+    private final java.util.Set<String> expandedGroups = new java.util.HashSet<>(java.util.Arrays.asList("qlhethong"));
 
     private TongQuanPanel pTongQuan;
     private ThuePhongPanel pThuePhong;
     private KhachHangPanel pKhachHang;
-    private QLHeThongPanel pQLHeThong;
+    private LoaiPhongPanel pLoaiPhong;
+    private PhongPanel pPhong;
+    private DichVuPanel pDichVu;
+    private BangGiaPanel pBangGia;
     private ThongKePanel pThongKe;
     private NhanVienPanel pNhanVien;
     private DatPhongPanel pDatPhong;
     private HoaDonPanel pHoaDon;
-    // private TaiKhoanPanel pTaiKhoan; // TODO next
+    private KhuyenMaiPanel pKhuyenMai;
+
+    private ui.components.GlobalNotificationBell notificationBell;
+    private final service.ThongKeService ts = new service.ThongKeService();
+    private final service.DatPhongService ds = new service.DatPhongService();
+    private final java.util.Set<String> dismissedAlertIds = new java.util.HashSet<>();
+    private static final String DISMISSED_ALERTS_FILE = "dismissed_notifications.dat";
 
     public MainFrame() {
         setTitle("Hotel MS");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1366, 820);
+        // setSize(1366, 820);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         initUI();
         startClock();
+        startNotificationTimer();
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
@@ -49,16 +64,38 @@ public class MainFrame extends JFrame {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(new Color(245, 246, 250));
 
-        root.add(buildHeader(), BorderLayout.NORTH);
+        JPanel contentWrapper = new JPanel(new BorderLayout());
+        contentWrapper.setOpaque(false);
+        contentWrapper.add(buildHeader(), BorderLayout.NORTH);
+        contentWrapper.add(buildContent(), BorderLayout.CENTER);
 
-        JPanel body = new JPanel(new BorderLayout());
-        body.setOpaque(false);
-        body.add(buildSidebar(), BorderLayout.WEST);
-        body.add(buildContent(), BorderLayout.CENTER);
-
-        root.add(body, BorderLayout.CENTER);
+        root.add(buildSidebar(), BorderLayout.WEST);
+        root.add(contentWrapper, BorderLayout.CENTER);
         setContentPane(root);
+
+        // Khởi tạo hệ thống thông báo đẩy
+        ui.components.NotificationManager.init(this);
+        loadDismissedAlerts();
     }
+
+    private void loadDismissedAlerts() {
+        java.io.File file = new java.io.File(DISMISSED_ALERTS_FILE);
+        if (file.exists()) {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.trim().isEmpty()) dismissedAlertIds.add(line.trim());
+                }
+            } catch (java.io.IOException e) { e.printStackTrace(); }
+        }
+    }
+
+    private void saveDismissedAlerts() {
+        try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(DISMISSED_ALERTS_FILE))) {
+            for (String id : dismissedAlertIds) writer.println(id);
+        } catch (java.io.IOException e) { e.printStackTrace(); }
+    }
+
 
     // ===== HEADER =====
     private JPanel buildHeader() {
@@ -67,49 +104,23 @@ public class MainFrame extends JFrame {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                g2.setColor(new Color(0, 0, 0, 20));
-                g2.fillRect(0, getHeight() - 2, getWidth(), 2);
+                // Nhấn mạnh đường phân cách dưới header
+                g2.setColor(new Color(255, 255, 255, 10));
+                g2.fillRect(0, getHeight() - 1, getWidth(), 1);
             }
         };
-        header.setBackground(new Color(0x1E2337));
+        header.setBackground(new Color(0x0F172A)); // Đồng nhất với Sidebar
         header.setPreferredSize(new Dimension(0, 60));
 
-        // ── Góc TRÁI: logo / avatar khách sạn ──
-        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 10));
+        // ── Góc TRÁI: Dành cho title hoặc breadcrumbs (Bỏ logo để layout sidebar trơn
+        // tru) ──
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 15));
         leftPanel.setOpaque(false);
 
-        // ★ THAY ĐỔI ĐƯỜNG DẪN LOGO TẠI ĐÂY ★
-        final String LOGO_PATH = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/img/logo.png";
-
-        java.io.File logoFile = new java.io.File(LOGO_PATH);
-        JLabel logoLbl;
-        if (logoFile.exists()) {
-            ImageIcon raw = new ImageIcon(logoFile.getAbsolutePath());
-            Image scaled = raw.getImage().getScaledInstance(40, 40, Image.SCALE_SMOOTH);
-            logoLbl = new JLabel(new ImageIcon(scaled));
-        } else {
-            // Placeholder hình vuông bo góc với chữ H
-            logoLbl = new JLabel() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(67, 97, 238));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                    g2.setColor(Color.WHITE);
-                    g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
-                    FontMetrics fm2 = g2.getFontMetrics();
-                    String t = "H";
-                    g2.drawString(t, (getWidth() - fm2.stringWidth(t)) / 2,
-                            (getHeight() + fm2.getAscent() - fm2.getDescent()) / 2);
-                    g2.dispose();
-                }
-            };
-            logoLbl.setToolTipText("Không tìm thấy: " + LOGO_PATH);
-        }
-        hotelLogoLabel = logoLbl;
-        hotelLogoLabel.setPreferredSize(new Dimension(40, 40));
-        leftPanel.add(hotelLogoLabel);
+        JLabel headerTitle = new JLabel("HỆ THỐNG QUẢN LÝ KHÁCH SẠN");
+        headerTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        headerTitle.setForeground(new Color(255, 255, 255, 200));
+        leftPanel.add(headerTitle);
 
         // ── Góc PHẢI: đồng hồ + avatar + tên (click → dropdown menu) ──
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 10));
@@ -161,7 +172,34 @@ public class MainFrame extends JFrame {
         avatar.addMouseListener(openMenu);
         lblName.addMouseListener(openMenu);
 
+        notificationBell = new ui.components.GlobalNotificationBell(this);
+        right.add(notificationBell);
         right.add(lblCurrentTime);
+
+        // === PHÂN QUYỀN: Badge vai trò trong header ===
+        VaiTro currentRole = AuthService.getInstance().getCurrentRole();
+        String roleName = currentRole == VaiTro.ADMIN ? "Quản trị viên"
+                : currentRole == VaiTro.MANAGER ? "Quản lý" : "Lễ tân";
+        Color roleColor = currentRole == VaiTro.ADMIN ? new Color(0x7C3AED)
+                : currentRole == VaiTro.MANAGER ? new Color(0x0EA5E9) : new Color(0x10B981);
+
+        JLabel lblRole = new JLabel(roleName) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(roleColor.getRed(), roleColor.getGreen(), roleColor.getBlue(), 40));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        lblRole.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblRole.setForeground(roleColor);
+        lblRole.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        lblRole.setOpaque(false);
+        right.add(lblRole);
+
         right.add(avatar);
         right.add(lblName);
 
@@ -178,24 +216,34 @@ public class MainFrame extends JFrame {
                 BorderFactory.createLineBorder(new Color(0xE2E8F0), 1),
                 BorderFactory.createEmptyBorder(4, 0, 4, 0)));
 
-        // ★ ĐƯỜNG DẪN ICON CHO TỪNG MỤC MENU — SỬA TẠI ĐÂY ★
         final String ICON_INFO = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/canhan.png";
         final String ICON_PWD = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/doimk.png";
         final String ICON_OUT = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/sign_out.png";
-
+        final String ICON_SHIFT = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/giao_ca.png"; 
+        final String ICON_EXPENSE = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/expense.png";
+        
         JMenuItem miInfo = styledMenuItem("Xem thông tin", new Color(0x1E2337), false);
+        JMenuItem miShift = styledMenuItem("Bàn giao ca", new Color(0x1E2337), false);
+        JMenuItem miExpense = styledMenuItem("Phiếu chi (Petty Cash)", new Color(0x1E2337), false);
         JMenuItem miPwd = styledMenuItem("Đổi mật khẩu", new Color(0x1E2337), false);
         JMenuItem miOut = styledMenuItem("Đăng xuất", new Color(0xEF4444), true);
 
         setMenuIcon(miInfo, ICON_INFO, 18);
+        setMenuIcon(miShift, ICON_SHIFT, 18);
+        setMenuIcon(miExpense, ICON_EXPENSE, 18);
         setMenuIcon(miPwd, ICON_PWD, 18);
         setMenuIcon(miOut, ICON_OUT, 18);
 
         miInfo.addActionListener(e -> showUserProfileDialog(user));
+        miShift.addActionListener(e -> new ui.dialogs.HandoverDialog(this).setVisible(true));
+        miExpense.addActionListener(e -> new ui.dialogs.ExpenseDialog(this).setVisible(true));
         miPwd.addActionListener(e -> showChangePasswordDialog());
         miOut.addActionListener(e -> doLogout());
 
         menu.add(miInfo);
+        menu.addSeparator();
+        menu.add(miShift);
+        menu.add(miExpense);
         menu.addSeparator();
         menu.add(miPwd);
         menu.addSeparator();
@@ -461,148 +509,294 @@ public class MainFrame extends JFrame {
 
     // ===== SIDEBAR =====
     private JPanel buildSidebar() {
-        JPanel sidebar = new JPanel() {
+        if (sidebar == null) {
+            sidebar = new JPanel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    // Đường kẻ phân cách tinh tế giữa sidebar và content
+                    g.setColor(new Color(255, 255, 255, 5));
+                    g.fillRect(getWidth() - 1, 0, 1, getHeight());
+                }
+            };
+            sidebar.setPreferredSize(new Dimension(280, 0));
+            sidebar.setBackground(new Color(0x0F172A));
+            sidebar.setLayout(new BorderLayout());
+        }
+
+        sidebar.removeAll();
+        menuUpdaters.clear();
+
+        // ── Logo Section (Sleeker)
+        JPanel logoSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 25));
+        logoSection.setOpaque(false);
+
+        JPanel logoBox = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                g.setColor(new Color(0x2D3452));
-                g.fillRect(getWidth() - 1, 0, 1, getHeight());
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setPaint(new GradientPaint(0, 0, new Color(0x6366F1), getWidth(), getHeight(), new Color(0x4F46E5)));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 22));
+                String t = "H";
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(t, (getWidth() - fm.stringWidth(t)) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
             }
         };
-        sidebar.setPreferredSize(new Dimension(260, 0));
-        sidebar.setBackground(new Color(0x1E2337)); // thay bằng màu tương ứng
-        sidebar.setLayout(new BorderLayout());
+        logoBox.setPreferredSize(new Dimension(46, 46));
 
-        // ── Logo
         JPanel textBlock = new JPanel();
         textBlock.setOpaque(false);
         textBlock.setLayout(new BoxLayout(textBlock, BoxLayout.Y_AXIS));
-        JLabel hotelName = new JLabel("Hotel MS Pro");
-        hotelName.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        hotelName.setForeground(Color.WHITE); // thay bằng màu tương ứng
-        JLabel sub = new JLabel("Enterprise Edition");
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        sub.setForeground(new Color(0x8892B0)); // thay bằng màu tương ứng
+        JLabel hotelName = new JLabel("Hotel Pro");
+        hotelName.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        hotelName.setForeground(Color.WHITE);
+        JLabel version = new JLabel("Enterprise Edition");
+        version.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        version.setForeground(new Color(0x64748B));
         textBlock.add(hotelName);
-        textBlock.add(sub);
+        textBlock.add(version);
 
-        JPanel logoWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 20));
-        logoWrap.setOpaque(false);
-        logoWrap.add(textBlock);
+        logoSection.add(logoBox);
+        logoSection.add(textBlock);
 
-        // ── Menu items
-        JPanel menu = new JPanel();
-        menu.setOpaque(false);
-        menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
-        menu.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        // ── Menu List with Scrollable container
+        JPanel menuContainer = new JPanel();
+        menuContainer.setOpaque(false);
+        menuContainer.setLayout(new BoxLayout(menuContainer, BoxLayout.Y_AXIS));
+        menuContainer.setBorder(BorderFactory.createEmptyBorder(0, 16, 20, 16));
 
         String[][] menus = {
-                { "tongquan", "Tổng quan", "\uD83C\uDFE0" },
-                { "datphong", "Đặt phòng", "\uD83D\uDCC5" },
-                { "thuephong", "Thuê Phòng", "\uD83D\uDECE\uFE0F" },
-                { "hoadon", "Quản lý hóa đơn", "\uD83D\uDCC4" },
-                { "SEP", "BỘ PHẬN QUẢN LÝ", "" },
-                { "khachhang", "Khách hàng", "\uD83D\uDC65" },
-                { "qlhethong", "Hệ thống & Dịch vụ", "\u2699\uFE0F" },
-                { "thongke", "Báo cáo thống kê", "\uD83D\uDCC8" },
-                { "nhanvien", "Nhân sự & Tài khoản", "\uD83D\uDEE1\uFE0F" }
+                { "tongquan", "Tổng quan", "\uD83C\uDFE0", null },
+                { "datphong", "Đặt phòng", "\uD83D\uDCC5", null },
+                { "thuephong", "Sơ đồ phòng", "\uD83D\uDECF", null },
+                { "hoadon", "Lịch sử Hóa đơn", "\uD83E\uDDFE", null },
+                { "SEP", "HỆ THỐNG", "", null },
+                { "khachhang", "Khách hàng", "\uD83D\uDC65", null },
+                { "qlhethong", "Cấu hình hệ thống", "\u2699", "GROUP" },
+                { "loaiphong", "Loại phòng", "\u2022", "qlhethong" },
+                { "phong", "Phòng", "\u2022", "qlhethong" },
+                { "dichvu", "Dịch vụ", "\u2022", "qlhethong" },
+                { "banggia", "Bảng giá", "\u2022", "qlhethong" },
+                { "nhatky", "Nhật ký hệ thống", "\u2022", "qlhethong" },
+                { "lichsuca", "Lịch sử giao ca", "\u2022", "qlhethong" },
+                { "khuyenmai", "Khuyến mãi & Voucher", "\u2022", "qlhethong" },
+                { "thongke", "Thống kê báo cáo", "\uD83D\uDCCA", null },
+                { "nhanvien", "Tài khoản nhân sự", "\uD83D\uDEE1", null }
         };
 
+        AuthService authSvc = AuthService.getInstance();
         for (String[] m : menus) {
-            if ("SEP".equals(m[0])) {
-                menu.add(Box.createVerticalStrut(14));
-                JLabel lblGrp = new JLabel("  " + m[1]);
-                lblGrp.setFont(new Font("Segoe UI", Font.BOLD, 11));
-                lblGrp.setForeground(new Color(0x6A7599));
-                lblGrp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
-                lblGrp.setAlignmentX(Component.LEFT_ALIGNMENT);
-                menu.add(lblGrp);
-                menu.add(Box.createVerticalStrut(6));
+            String key = m[0], label = m[1], icon = m[2], parent = m[3];
+            if (!"SEP".equals(key) && !authSvc.hasAccess(key))
+                continue;
+
+            if ("SEP".equals(key)) {
+                menuContainer.add(Box.createVerticalStrut(20));
+                JLabel lbl = new JLabel(label);
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                lbl.setForeground(new Color(0x64748B));
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 16, 8, 0));
+                lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+                JPanel sepPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+                sepPanel.setOpaque(false);
+                sepPanel.add(lbl);
+                sepPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                menuContainer.add(sepPanel);
                 continue;
             }
-            JPanel item = buildMenuItem(m[0], m[1], m[2]);
-            item.setAlignmentX(Component.LEFT_ALIGNMENT);
-            menu.add(item);
-            menu.add(Box.createVerticalStrut(6));
+
+            if (parent != null && !"GROUP".equals(parent)) {
+                if (!expandedGroups.contains(parent))
+                    continue;
+            }
+
+            int indent = (parent != null && !"GROUP".equals(parent)) ? 24 : 0;
+            JPanel item = buildMenuItem(key, label, icon, indent, "GROUP".equals(parent));
+            menuContainer.add(item);
+            menuContainer.add(Box.createVerticalStrut(2)); // Narrow gap for all items
         }
 
-        // ── Settings at bottom
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 18));
-        bottom.setOpaque(false);
-        bottom.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2D3452)));
-        JLabel settings = new JLabel("Cài đặt phần mềm");
-        settings.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        settings.setForeground(new Color(0x8892B0)); // thay bằng màu tương ứng
+        // Push everything to the top
+        menuContainer.add(Box.createVerticalGlue());
+
+        JScrollPane scroll = new JScrollPane(menuContainer);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+        scroll.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = new Color(0x334155);
+                this.trackColor = new Color(0, 0, 0, 0);
+            }
+
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            private JButton createZeroButton() {
+                JButton jbutton = new JButton();
+                jbutton.setPreferredSize(new Dimension(0, 0));
+                jbutton.setMinimumSize(new Dimension(0, 0));
+                jbutton.setMaximumSize(new Dimension(0, 0));
+                return jbutton;
+            }
+        });
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        // ── Footer Profile (Advanced)
+        JPanel footer = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setPaint(new GradientPaint(0, 0, new Color(0, 0, 0, 0), 0, -20, new Color(0x0F172A)));
+                g2.fillRect(0, 0, getWidth(), 20);
+                g2.dispose();
+            }
+        };
+        footer.setOpaque(false);
+        footer.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+
+        JLabel settings = new JLabel("\u2699 Cài đặt hệ thống");
+        settings.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        settings.setForeground(new Color(0x64748B));
         settings.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        bottom.add(settings);
+        settings.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                settings.setForeground(Color.WHITE);
+            }
 
-        JPanel topSection = new JPanel(new BorderLayout());
-        topSection.setOpaque(false);
-        topSection.add(logoWrap, BorderLayout.NORTH);
-        topSection.add(menu, BorderLayout.CENTER);
+            @Override
+            public void mouseExited(MouseEvent e) {
+                settings.setForeground(new Color(0x64748B));
+            }
+        });
+        footer.add(settings, BorderLayout.WEST);
 
-        sidebar.add(topSection, BorderLayout.CENTER);
-        sidebar.add(bottom, BorderLayout.SOUTH);
+        sidebar.add(logoSection, BorderLayout.NORTH);
+        sidebar.add(scroll, BorderLayout.CENTER);
+        sidebar.add(footer, BorderLayout.SOUTH);
         return sidebar;
     }
 
-    private JPanel buildMenuItem(String key, String label, String icon) {
+    private JPanel buildMenuItem(String key, String label, String icon, int indent, boolean isGroup) {
         boolean[] hover = { false };
-        JPanel item = new JPanel(new BorderLayout(14, 0)) {
+
+        JPanel item = new JPanel(new BorderLayout(16, 0)) {
+            @Override
             protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
+                Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                if (key.equals(activeMenu)) {
-                    g2.setColor(new Color(0x4361EE)); // Nền active màu xanh dương nổi bật
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                boolean isActive = (activeMenu.equals(key)
+                        || (key.equals("nhanvien") && activeMenu.equals("taikhoan")));
+
+                if (isActive) {
+                    g2.setPaint(new GradientPaint(0, 0, new Color(0x6366F1), getWidth(), 0, new Color(0x4F46E5)));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
                 } else if (hover[0]) {
-                    g2.setColor(new Color(0x2A314D)); // Nền hover
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                    g2.setColor(new Color(255, 255, 255, 10));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
                 }
+
+                if (indent > 0) {
+                    g2.setColor(new Color(0x334155));
+                    g2.setStroke(new BasicStroke(1.5f));
+                    // Đường kẻ dọc từ trên xuống giữa
+                    g2.drawLine(-22, -10, -22, getHeight() / 2);
+                    // Đường kẻ ngang vào tâm icon
+                    g2.drawLine(-22, getHeight() / 2, -8, getHeight() / 2);
+                }
+                g2.dispose();
             }
         };
 
         item.setOpaque(false);
-        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
-        item.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+        int itemH = indent > 0 ? 36 : 46;
+        item.setPreferredSize(new Dimension(248, itemH));
+        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, itemH));
+        item.setBorder(BorderFactory.createEmptyBorder(0, indent > 0 ? indent + 8 : 12, 0, 16));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
+        // Fixed-width Icon container for perfect alignment
         JLabel lblIcon = new JLabel(icon);
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
-        lblIcon.setPreferredSize(new Dimension(32, 32));
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, indent > 0 ? 12 : 18));
+        lblIcon.setPreferredSize(new Dimension(30, itemH));
         lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
+        lblIcon.setForeground(new Color(0x94A3B8));
 
         JLabel lblText = new JLabel(label);
+        lblText.setFont(new Font("Segoe UI", Font.PLAIN, indent > 0 ? 13 : 15));
+        lblText.setForeground(new Color(0xCBD5E1));
 
-        Runnable updateSelf = () -> {
-            boolean active = key.equals(activeMenu);
-            lblIcon.setForeground(active ? Color.WHITE : new Color(0x8892B0));
-            lblText.setForeground(active ? Color.WHITE : new Color(0xA0A8C0));
-            lblText.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, 14));
+        JLabel lblArrow = null;
+        if (isGroup) {
+            lblArrow = new JLabel(expandedGroups.contains(key) ? "\u25BC" : "\u25B6");
+            lblArrow.setForeground(new Color(0x64748B));
+            lblArrow.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            // Removed item.add(lblArrow, BorderLayout.EAST) to fix broken character display
+        }
+
+        final JLabel finalArrow = lblArrow;
+        Runnable updateUI = () -> {
+            boolean active = activeMenu.equals(key) || (key.equals("nhanvien") && activeMenu.equals("taikhoan"));
+            lblText.setForeground(active ? Color.WHITE : (hover[0] ? Color.WHITE : new Color(0xCBD5E1)));
+            lblText.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, indent > 0 ? 14 : 15));
+            lblIcon.setForeground(active ? Color.WHITE : (hover[0] ? Color.WHITE : new Color(0x94A3B8)));
+            if (finalArrow != null) {
+                finalArrow.setText(expandedGroups.contains(key) ? "\u25BC" : "\u25B6");
+                finalArrow.setForeground(active ? Color.WHITE : new Color(0x64748B));
+            }
             item.repaint();
         };
-        menuUpdaters.add(updateSelf);
-        updateSelf.run();
+
+        item.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                hover[0] = true;
+                updateUI.run();
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                hover[0] = false;
+                updateUI.run();
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (isGroup) {
+                    if (expandedGroups.contains(key))
+                        expandedGroups.remove(key);
+                    else
+                        expandedGroups.add(key);
+                    buildSidebar();
+                    sidebar.revalidate();
+                    sidebar.repaint();
+                } else {
+                    navigateTo(key);
+                }
+            }
+        });
+
+        menuUpdaters.add(updateUI);
+        updateUI.run();
 
         item.add(lblIcon, BorderLayout.WEST);
         item.add(lblText, BorderLayout.CENTER);
-
-        item.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) {
-                hover[0] = true;
-                item.repaint();
-            }
-
-            public void mouseExited(MouseEvent e) {
-                hover[0] = false;
-                item.repaint();
-            }
-
-            public void mouseClicked(MouseEvent e) {
-                navigateTo(key);
-            }
-        });
 
         return item;
     }
@@ -630,51 +824,73 @@ public class MainFrame extends JFrame {
         return pDatPhong;
     }
 
+    public HoaDonPanel getHoaDonPanel() {
+        return pHoaDon;
+    }
+
     public void navigateTo(String key) {
         navigateTo(key, null);
     }
 
     public void navigateTo(String key, Runnable postAction) {
-        if (activeMenu.equals(key) && contentArea.getComponentCount() > 1)
+        if (key == null)
             return;
 
+        // Chuẩn hóa key (Ví dụ: taikhoan và nhanvien là một bản chất màn hình)
+        final String rawKey = key.trim().toLowerCase();
+        final String finalKey = (rawKey.equals("taikhoan")) ? "nhanvien" : rawKey;
+
+        if (!AuthService.getInstance().hasAccess(finalKey)) {
+            NotificationManager.showWarning("Truy cập bị từ chối", "Bạn không có quyền truy cập chức năng này!");
+            return;
+        }
+
+        if (activeMenu.equals(finalKey) && contentArea.getComponentCount() > 1) {
+            ensurePanelLoaded(finalKey, true); // Force refresh if clicked again
+            return;
+        }
+
         long now = System.currentTimeMillis();
-        boolean timeToRefresh = (now - lastRefreshAt.getOrDefault(key, 0L)) > REFRESH_COOLDOWN_MS;
+        boolean timeToRefresh = (now - lastRefreshAt.getOrDefault(finalKey, 0L)) > REFRESH_COOLDOWN_MS;
 
         Cursor wait = Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR);
         Cursor def = Cursor.getDefaultCursor();
         setCursor(wait);
 
         // Chạy trên thread riêng để UI vẫn smooth
-        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+        SwingWorker<JPanel, Void> worker = new SwingWorker<JPanel, Void>() {
             @Override
-            protected Void doInBackground() throws Exception {
-                ensurePanelLoaded(key, timeToRefresh);
+            protected JPanel doInBackground() throws Exception {
                 return null;
             }
 
             @Override
             protected void done() {
-                cardLayout.show(contentArea, key);
-                activeMenu = key;
-                if (timeToRefresh)
-                    lastRefreshAt.put(key, System.currentTimeMillis());
+                try {
+                    ensurePanelLoaded(finalKey, timeToRefresh);
 
-                // Mặc định refresh Tổng Quan mỗi lần chuyển lại
-                if (key.equals("tongquan") && pTongQuan != null)
-                    pTongQuan.refresh();
+                    cardLayout.show(contentArea, finalKey);
+                    activeMenu = finalKey;
 
-                // Cập nhật lại màu sắc của Sidebar Items!
-                for (Runnable r : menuUpdaters)
-                    r.run();
+                    if (timeToRefresh)
+                        lastRefreshAt.put(finalKey, System.currentTimeMillis());
 
-                // Lật lại menu sidebar state
-                Container parent = contentArea.getParent();
-                if (parent != null) {
-                    parent.repaint();
+                    // Mặc định refresh Tổng Quan mỗi lần chuyển lại
+                    if (finalKey.equals("tongquan") && pTongQuan != null)
+                        pTongQuan.refresh();
+
+                    // Cập nhật lại màu sắc của Sidebar Items!
+                    for (Runnable r : menuUpdaters)
+                        r.run();
+
+                    revalidate();
+                    repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    NotificationManager.showError("Lỗi hệ thống", "Lỗi khi tải giao diện: " + ex.getMessage());
+                } finally {
+                    setCursor(def);
                 }
-                getRootPane().repaint();
-                setCursor(def);
 
                 if (postAction != null) {
                     postAction.run();
@@ -707,12 +923,33 @@ public class MainFrame extends JFrame {
                 } else if (refreshData)
                     pKhachHang.refresh();
                 break;
-            case "qlhethong":
-                if (pQLHeThong == null) {
-                    pQLHeThong = new QLHeThongPanel(this);
-                    contentArea.add(pQLHeThong, key);
+            case "loaiphong":
+                if (pLoaiPhong == null) {
+                    pLoaiPhong = new LoaiPhongPanel();
+                    contentArea.add(pLoaiPhong, key);
                 } else if (refreshData)
-                    pQLHeThong.refresh();
+                    pLoaiPhong.refresh();
+                break;
+            case "phong":
+                if (pPhong == null) {
+                    pPhong = new PhongPanel();
+                    contentArea.add(pPhong, key);
+                } else if (refreshData)
+                    pPhong.refresh();
+                break;
+            case "dichvu":
+                if (pDichVu == null) {
+                    pDichVu = new DichVuPanel();
+                    contentArea.add(pDichVu, key);
+                } else if (refreshData)
+                    pDichVu.refresh();
+                break;
+            case "banggia":
+                if (pBangGia == null) {
+                    pBangGia = new BangGiaPanel();
+                    contentArea.add(pBangGia, key);
+                } else if (refreshData)
+                    pBangGia.refresh();
                 break;
             case "thongke":
                 if (pThongKe == null) {
@@ -721,12 +958,19 @@ public class MainFrame extends JFrame {
                 } else if (refreshData)
                     pThongKe.refresh();
                 break;
+            case "nhatky":
+                contentArea.add(new LogPanel(), key);
+                break;
+            case "lichsuca":
+                contentArea.add(new ShiftHistoryPanel(), key);
+                break;
             case "nhanvien":
                 if (pNhanVien == null) {
                     pNhanVien = new NhanVienPanel(this);
                     contentArea.add(pNhanVien, key);
-                } else if (refreshData)
+                } else if (refreshData) {
                     pNhanVien.refresh();
+                }
                 break;
             case "datphong":
                 if (pDatPhong == null) {
@@ -742,9 +986,10 @@ public class MainFrame extends JFrame {
                 } else if (refreshData)
                     pHoaDon.refresh();
                 break;
-            case "taikhoan":
-                if (contentArea.getComponentCount() == 1) {
-                    contentArea.add(new JPanel(), key); // Temporarily dummy
+            case "khuyenmai":
+                if (pKhuyenMai == null) {
+                    pKhuyenMai = new KhuyenMaiPanel();
+                    contentArea.add(pKhuyenMai, key);
                 }
                 break;
         }
@@ -756,6 +1001,22 @@ public class MainFrame extends JFrame {
             pThongKe.refresh();
     }
 
+    /**
+     * Thông báo dữ liệu đã thay đổi (vd: sau khi thanh toán, đặt phòng).
+     * Sẽ ép buộc các panel thống kê load lại số liệu mới ở lần xem tới.
+     */
+    public void notifyDataChanged() {
+        lastRefreshAt.put("tongquan", 0L);
+        lastRefreshAt.put("thongke", 0L);
+        lastRefreshAt.put("hoadon", 0L);
+        lastRefreshAt.put("thuephong", 0L);
+        
+        // Nếu đang ở màn hình chính, refresh ngay lập tức
+        if ("tongquan".equals(activeMenu) && pTongQuan != null) pTongQuan.refresh();
+        if ("thongke".equals(activeMenu) && pThongKe != null) pThongKe.refresh();
+        if ("thuephong".equals(activeMenu) && pThuePhong != null) pThuePhong.refresh();
+    }
+
     private void startClock() {
         new Timer(1000, e -> {
             String time = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy").format(new Date());
@@ -764,6 +1025,22 @@ public class MainFrame extends JFrame {
     }
 
     private void doLogout() {
+        if (AuthService.getInstance().getCurrentShift() != null) {
+            int confirmShift = JOptionPane.showConfirmDialog(this,
+                "Bạn đang trong ca làm việc chưa bàn giao.\nBạn có muốn thực hiện bàn giao ngay không?",
+                "Cảnh báo bàn giao ca",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+            
+            if (confirmShift == JOptionPane.YES_OPTION) {
+                new ui.dialogs.HandoverDialog(this).setVisible(true);
+                if (AuthService.getInstance().getCurrentShift() != null) return; // Nếu vẫn chưa bàn giao thì ko logout
+            } else if (confirmShift == JOptionPane.CANCEL_OPTION) {
+                return;
+            }
+            // Nếu chọn NO_OPTION thì tiếp tục logout mà ko bàn giao (linh hoạt)
+        }
+
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Bạn có chắc muốn đăng xuất?",
                 "Xác nhận",
@@ -1004,9 +1281,7 @@ public class MainFrame extends JFrame {
             new dao.TaiKhoanDAO().doiMatKhau(acc.getTenDangNhap(), newPwd);
 
             // Hiển thị thành công ngay trong dialog thay vì JOptionPane
-            JOptionPane.showMessageDialog(dlg,
-                    "<html><b>Đổi mật khẩu thành công!</b><br>Vui lòng dùng mật khẩu mới khi đăng nhập lần sau.</html>",
-                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
+            NotificationManager.showSuccess("Thành công", "Đổi mật khẩu thành công!");
             dlg.dispose();
         });
 
@@ -1075,5 +1350,89 @@ public class MainFrame extends JFrame {
         if (errLbl != null)
             g.add(errLbl);
         return g;
+    }
+
+    private void startNotificationTimer() {
+        Timer timer = new Timer(60000, e -> refreshNotifications()); // 1 phút / lần
+        timer.setInitialDelay(5000); // Đợi 5s sau khi load xong mới check lần đầu
+        timer.start();
+        refreshNotifications(); // Chạy ngay lần đầu
+    }
+
+    public void refreshNotifications() {
+        if (notificationBell == null) return;
+
+        new Thread(() -> {
+            try {
+                java.util.List<ui.components.GlobalNotificationBell.AlertItem> items = new java.util.ArrayList<>();
+                
+                // 1. Lấy cảnh báo từ Thống kê (Vận hành)
+                java.util.List<java.util.Map<String, Object>> ops = ts.getAlerts();
+                for (java.util.Map<String, Object> op : ops) {
+                    String id = String.valueOf(op.getOrDefault("id", "op_" + System.currentTimeMillis()));
+                    if (dismissedAlertIds.contains(id)) continue;
+
+                    String title = String.valueOf(op.getOrDefault("title", ""));
+                    String desc = String.valueOf(op.getOrDefault("desc", ""));
+                    String type = String.valueOf(op.getOrDefault("type", "warning"));
+                    
+                    Runnable action = null;
+                    if (title.contains("P.")) {
+                        action = () -> navigateTo("thuephong");
+                    }
+                    
+                    ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(id, title, desc, type, action);
+                    item.onDismiss = () -> {
+                        dismissedAlertIds.add(id);
+                        saveDismissedAlerts();
+                        refreshNotifications();
+                    };
+                    items.add(item);
+                }
+
+                // 2. Lấy cảnh báo từ Đặt phòng
+                java.util.List<entity.DatPhong> noShows = ds.getNoShowBookings(2);
+                for (entity.DatPhong dp : noShows) {
+                    String id = "noshow_" + dp.getMaDatPhong();
+                    if (dismissedAlertIds.contains(id)) continue;
+
+                    ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                        id,
+                        "P." + (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty() ? dp.getDsChiTiet().get(0).getPhong().getSoPhong() : "??") + " quá hạn check-in",
+                        "Đơn " + dp.getMaDatPhong() + " (" + (dp.getKhachHang() != null ? dp.getKhachHang().getHoTen() : "Khách") + ")",
+                        "danger", () -> navigateTo("datphong")
+                    );
+                    item.onDismiss = () -> {
+                        dismissedAlertIds.add(id);
+                        saveDismissedAlerts();
+                        refreshNotifications();
+                    };
+                    items.add(item);
+                }
+
+                java.util.List<entity.DatPhong> pending = ds.getLongPendingBookings(24);
+                if (!pending.isEmpty()) {
+                    String id = "pending_group_" + pending.size();
+                    if (!dismissedAlertIds.contains(id)) {
+                        ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                            id,
+                            pending.size() + " đơn đặt phòng chưa duyệt",
+                            "Có các đơn đặt > 24h chưa được xác nhận",
+                            "warning", () -> navigateTo("datphong")
+                        );
+                        item.onDismiss = () -> {
+                            dismissedAlertIds.add(id);
+                            saveDismissedAlerts();
+                            refreshNotifications();
+                        };
+                        items.add(item);
+                    }
+                }
+
+                SwingUtilities.invokeLater(() -> notificationBell.setAlerts(items));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 }

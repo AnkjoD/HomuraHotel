@@ -101,9 +101,12 @@ public class UIConstants {
         switch (tt) {
             case PENDING:     return "Chờ xác nhận";
             case CONFIRMED:   return "Đã xác nhận";
+            case PARTIALLY_CHECKED_IN: return "Đang check-in";
             case CHECKED_IN:  return "Đã check-in";
             case CHECKED_OUT: return "Đã trả phòng";
             case CANCELLED:   return "Đã hủy";
+            case NO_SHOW:     return "No-show";
+            case WAITLIST:    return "Chờ xếp phòng";
             default:          return tt.toString();
         }
     }
@@ -113,9 +116,12 @@ public class UIConstants {
         switch (tt) {
             case PENDING:     return WARNING;
             case CONFIRMED:   return SUCCESS;
+            case PARTIALLY_CHECKED_IN: return INFO;
             case CHECKED_IN:  return PRIMARY;
             case CHECKED_OUT: return TEXT_SECONDARY;
             case CANCELLED:   return DANGER;
+            case NO_SHOW:     return new Color(0x991B1B); // Dark red
+            case WAITLIST:    return ORANGE;
             default:          return TEXT_MUTED;
         }
     }

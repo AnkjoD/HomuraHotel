@@ -49,6 +49,14 @@ public class PhongService {
             TrangThaiPhong tt = p.getTrangThai();
             if (tt == TrangThaiPhong.OCCUPIED) return "Không thể xóa phòng đang có khách!";
         }
+
+        // Kiểm tra ràng buộc lịch sử đặt phòng
+        int bookings = phongDAO.countBookingReferences(maPhong);
+        if (bookings > 0) {
+            return "Không thể xóa phòng đã có lịch sử giao dịch (" + bookings + " lượt lưu trú)! " +
+                   "Hãy chuyển trạng thái sang Bảo trì hoặc Ngừng sử dụng để bảo toàn dữ liệu báo cáo.";
+        }
+
         return phongDAO.delete(maPhong) ? null : "Không thể xóa phòng này!";
     }
 
@@ -106,16 +114,24 @@ public class PhongService {
         return loaiPhongDAO.delete(maLoai) ? null : "Không thể xóa loại phòng!";
     }
 
+    public int countLoaiPhongNgung() {
+        return (int) loaiPhongDAO.getAll().stream().filter(lp -> !lp.isDangKinhDoanh()).count();
+    }
+
+    public boolean isRoomAvailable(String maPhong, java.time.LocalDateTime from, java.time.LocalDateTime to) {
+        return isRoomAvailable(maPhong, from, to, null);
+    }
+
+    public boolean isRoomAvailable(String maPhong, java.time.LocalDateTime from, java.time.LocalDateTime to, String excludeMaDatPhong) {
+        return phongDAO.isRoomAvailable(maPhong, from, to, excludeMaDatPhong);
+    }
+
     public Map<String, Integer> getThongKeTrangThai() {
         return phongDAO.getThongKeTrangThai();
     }
 
     public int countLoaiPhongActive() {
         return (int) loaiPhongDAO.getAll().stream().filter(LoaiPhong::isDangKinhDoanh).count();
-    }
-
-    public int countLoaiPhongNgung() {
-        return (int) loaiPhongDAO.getAll().stream().filter(lp -> !lp.isDangKinhDoanh()).count();
     }
 
     // ============================================================

@@ -58,107 +58,128 @@ public class SuDungDichVuDAO {
     }
 
     public boolean insert(SuDungDichVu sddv) {
-        String maChiTiet = sddv.getCtdp() != null ? sddv.getCtdp().getMaChiTiet() : null;
         String maDV = sddv.getDichVu() != null ? sddv.getDichVu().getMaDichVu() : null;
-        if (maChiTiet == null || maDV == null) return false;
+        if (maDV == null) return false;
 
-        // 1) Legacy schemas using maChiTiet.
-        String[] byChiTietStmts = {
-            "INSERT INTO SU_DUNG_DICH_VU(maChiTiet, maDV, soLuong, donGiaLuu) VALUES(?,?,?,?)",
-            "INSERT INTO SuDungDichVu(maChiTiet, maDV, soLuong, donGiaLuu) VALUES(?,?,?,?)",
-            "INSERT INTO SuDungDichVu(maChiTiet, maDichVu, soLuong, donGiaLuu) VALUES(?,?,?,?)",
-            "INSERT INTO SuDungDichVu(maChiTiet, maDichVu, soLuong, donGiaLucDung) VALUES(?,?,?,?)"
+        String maChiTiet = sddv.getCtdp() != null ? sddv.getCtdp().getMaChiTiet() : null;
+        
+        Timestamp ts = sddv.getThoiDiem() != null ? Timestamp.valueOf(sddv.getThoiDiem()) : Timestamp.valueOf(java.time.LocalDateTime.now());
+        String maSD = generateMaSuDung();
+        SQLException lastEx = null;
+
+        String[] queries = {
+            "INSERT INTO SuDungDichVu(maSuDung, maChiTiet, maDichVu, soLuong, donGiaLucDung, thoiGianDung) VALUES(?,?,?,?,?,?)",
+            "INSERT INTO SU_DUNG_DICH_VU(maSuDung, maChiTiet, maDichVu, soLuong, donGiaLucDung, thoiGianDung) VALUES(?,?,?,?,?,?)",
+            "INSERT INTO SuDungDichVu(maSuDung, maChiTiet, maDV, soLuong, donGiaLuu, thoiDiem) VALUES(?,?,?,?,?,?)",
+            "INSERT INTO SuDungDichVu(maChiTiet, maDichVu, soLuong, donGiaLucDung) VALUES(?,?,?,?)",
+            "INSERT INTO SuDungDichVu(maChiTiet, maDV, soLuong, donGiaLuu) VALUES(?,?,?,?)"
         };
-        for (String sql : byChiTietStmts) {
-            try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-                ps.setString(1, maChiTiet);
-                ps.setString(2, maDV);
-                ps.setInt(3, sddv.getSoLuong());
-                ps.setDouble(4, sddv.getDonGiaLuu());
-                return ps.executeUpdate() > 0;
-            } catch (SQLException ignored) {
-                // Try next compatible schema variant.
-            }
-        }
 
-        // 2) New schema using maDatPhong (+ optional maSuDung PK).
-        String maDatPhong = null;
-        if (sddv.getCtdp() != null && sddv.getCtdp().getDatPhong() != null) {
-            maDatPhong = sddv.getCtdp().getDatPhong().getMaDatPhong();
-        }
-        if (maDatPhong == null || maDatPhong.isBlank()) {
-            ChiTietDatPhong ct = ctdpDAO.getById(maChiTiet);
-            if (ct != null && ct.getDatPhong() != null) maDatPhong = ct.getDatPhong().getMaDatPhong();
-        }
-        if (maDatPhong != null && !maDatPhong.isBlank()) {
-            String[] byDatPhongStmts = {
-                "INSERT INTO SuDungDichVu(maDatPhong, maDichVu, soLuong, donGiaLucDung) VALUES(?,?,?,?)",
-                "INSERT INTO SuDungDichVu(maDatPhong, maDichVu, soLuong, donGiaLuu) VALUES(?,?,?,?)",
-                "INSERT INTO SuDungDichVu(maSuDung, maDatPhong, maDichVu, soLuong, donGiaLucDung) VALUES(?,?,?,?,?)",
-                "INSERT INTO SuDungDichVu(maSuDung, maDatPhong, maDichVu, soLuong, donGiaLuu) VALUES(?,?,?,?,?)"
-            };
-            for (int i = 0; i < byDatPhongStmts.length; i++) {
-                String sql = byDatPhongStmts[i];
+        if (maChiTiet != null && !maChiTiet.isBlank()) {
+            for (String sql : queries) {
                 try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-                    if (i < 2) {
-                        ps.setString(1, maDatPhong);
-                        ps.setString(2, maDV);
-                        ps.setInt(3, sddv.getSoLuong());
-                        ps.setDouble(4, sddv.getDonGiaLuu());
-                    } else {
-                        ps.setString(1, generateMaSuDung());
-                        ps.setString(2, maDatPhong);
+                    if (sql.contains("maSuDung")) {
+                        ps.setString(1, maSD);
+                        ps.setString(2, maChiTiet);
                         ps.setString(3, maDV);
                         ps.setInt(4, sddv.getSoLuong());
                         ps.setDouble(5, sddv.getDonGiaLuu());
+                        ps.setTimestamp(6, ts);
+                    } else {
+                        ps.setString(1, maChiTiet);
+                        ps.setString(2, maDV);
+                        ps.setInt(3, sddv.getSoLuong());
+                        ps.setDouble(4, sddv.getDonGiaLuu());
                     }
-                    return ps.executeUpdate() > 0;
-                } catch (SQLException ignored) {
-                    // Try next compatible schema variant.
+                    if (ps.executeUpdate() > 0) return true;
+                } catch (SQLException e) {
+                    lastEx = e;
                 }
             }
         }
 
+        if (lastEx != null) {
+            java.util.logging.Logger.getLogger(SuDungDichVuDAO.class.getName())
+                .log(java.util.logging.Level.SEVERE, "Lỗi lưu dịch vụ (maDV=" + maDV + ", maChiTiet=" + maChiTiet + ")", lastEx);
+        }
         return false;
     }
 
     private SuDungDichVu mapRow(ResultSet rs) throws SQLException {
         SuDungDichVu sddv = new SuDungDichVu();
         
-        // Load DichVu fully
         String maDV;
         try {
-            maDV = rs.getString("maDV");
-        } catch (SQLException ex) {
             maDV = rs.getString("maDichVu");
-        }
-        if (maDV != null) {
-            DichVu dv = new DichVuDAO().getById(maDV);
-            sddv.setDichVu(dv != null ? dv : new DichVu());
-        }
-        
-        sddv.setSoLuong(rs.getInt("soLuong"));
-        try {
-            sddv.setDonGiaLuu(rs.getDouble("donGiaLuu"));
         } catch (SQLException ex) {
-            sddv.setDonGiaLuu(rs.getDouble("donGiaLucDung"));
+            maDV = rs.getString("maDV");
         }
         
+        DichVu dv = null;
+        if (maDV != null) {
+            dv = new DichVuDAO().getById(maDV);
+        }
+        if (dv == null) {
+            dv = new DichVu();
+            dv.setMaDichVu(maDV);
+            dv.setTenDichVu("Dịch vụ " + maDV);
+        }
+        sddv.setDichVu(dv);
+
+        try {
+            sddv.setDonGiaLuu(rs.getDouble("donGiaLucDung"));
+        } catch (SQLException ex) {
+            sddv.setDonGiaLuu(rs.getDouble("donGiaLuu"));
+        }
+
+        sddv.setSoLuong(rs.getInt("soLuong"));
+
+        Timestamp ts = null;
+        try {
+            ts = rs.getTimestamp("thoiGianDung");
+        } catch (SQLException e1) {
+            try {
+                ts = rs.getTimestamp("thoiDiem");
+            } catch (SQLException e2) {
+                try {
+                    ts = rs.getTimestamp("ngaySuDung");
+                } catch (SQLException ignored) {}
+            }
+        }
+        if (ts != null) sddv.setThoiDiem(ts.toLocalDateTime());
+
         return sddv;
     }
 
     private String generateMaSuDung() {
         String[] queries = {
-            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SuDungDichVu WHERE maSuDung LIKE 'SD%'",
-            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SU_DUNG_DICH_VU WHERE maSuDung LIKE 'SD%'"
+            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SuDungDichVu",
+            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SU_DUNG_DICH_VU"
         };
         for (String sql : queries) {
             try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
-                if (rs.next()) return String.format("SD%04d", rs.getInt(1) + 1);
-            } catch (SQLException ignored) {
-                // Try next compatible schema variant.
-            }
+                if (rs.next()) {
+                    int nextId = rs.getInt(1) + 1;
+                    return String.format("SD%04d", nextId);
+                }
+            } catch (SQLException ignored) {}
         }
         return "SD0001";
+    }
+
+    public boolean deleteByDatPhong(String ma) {
+        String[] queries = {
+            "DELETE FROM SuDungDichVu WHERE maDatPhong=?",
+            "DELETE FROM SU_DUNG_DICH_VU WHERE maDatPhong=?",
+            "DELETE FROM SuDungDichVu WHERE maChiTiet IN (SELECT maChiTiet FROM ChiTietDatPhong WHERE maDatPhong=?)",
+            "DELETE FROM SU_DUNG_DICH_VU WHERE maChiTiet IN (SELECT maChiTiet FROM ChiTietDatPhong WHERE maDatPhong=?)"
+        };
+        for (String sql : queries) {
+            try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+                ps.setString(1, ma);
+                ps.executeUpdate();
+            } catch (SQLException ignored) {}
+        }
+        return true;
     }
 }

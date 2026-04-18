@@ -7,6 +7,11 @@ import java.awt.event.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import java.util.List;
+import java.util.ArrayList;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
 /**
  * DateTimePicker – Component chọn ngày giờ có calendar popup.
  * Dùng thay thế JTextField nhập tay ngày trong CheckinDialog.
@@ -22,6 +27,7 @@ public class DateTimePicker extends JPanel {
     private final SimpleDateFormat SDF = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
     private Calendar selectedCal;
+    private final List<ChangeListener> listeners = new ArrayList<>();
     private JTextField txtDisplay;
     private JPopupMenu popup;
     private JLabel lblMonthYear;
@@ -50,21 +56,22 @@ public class DateTimePicker extends JPanel {
     // ---- Text field với icon lịch ----
     private void buildTextField() {
         txtDisplay = new JTextField(SDF.format(selectedCal.getTime()));
-        txtDisplay.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        txtDisplay.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtDisplay.setEditable(false);
         txtDisplay.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        txtDisplay.setBorder(BorderFactory.createCompoundBorder(
-            new LineBorder(BORDER_COLOR, 1, true),
-            BorderFactory.createEmptyBorder(7, 12, 7, 36)
-        ));
+        txtDisplay.setBorder(null);
         txtDisplay.setBackground(Color.WHITE);
 
-        // Vẽ icon calendar bên phải
+        // Wrapper với viền bo góc hiện đại giống ModernTextField
         JPanel wrapper = new JPanel(new BorderLayout()) {
             @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), UIConstants.BTN_RADIUS, UIConstants.BTN_RADIUS);
+                g2.setColor(UIConstants.BORDER);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConstants.BTN_RADIUS, UIConstants.BTN_RADIUS);
+
                 // Icon 📅 đơn giản
                 int x = getWidth() - 28, y = getHeight() / 2 - 8;
                 g2.setColor(TEXT_MUTED);
@@ -77,9 +84,10 @@ public class DateTimePicker extends JPanel {
             }
         };
         wrapper.setOpaque(false);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 32));
         wrapper.add(txtDisplay, BorderLayout.CENTER);
         add(wrapper, BorderLayout.CENTER);
-        setPreferredSize(new Dimension(0, 38));
+        setPreferredSize(new Dimension(140, 40));
 
         // Click → hiện popup
         txtDisplay.addMouseListener(new MouseAdapter() {
@@ -120,35 +128,35 @@ public class DateTimePicker extends JPanel {
 
     private JPanel buildCalendarHeader() {
         JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
+        header.setBackground(Color.WHITE);
+        header.setBorder(BorderFactory.createEmptyBorder(4, 4, 12, 4));
 
-        JButton btnPrev = arrowBtn("‹");
-        JButton btnNext = arrowBtn("›");
+        JPanel leftBtns = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        leftBtns.setOpaque(false);
+        leftBtns.add(arrowBtn("«", e -> { selectedCal.add(Calendar.YEAR, -1); syncAndRebuild(); }));
+        leftBtns.add(arrowBtn("‹", e -> { selectedCal.add(Calendar.MONTH, -1); syncAndRebuild(); }));
+
+        JPanel rightBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rightBtns.setOpaque(false);
+        rightBtns.add(arrowBtn("›", e -> { selectedCal.add(Calendar.MONTH, 1); syncAndRebuild(); }));
+        rightBtns.add(arrowBtn("»", e -> { selectedCal.add(Calendar.YEAR, 1); syncAndRebuild(); }));
 
         lblMonthYear = new JLabel("", SwingConstants.CENTER);
-        lblMonthYear.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblMonthYear.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblMonthYear.setForeground(TEXT_MAIN);
         updateMonthYearLabel();
 
-        btnPrev.addActionListener(e -> {
-            selectedCal.add(Calendar.MONTH, -1);
-            updateMonthYearLabel();
-            buildCalendarGrid();
-            calendarGrid.revalidate();
-            calendarGrid.repaint();
-        });
-        btnNext.addActionListener(e -> {
-            selectedCal.add(Calendar.MONTH, 1);
-            updateMonthYearLabel();
-            buildCalendarGrid();
-            calendarGrid.revalidate();
-            calendarGrid.repaint();
-        });
-
-        header.add(btnPrev,      BorderLayout.WEST);
+        header.add(leftBtns, BorderLayout.WEST);
         header.add(lblMonthYear, BorderLayout.CENTER);
-        header.add(btnNext,      BorderLayout.EAST);
+        header.add(rightBtns, BorderLayout.EAST);
         return header;
+    }
+
+    private void syncAndRebuild() {
+        updateMonthYearLabel();
+        buildCalendarGrid();
+        calendarGrid.revalidate();
+        calendarGrid.repaint();
     }
 
     private void buildCalendarGrid() {
@@ -262,6 +270,7 @@ public class DateTimePicker extends JPanel {
             syncTimeFromSpinner();
             updateDisplay();
             popup.setVisible(false);
+            fireStateChanged();
         });
 
         row.add(lblTime);
@@ -273,29 +282,48 @@ public class DateTimePicker extends JPanel {
         return row;
     }
 
-    // ---- Helpers ----
-    private JButton arrowBtn(String text) {
+    private JButton arrowBtn(String text, ActionListener action) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        btn.setForeground(TEXT_MAIN);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        btn.setForeground(new Color(100, 116, 139));
         btn.setBackground(Color.WHITE);
+        btn.setMargin(new Insets(0, 0, 0, 0));
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
+        btn.setContentAreaFilled(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setPreferredSize(new Dimension(32, 28));
+        btn.setPreferredSize(new Dimension(30, 30));
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(HOVER_COLOR); }
-            public void mouseExited(MouseEvent e)  { btn.setBackground(Color.WHITE); }
+            public void mouseEntered(MouseEvent e) { btn.setContentAreaFilled(true); btn.setBackground(HOVER_COLOR); }
+            public void mouseExited(MouseEvent e)  { btn.setContentAreaFilled(false); }
         });
+        btn.addActionListener(action);
         return btn;
     }
 
     private JSpinner timeSpinner(int min, int max, int val) {
         JSpinner sp = new JSpinner(new SpinnerNumberModel(val, min, max, 1));
-        sp.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        sp.setPreferredSize(new Dimension(52, 28));
-        // Format 2 chữ số
+        sp.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        sp.setPreferredSize(new Dimension(54, 30));
+        sp.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
+        try {
+            sp.setUI(new javax.swing.plaf.basic.BasicSpinnerUI() {
+                protected Component createNextButton() {
+                    JButton b = new JButton("▴"); b.setBorder(null); b.setBackground(Color.WHITE); b.setFocusPainted(false); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    b.addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e){b.setBackground(HOVER_COLOR);} public void mouseExited(MouseEvent e){b.setBackground(Color.WHITE);} });
+                    return b;
+                }
+                protected Component createPreviousButton() {
+                    JButton b = new JButton("▾"); b.setBorder(null); b.setBackground(Color.WHITE); b.setFocusPainted(false); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    b.addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e){b.setBackground(HOVER_COLOR);} public void mouseExited(MouseEvent e){b.setBackground(Color.WHITE);} });
+                    return b;
+                }
+            });
+        } catch(Exception ignored) {}
         JSpinner.NumberEditor editor = new JSpinner.NumberEditor(sp, "00");
+        editor.getTextField().setForeground(TEXT_MAIN);
+        editor.getTextField().setHorizontalAlignment(SwingConstants.CENTER);
+        editor.getTextField().setBorder(null);
         sp.setEditor(editor);
         return sp;
     }
@@ -345,7 +373,17 @@ public class DateTimePicker extends JPanel {
             if (spnMin  != null) spnMin.setValue(selectedCal.get(Calendar.MINUTE));
             updateDisplay();
             buildCalendarGrid();
+            fireStateChanged();
         }
+    }
+
+    public void addChangeListener(ChangeListener l) {
+        listeners.add(l);
+    }
+
+    private void fireStateChanged() {
+        ChangeEvent ce = new ChangeEvent(this);
+        for (ChangeListener l : listeners) l.stateChanged(ce);
     }
 }
 

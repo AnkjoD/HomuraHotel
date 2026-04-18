@@ -51,7 +51,15 @@ CREATE TABLE NhanVien (
     maNhanVien VARCHAR(20) PRIMARY KEY,
     hoTen NVARCHAR(100) NOT NULL,
     sdt VARCHAR(20),
-    chucVu NVARCHAR(50)
+    chucVu NVARCHAR(50),
+    email NVARCHAR(100),
+    cccd NVARCHAR(20),
+    ngaySinh DATE,
+    gioiTinh NVARCHAR(10),
+    diaChi NVARCHAR(255),
+    ngayVaoLam DATE,
+    dangLamViec BIT DEFAULT 1,
+    luongCoBan DECIMAL(18, 2) DEFAULT 0
 );
 
 CREATE TABLE TaiKhoan (
@@ -154,17 +162,21 @@ CREATE TABLE DatPhong (
     tienDatCoc DECIMAL(18,2) DEFAULT 0,
     tongTienTamTinh DECIMAL(18,2) DEFAULT 0,
     trangThai VARCHAR(20) DEFAULT 'PENDING' CHECK (trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED')),
-    ghiChu NVARCHAR(MAX)
+    ghiChu NVARCHAR(MAX),
+    loaiKhach VARCHAR(10) DEFAULT 'CA_NHAN' CHECK (loaiKhach IN ('CA_NHAN', 'DOAN')),
+    tenDoan NVARCHAR(200) -- Tên đoàn / công ty (NULL nếu khách lẻ)
 );
 
 CREATE TABLE ChiTietDatPhong (
     maChiTiet VARCHAR(20) PRIMARY KEY,
     maDatPhong VARCHAR(20) REFERENCES DatPhong(maDatPhong),
     maPhong VARCHAR(20) REFERENCES Phong(maPhong),
+    maKhachHang VARCHAR(20) REFERENCES KhachHang(maKhachHang), -- Người lưu trú thực tế (NULL = dùng khách của DatPhong)
     ngayNhanThucTe DATETIME,
     ngayTraThucTe DATETIME,
     giaThucTeChot DECIMAL(18,2),
-    phuPhiPhatSinh DECIMAL(18,2) DEFAULT 0
+    phuPhiPhatSinh DECIMAL(18,2) DEFAULT 0,
+    daThanhToan BIT DEFAULT 0
 );
 
 -- 8. Dịch vụ & Sử dụng dịch vụ
@@ -200,7 +212,7 @@ CREATE TABLE KhuyenMai (
 
 CREATE TABLE HoaDon (
     maHoaDon VARCHAR(20) PRIMARY KEY,
-    maDatPhong VARCHAR(20) UNIQUE REFERENCES DatPhong(maDatPhong),
+    maDatPhong VARCHAR(20) REFERENCES DatPhong(maDatPhong),
     maNhanVien VARCHAR(20) REFERENCES NhanVien(maNhanVien), -- Người lập
     maKhuyenMai VARCHAR(20) REFERENCES KhuyenMai(maKhuyenMai),
     ngayLap DATETIME DEFAULT GETDATE(),
@@ -242,10 +254,14 @@ CREATE INDEX IX_CTHD_HOADON        ON ChiTietHoaDon(maHoaDon);
 -- ======================================================
 
 -- 1. Nhân viên & Tài khoản
-INSERT INTO NhanVien VALUES ('admin_nv', N'Lê Quản Trị', '0901234567', N'Quản lý hệ thống');
-INSERT INTO NhanVien VALUES ('manager_nv', N'Trần Giám Đốc', '0912345678', N'Quản lý khách sạn');
-INSERT INTO NhanVien VALUES ('recept_01', N'Nguyễn Lễ Tân 1', '0987654321', N'Lễ tân');
-INSERT INTO NhanVien VALUES ('recept_02', N'Phạm Lễ Tân 2', '0977888999', N'Lễ tân');
+INSERT INTO NhanVien (maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec, luongCoBan) 
+VALUES ('admin_nv', N'Lê Quản Trị', '0901234567', N'Quản lý hệ thống', 'admin@hotel.com', '123456789', '1985-01-01', N'Nam', N'Hà Nội', '2020-01-01', 1, 20000000);
+INSERT INTO NhanVien (maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec, luongCoBan)
+VALUES ('manager_nv', N'Trần Giám Đốc', '0912345678', N'Quản lý khách sạn', 'manager@hotel.com', '987654321', '1980-05-10', N'Nam', N'TP HCM', '2021-06-15', 1, 15000000);
+INSERT INTO NhanVien (maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec, luongCoBan)
+VALUES ('recept_01', N'Nguyễn Lễ Tân 1', '0987654321', N'Lễ tân', 'recept1@hotel.com', '456789123', '1995-03-20', N'Nữ', N'Đà Nẵng', '2022-09-01', 1, 8000000);
+INSERT INTO NhanVien (maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec, luongCoBan)
+VALUES ('recept_02', N'Phạm Lễ Tân 2', '0977888999', N'Lễ tân', 'recept2@hotel.com', '321654987', '1998-11-12', N'Nữ', N'Cần Thơ', '2023-01-10', 1, 8000000);
 
 INSERT INTO TaiKhoan (tenDangNhap, maNhanVien, matKhau, vaiTro, trangThai) VALUES ('admin', 'admin_nv', 'admin', 'ADMIN', 1);
 INSERT INTO TaiKhoan (tenDangNhap, maNhanVien, matKhau, vaiTro, trangThai) VALUES ('manager', 'manager_nv', '123', 'MANAGER', 1);
@@ -392,6 +408,8 @@ INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuong
 INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES ('DV006', N'Thuê xe máy', N'Vận chuyển', 150000, N'ngày', 1, N'Thuê xe máy số/ga', 1);
 INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES ('DV007', N'Ăn sáng tại phòng', N'Ăn uống', 100000, N'suất', 1, N'Bữa sáng giao tận nơi', 1);
 INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES ('DV008', N'Massage thư giãn', N'Spa & Làm đẹp', 300000, N'lượt', 1, N'Massage body 60p', 1);
+INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES ('DV009', N'Phụ thu người lớn', N'Phụ thu', 150000, N'người/đêm', 1, N'Phụ thu thêm người lớn vượt sức chứa tiêu chuẩn (bao gồm giường phụ/nệm)', 1);
+INSERT INTO DichVu (maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES ('DV010', N'Phụ thu trẻ em', N'Phụ thu', 100000, N'người/đêm', 1, N'Phụ thu thêm trẻ em (6-12 tuổi) vượt sức chứa tiêu chuẩn', 1);
 
 -- 10. Khuyến mãi
 INSERT INTO KhuyenMai VALUES ('SALE10', 'PERCENT', 10, '2024-01-01', '2024-12-31', N'Giảm 10% tổng hóa đơn');
@@ -407,15 +425,15 @@ VALUES ('DP003', 'KH003', 'recept_02', GETDATE(), GETDATE(), DATEADD(DAY, 3, GET
 INSERT INTO DatPhong (maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu) 
 VALUES ('DP004', 'KH004', 'recept_02', GETDATE(), GETDATE(), DATEADD(DAY, 1, GETDATE()), 4, 600000, 2000000, 'CHECKED_IN', N'Suite family');
 
--- Chi tiết đặt phòng (check-in/check-out hôm nay)
-INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
-VALUES ('CT001', 'DP001', 'P101', GETDATE(), NULL, 400000, 0);
-INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
-VALUES ('CT002', 'DP002', 'P103', DATEADD(DAY, -1, GETDATE()), GETDATE(), 600000, 0);
-INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
-VALUES ('CT003', 'DP003', 'P203', GETDATE(), NULL, 900000, 0);
-INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
-VALUES ('CT004', 'DP004', 'P403', GETDATE(), NULL, 2000000, 50000);
+-- Chi tiết đặt phòng (check-in/check-out hôm nay) — mỗi phòng gán người lưu trú riêng
+INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
+VALUES ('CT001', 'DP001', 'P101', 'KH001', GETDATE(), NULL, 400000, 0);
+INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
+VALUES ('CT002', 'DP002', 'P103', 'KH002', DATEADD(DAY, -1, GETDATE()), GETDATE(), 600000, 0);
+INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
+VALUES ('CT003', 'DP003', 'P203', 'KH003', GETDATE(), NULL, 900000, 0);
+INSERT INTO ChiTietDatPhong (maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh)
+VALUES ('CT004', 'DP004', 'P403', 'KH004', GETDATE(), NULL, 2000000, 50000);
 
 -- 12. Hóa đơn
 INSERT INTO HoaDon (maHoaDon, maDatPhong, maNhanVien, maKhuyenMai, ngayLap, tongTienPhong, tongTienDichVu, tienGiamKhuyenMai, tongThanhToan, trangThai)

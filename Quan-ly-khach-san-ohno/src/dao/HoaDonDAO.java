@@ -24,7 +24,7 @@ public class HoaDonDAO {
 
     public List<HoaDon> getAll() {
         List<HoaDon> list = new ArrayList<>();
-        String sql = "SELECT * FROM HoaDon ORDER BY ngayLap DESC";
+        String sql = "SELECT * FROM HoaDon WHERE trangThai <> 'CANCELLED' ORDER BY ngayLap DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) list.add(mapRow(rs));
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); }
@@ -42,8 +42,8 @@ public class HoaDonDAO {
     }
 
     public boolean insert(HoaDon hd) {
-        String sql = "INSERT INTO HoaDon(maHoaDon, maDatPhong, maNhanVien, maKhuyenMai, ngayLap, tongTienPhong, tongTienDichVu, tienGiamKhuyenMai, tongThanhToan, trangThai) " +
-                     "VALUES(?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO HoaDon(maHoaDon, maDatPhong, maNhanVien, maKhuyenMai, ngayLap, tongTienPhong, tongTienDichVu, tienGiamKhuyenMai, tongThanhToan, trangThai, phuongThucThanhToan) " +
+                     "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, hd.getMaHoaDon());
             ps.setString(2, hd.getDatPhong() != null ? hd.getDatPhong().getMaDatPhong() : null);
@@ -55,6 +55,7 @@ public class HoaDonDAO {
             ps.setDouble(8, hd.getTienGiamKhuyenMai());
             ps.setDouble(9, hd.getTongThanhToan());
             ps.setString(10, hd.getTrangThai() != null ? hd.getTrangThai().name() : "UNPAID");
+            ps.setString(11, hd.getPhuongThucThanhToan() != null ? hd.getPhuongThucThanhToan() : "CASH");
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); return false; }
     }
@@ -66,6 +67,34 @@ public class HoaDonDAO {
             ps.setString(2, hd.getMaHoaDon());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); return false; }
+    }
+
+    public int countByDatPhong(String maDatPhong) {
+        String sql = "SELECT COUNT(*) FROM HoaDon WHERE maDatPhong=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maDatPhong);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi đếm hóa đơn", e); }
+        return 0;
+    }
+
+    public boolean delete(String maHoaDon) {
+        // Kiểm tra trạng thái hóa đơn trước khi hủy
+        HoaDon current = getById(maHoaDon);
+        if (current != null && current.getTrangThai() == TrangThaiThanhToan.PAID) {
+            LOGGER.log(Level.WARNING, "Không được phép hủy hóa đơn đã thanh toán: {0}", maHoaDon);
+            return false;
+        }
+
+        String sql = "UPDATE HoaDon SET trangThai='CANCELLED' WHERE maHoaDon=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maHoaDon);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi hủy hóa đơn: " + maHoaDon, e);
+            return false;
+        }
     }
 
     public String generateMaHD() {
@@ -109,6 +138,7 @@ public class HoaDonDAO {
                 hd.setTrangThai(TrangThaiThanhToan.UNPAID);
             }
         }
+        hd.setPhuongThucThanhToan(rs.getString("phuongThucThanhToan"));
 
         return hd;
     }

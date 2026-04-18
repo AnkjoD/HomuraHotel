@@ -3,12 +3,18 @@ package ui.panels;
 import service.*;
 import entity.*;
 import ui.MainFrame;
+import ui.components.NotificationManager;
+import ui.components.PaginationPanel;
 import ui.components.UIConstants;
 import ui.components.WrapLayout;
 import ui.dialogs.CheckinDialog;
+import ui.dialogs.NoShowDialog;
+import ui.dialogs.DatPhongDialog;
 import ui.components.DateTimePicker;
 import ui.components.RoundedComponents.*;
 import entity.enums.TrangThaiDatPhong;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.swing.*;
 import javax.swing.table.*;
@@ -22,6 +28,7 @@ public class DatPhongPanel extends JPanel {
     private final DatPhongService datPhongService = new DatPhongService();
     private final KhachHangService khService = new KhachHangService();
     private final PhongService phongService = new PhongService();
+    private final BangGiaService bangGiaService = new BangGiaService();
 
     private CardLayout cardLayout;
     private JPanel cardContainer;
@@ -31,16 +38,23 @@ public class DatPhongPanel extends JPanel {
     private JTable tableDatPhong;
     private ModernTextField txtSearchList;
     private JComboBox<String> cboFilterStatus;
+    private PaginationPanel pagination;
+    private List<DatPhong> allDatPhong;
+    private List<DatPhong> filteredDatPhong;
 
     // ---- Card 2: Tìm & Đặt phòng ----
     private DateTimePicker txtNgayNhan, txtNgayTra;
     private JComboBox<String> cboTang, cboView, cboLoaiPhong;
     private JSpinner spnSoKhach;
     private JPanel resultPanel;
+    
+    private Set<Phong> selectedRooms = new LinkedHashSet<>();
+    private RoundedButton btnDatNhieuPhong;
+    private JLabel lblSelectedCount;
 
     private static final String CARD_LIST = "LIST";
     private static final String CARD_SEARCH = "SEARCH";
-    
+
     private KhachHang prefilledKhachHang;
 
     public void prefillKhachHang(KhachHang kh) {
@@ -91,13 +105,20 @@ public class DatPhongPanel extends JPanel {
         titleBox.add(Box.createVerticalStrut(2));
         titleBox.add(sub);
 
+        // Right-side action panel: bell + button
+        // JPanel rightHdr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        // rightHdr.setOpaque(false);
+        // rightHdr.add(buildAlertBell());
+        JPanel rightHdr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightHdr.setOpaque(false);
         RoundedButton btnDatPhong = new RoundedButton("+ Đặt phòng", UIConstants.PRIMARY, Color.WHITE);
         btnDatPhong.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnDatPhong.setPreferredSize(new Dimension(150, 38));
         btnDatPhong.addActionListener(e -> showSearchCard());
+        rightHdr.add(btnDatPhong);
 
         hdr.add(titleBox, BorderLayout.WEST);
-        hdr.add(btnDatPhong, BorderLayout.EAST);
+        hdr.add(rightHdr, BorderLayout.EAST);
 
         // ---- Card trắng ----
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
@@ -106,64 +127,36 @@ public class DatPhongPanel extends JPanel {
         card.setLayout(new BorderLayout(0, 10));
         card.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
 
-        // ---- Toolbar ----
-        JPanel toolbar = new JPanel(new BorderLayout(8, 0));
+        // ---- Toolbar (Modern style) ----
+        JPanel toolbar = new JPanel(new BorderLayout());
         toolbar.setOpaque(false);
-        toolbar.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        toolbar.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
 
         // Left: search + status filter
-        JPanel leftTools = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel leftTools = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         leftTools.setOpaque(false);
 
-        txtSearchList = new ModernTextField("🔍  Tìm khách hàng, số phòng...");
-        txtSearchList.setPreferredSize(new Dimension(260, 36));
+        txtSearchList = new ModernTextField("Tìm khách hàng, số phòng...");
+        txtSearchList.setPreferredSize(new Dimension(280, 40));
         txtSearchList.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
         });
 
-        String[] statuses = { "Tất cả trạng thái", "Chờ xác nhận", "Đã xác nhận", "Đã check-in", "Đã trả phòng",
-                "Đã hủy" };
-        cboFilterStatus = new JComboBox<>(statuses);
-        cboFilterStatus.setFont(UIConstants.FONT_BODY);
-        cboFilterStatus.setPreferredSize(new Dimension(170, 36));
+        String[] statuses = { "Tất cả trạng thái", "Chờ xác nhận", "Đã xác nhận", "Đang check-in", "Đã check-in", "Đã trả phòng",
+                "Đã hủy", "No-show", "Chờ xếp phòng" };
+        cboFilterStatus = new ModernComboBox<>(statuses);
+        cboFilterStatus.setPreferredSize(new Dimension(200, 40));
         cboFilterStatus.addActionListener(e -> filterListTable());
 
         leftTools.add(txtSearchList);
         leftTools.add(cboFilterStatus);
 
-        // Right: action buttons
-        JPanel rightTools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        rightTools.setOpaque(false);
-
-        RoundedButton btnRefresh = new RoundedButton("Làm mới", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        btnRefresh.setPreferredSize(new Dimension(115, 36));
-        btnRefresh.addActionListener(e -> {
-            loadDatPhongTable();
-            txtSearchList.setText("");
-        });
-
-        RoundedButton btnHuy = new RoundedButton("Hủy đặt phòng", UIConstants.DANGER, Color.WHITE);
-        btnHuy.setEnabled(false);
-        btnHuy.setPreferredSize(new Dimension(150, 36));
-
-        rightTools.add(btnRefresh);
-        rightTools.add(btnHuy);
-
         toolbar.add(leftTools, BorderLayout.WEST);
-        toolbar.add(rightTools, BorderLayout.EAST);
 
-        // ---- Table ----
-        String[] cols = { "_ma", "Mã đặt", "Khách hàng", "Phòng", "Loại phòng", "Check-in", "Check-out", "Số khách",
+        // ---- Table (thêm cột Kênh đặt phòng) ----
+        String[] cols = { "_ma", "Mã đặt", "Khách hàng", "Loại", "Kênh", "Phòng", "Loại phòng", "Check-in", "Check-out", "Số khách",
                 "Đặt cọc", "Trạng thái" };
         modelDatPhong = new DefaultTableModel(cols, 0) {
             @Override
@@ -176,117 +169,95 @@ public class DatPhongPanel extends JPanel {
         loadDatPhongTable();
 
         tableDatPhong.getColumnModel().removeColumn(tableDatPhong.getColumnModel().getColumn(0));
-        tableDatPhong.getColumn("Đặt cọc").setPreferredWidth(110);
-        tableDatPhong.getSelectionModel().addListSelectionListener(
-                e -> btnHuy.setEnabled(tableDatPhong.getSelectedRow() >= 0));
-
         tableDatPhong.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2 && tableDatPhong.getSelectedRow() >= 0) {
-                    int row = tableDatPhong.convertRowIndexToModel(tableDatPhong.getSelectedRow());
-                    String maDat = (String) modelDatPhong.getValueAt(row, 0);
-                    DatPhong dp = datPhongService.getById(maDat);
-                    if (dp != null) {
-                        if (dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED) {
-                            JOptionPane.showMessageDialog(DatPhongPanel.this,
-                                    "Chỉ đơn ở trạng thái 'Đã xác nhận' mới có thể Check-in.",
-                                    "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                            return;
-                        }
-                        try {
-                            showQuickCheckinDialog(dp);
-                        } catch (Exception ex) {
-                            JOptionPane.showMessageDialog(DatPhongPanel.this,
-                                    "Không thể mở hộp thoại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-                        }
+            public void mouseReleased(MouseEvent e) { showPopup(e); }
+            @Override
+            public void mousePressed(MouseEvent e) { showPopup(e); }
+
+            private void showPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    int r = tableDatPhong.rowAtPoint(e.getPoint());
+                    if (r >= 0 && r < tableDatPhong.getRowCount()) {
+                        tableDatPhong.setRowSelectionInterval(r, r);
+                    } else {
+                        tableDatPhong.clearSelection();
+                    }
+
+                    int row = tableDatPhong.getSelectedRow();
+                    if (row >= 0) {
+                        int modelRow = tableDatPhong.convertRowIndexToModel(row);
+                        String ma = (String) modelDatPhong.getValueAt(modelRow, 0);
+                        String ten = (String) modelDatPhong.getValueAt(modelRow, 2);
+                        TrangThaiDatPhong status = (TrangThaiDatPhong) modelDatPhong.getValueAt(modelRow, 11);
+                        
+                        JPopupMenu menu = createDynamicMenu(ma, ten, status);
+                        menu.show(e.getComponent(), e.getX(), e.getY());
                     }
                 }
             }
-        });
 
-        btnHuy.addActionListener(e -> {
-            int row = tableDatPhong.getSelectedRow();
-            if (row < 0)
-                return;
-            String ma = (String) modelDatPhong.getValueAt(row, 0);
-            String ten = (String) modelDatPhong.getValueAt(row, 2);
-            int ok = JOptionPane.showConfirmDialog(this,
-                    "Hủy đặt phòng của \"" + ten + "\"?", "Xác nhận",
-                    JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (ok == JOptionPane.YES_OPTION) {
-                String err = datPhongService.huyDatPhong(ma);
-                if (err == null) {
-                    loadDatPhongTable();
-                    JOptionPane.showMessageDialog(this, "Đã hủy thành công!");
-                } else
-                    JOptionPane.showMessageDialog(this, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && tableDatPhong.getSelectedRow() >= 0) {
+                    int row = tableDatPhong.convertRowIndexToModel(tableDatPhong.getSelectedRow());
+                    String maDat = (String) modelDatPhong.getValueAt(row, 0);
+                    viewDetails(maDat);
+                }
             }
         });
 
         JScrollPane sp = new JScrollPane(tableDatPhong);
         sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
 
-        JLabel footer = new JLabel("  Double-click để Check-in  |  Chọn dòng và nhấn 'Hủy đặt phòng' để hủy");
-        footer.setFont(UIConstants.FONT_SMALL);
-        footer.setForeground(UIConstants.TEXT_MUTED);
+        pagination = new PaginationPanel();
+        pagination.setPageChangeListener(page -> displayDatPhongPage());
+
+        JPanel footer = new JPanel(new BorderLayout());
         footer.setBackground(Color.WHITE);
-        footer.setOpaque(true);
-        footer.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(6, 4, 6, 0)));
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
+        footer.add(pagination, BorderLayout.CENTER);
 
         card.add(toolbar, BorderLayout.NORTH);
         card.add(sp, BorderLayout.CENTER);
         card.add(footer, BorderLayout.SOUTH);
 
-        // ★ No-show warning banner
-        JPanel noShowBanner = buildNoShowBanner();
-
         JPanel mainContent = new JPanel(new BorderLayout(0, 10));
         mainContent.setOpaque(false);
-        if (noShowBanner != null)
-            mainContent.add(noShowBanner, BorderLayout.NORTH);
         mainContent.add(card, BorderLayout.CENTER);
 
         root.add(hdr, BorderLayout.NORTH);
         root.add(mainContent, BorderLayout.CENTER);
+        
+        // Restore card settings
+        card.setShadow(true);
+        card.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        toolbar.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
         return root;
     }
 
     private void filterListTable() {
+        if (allDatPhong == null) return;
+        
         String kw = txtSearchList.getText().trim().toLowerCase();
         String selectedStatus = (String) cboFilterStatus.getSelectedItem();
 
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(modelDatPhong);
-        tableDatPhong.setRowSorter(sorter);
-        sorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                boolean matchSearch = kw.isEmpty()
-                        || entry.getStringValue(2).toLowerCase().contains(kw)
-                        || entry.getStringValue(3).toLowerCase().contains(kw)
-                        || entry.getStringValue(1).toLowerCase().contains(kw);
+        filteredDatPhong = allDatPhong.stream().filter(dp -> {
+            boolean matchSearch = kw.isEmpty()
+                    || (dp.getMaDatPhong() != null && dp.getMaDatPhong().toLowerCase().contains(kw))
+                    || (dp.getTenKhachHang() != null && dp.getTenKhachHang().toLowerCase().contains(kw))
+                    || (dp.getDsChiTiet() != null && dp.getDanhSachTenPhong().toLowerCase().contains(kw));
 
-                boolean matchStatus = "Tất cả trạng thái".equals(selectedStatus);
-                if (!matchStatus) {
-                    Object v = entry.getValue(9);
-                    TrangThaiDatPhong st = null;
-                    if (v instanceof TrangThaiDatPhong) {
-                        st = (TrangThaiDatPhong) v;
-                    } else {
-                        try {
-                            st = TrangThaiDatPhong.valueOf(v != null ? v.toString() : "");
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    String label = UIConstants.getTrangThaiDatPhongLabel(st);
-                    matchStatus = label != null && label.contains(selectedStatus);
-                }
-
-                return matchSearch && matchStatus;
+            boolean matchStatus = "Tất cả trạng thái".equals(selectedStatus);
+            if (!matchStatus) {
+                String label = UIConstants.getTrangThaiDatPhongLabel(dp.getTrangThai());
+                matchStatus = label != null && label.contains(selectedStatus);
             }
-        });
+            return matchSearch && matchStatus;
+        }).collect(java.util.stream.Collectors.toList());
+
+        if (pagination != null) pagination.setCurrentPage(1);
+        displayDatPhongPage();
     }
 
     // ================================================================
@@ -302,114 +273,126 @@ public class DatPhongPanel extends JPanel {
         hdr.setOpaque(false);
         hdr.setBorder(BorderFactory.createEmptyBorder(0, 0, 18, 0));
 
+        // ---- Breadcrumbs (Bánh mì) navigation ----
+        JPanel breadcrumb = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        breadcrumb.setOpaque(false);
+        
+        JButton lblBack = new JButton("Sơ đồ phòng");
+        lblBack.setFont(UIConstants.FONT_BODY);
+        lblBack.setForeground(UIConstants.TEXT_SECONDARY);
+        lblBack.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        lblBack.setContentAreaFilled(false);
+        lblBack.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        lblBack.addActionListener(e -> cardLayout.show(cardContainer, CARD_LIST));
+        
+        lblBack.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { lblBack.setForeground(UIConstants.PRIMARY); }
+            @Override public void mouseExited(MouseEvent e) { lblBack.setForeground(UIConstants.TEXT_SECONDARY); }
+        });
+
+        JLabel lblSep = new JLabel(" / ");
+        lblSep.setFont(UIConstants.FONT_BODY);
+        lblSep.setForeground(UIConstants.TEXT_MUTED);
+        lblSep.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
+
+        JLabel lblCurrent = new JLabel("Tìm phòng trống");
+        lblCurrent.setFont(UIConstants.FONT_BODY_BOLD);
+        lblCurrent.setForeground(UIConstants.TEXT_PRIMARY);
+        lblCurrent.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+
+        breadcrumb.add(lblBack);
+        breadcrumb.add(lblSep);
+        breadcrumb.add(lblCurrent);
+        breadcrumb.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JPanel titleBox = new JPanel();
         titleBox.setOpaque(false);
         titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
+        titleBox.add(breadcrumb);
+        titleBox.add(Box.createVerticalStrut(8));
+
         JLabel title = new JLabel("Tìm phòng trống");
-        title.setFont(UIConstants.FONT_TITLE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(UIConstants.TEXT_PRIMARY);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        titleBox.add(title);
+        
+        titleBox.add(Box.createVerticalStrut(4));
         JLabel sub = new JLabel("Chọn ngày, số khách và bộ lọc để tìm phòng phù hợp");
         sub.setFont(UIConstants.FONT_BODY);
         sub.setForeground(UIConstants.TEXT_SECONDARY);
-        titleBox.add(title);
-        titleBox.add(Box.createVerticalStrut(2));
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         titleBox.add(sub);
 
-        RoundedButton btnBack = new RoundedButton("← Quay lại", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        btnBack.setFont(UIConstants.FONT_BODY_BOLD);
-        btnBack.setPreferredSize(new Dimension(120, 38));
-        btnBack.addActionListener(e -> cardLayout.show(cardContainer, CARD_LIST));
-
         hdr.add(titleBox, BorderLayout.WEST);
-        hdr.add(btnBack, BorderLayout.EAST);
 
         // ---- Search filters card ----
         RoundedPanel searchCard = new RoundedPanel(UIConstants.CARD_RADIUS);
         searchCard.setBackground(Color.WHITE);
         searchCard.setShadow(true);
-        searchCard.setLayout(new BorderLayout());
-        searchCard.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+        searchCard.setLayout(new GridBagLayout());
+        searchCard.setBorder(BorderFactory.createEmptyBorder(24, 24, 20, 24));
 
-        // Row 1: date pickers + search button
         txtNgayNhan = new DateTimePicker(new Date());
         txtNgayTra = new DateTimePicker(new Date(System.currentTimeMillis() + 86_400_000L));
 
-        // Row 2: filters
-        cboTang = new JComboBox<>(new String[] { "Tất cả tầng", "Tầng 1", "Tầng 2", "Tầng 3", "Tầng 4", "Tầng 5" });
-        cboTang.setFont(UIConstants.FONT_BODY);
-
-        // Views from DB
+        // Combo box & Spinner initialization
+        cboTang = new ModernComboBox<>(new String[] { "Tất cả tầng", "Tầng 1", "Tầng 2", "Tầng 3", "Tầng 4", "Tầng 5" });
+        
         java.util.Set<String> views = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        phongService.getAllPhong().stream()
-                .map(Phong::getView)
-                .filter(v -> v != null && !v.isBlank())
-                .forEach(views::add);
+        phongService.getAllPhong().stream().map(Phong::getView).filter(v -> v != null && !v.isBlank()).forEach(views::add);
         String[] viewArr = new String[views.size() + 1];
-        viewArr[0] = "Tất cả view";
-        int vi = 1;
-        for (String v : views)
-            viewArr[vi++] = v;
-        cboView = new JComboBox<>(viewArr);
-        cboView.setFont(UIConstants.FONT_BODY);
+        viewArr[0] = "Tất cả view"; int vi = 1; for (String v : views) viewArr[vi++] = v;
+        cboView = new ModernComboBox<>(viewArr);
 
-        // Room types from DB
         java.util.Set<String> types = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        phongService.getAllPhong().stream()
-                .map(Phong::getTenLoaiPhong)
-                .filter(t -> t != null && !t.isBlank())
-                .forEach(types::add);
+        phongService.getAllPhong().stream().map(Phong::getTenLoaiPhong).filter(t -> t != null && !t.isBlank()).forEach(types::add);
         String[] typeArr = new String[types.size() + 1];
-        typeArr[0] = "Tất cả loại";
-        int ti = 1;
-        for (String t : types)
-            typeArr[ti++] = t;
-        cboLoaiPhong = new JComboBox<>(typeArr);
-        cboLoaiPhong.setFont(UIConstants.FONT_BODY);
+        typeArr[0] = "Tất cả loại"; int ti = 1; for (String t : types) typeArr[ti++] = t;
+        cboLoaiPhong = new ModernComboBox<>(typeArr);
 
-        // Guest count spinner
-        spnSoKhach = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
-        spnSoKhach.setFont(UIConstants.FONT_BODY);
-
-        RoundedButton btnSearch = new RoundedButton("🔍  Tìm phòng", UIConstants.PRIMARY, Color.WHITE);
+        spnSoKhach = new ModernSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+        
+        RoundedButton btnSearch = new RoundedButton("Tìm phòng", UIConstants.PRIMARY, Color.WHITE);
         btnSearch.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnSearch.setPreferredSize(new Dimension(150, 38));
+        btnSearch.setPreferredSize(new Dimension(160, 42));
         btnSearch.addActionListener(e -> doSearch());
 
-        // Layout: 2 rows in the search card
-        JPanel row1 = new JPanel(new GridLayout(1, 3, 14, 0));
-        row1.setOpaque(false);
-        row1.add(labeledComp("📅  Ngày nhận phòng *", txtNgayNhan));
-        row1.add(labeledComp("📅  Ngày trả phòng *", txtNgayTra));
-        row1.add(labeledComp("👥  Số khách", spnSoKhach));
+        // GridBag Layout configuration
+        GridBagConstraints g = new GridBagConstraints();
+        g.fill = GridBagConstraints.BOTH;
+        g.insets = new Insets(0, 0, 16, 12); // Spacing
+        g.weighty = 0;
 
-        JPanel row2 = new JPanel(new GridLayout(1, 4, 14, 0));
-        row2.setOpaque(false);
-        row2.add(labeledComp("🏢  Tầng", cboTang));
-        row2.add(labeledComp("🌅  Hướng view", cboView));
-        row2.add(labeledComp("🛏  Loại phòng", cboLoaiPhong));
+        // Row 1: Dates & Guests
+        g.gridy = 0; 
+        g.gridx = 0; g.weightx = 0.4;
+        searchCard.add(labeledComp("Ngày nhận phòng *", txtNgayNhan), g);
+        
+        g.gridx = 1; g.weightx = 0.4;
+        searchCard.add(labeledComp("Ngày trả phòng *", txtNgayTra), g);
+        
+        g.gridx = 2; g.weightx = 0.2; g.insets = new Insets(0, 0, 16, 0);
+        searchCard.add(labeledComp("Số khách", spnSoKhach), g);
 
-        // Button panel (right-aligned)
-        JPanel btnWrap = new JPanel(new BorderLayout());
-        btnWrap.setOpaque(false);
-        JLabel lbl = new JLabel(" ");
-        lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-        btnWrap.add(lbl, BorderLayout.NORTH);
-        btnWrap.add(btnSearch, BorderLayout.CENTER);
-        row2.add(btnWrap);
-
-        JPanel filterRows = new JPanel();
-        filterRows.setOpaque(false);
-        filterRows.setLayout(new BoxLayout(filterRows, BoxLayout.Y_AXIS));
-        filterRows.add(row1);
-        filterRows.add(Box.createVerticalStrut(12));
-
-        JSeparator divider = new JSeparator();
-        divider.setForeground(UIConstants.BORDER);
-        divider.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        filterRows.add(divider);
-        filterRows.add(Box.createVerticalStrut(12));
-        filterRows.add(row2);
-
-        searchCard.add(filterRows, BorderLayout.CENTER);
+        // Row 2: Fine-tuning & Search Button
+        g.gridy = 1; g.insets = new Insets(0, 0, 0, 12);
+        
+        g.gridx = 0; g.weightx = 0.25;
+        searchCard.add(labeledComp("Tầng", cboTang), g);
+        
+        g.gridx = 1; g.weightx = 0.25;
+        searchCard.add(labeledComp("Hướng view", cboView), g);
+        
+        g.gridx = 2; g.weightx = 0.25; 
+        searchCard.add(labeledComp("Loại phòng", cboLoaiPhong), g);
+        
+        g.gridx = 3; g.weightx = 0.25; g.insets = new Insets(0, 4, 0, 0);
+        JPanel btnWrapper = new JPanel(new BorderLayout());
+        btnWrapper.setOpaque(false);
+        btnWrapper.add(Box.createVerticalStrut(22), BorderLayout.NORTH); // Alignment with labels
+        btnWrapper.add(btnSearch, BorderLayout.CENTER);
+        searchCard.add(btnWrapper, g);
 
         // ---- Result panel ----
         resultPanel = new JPanel(new BorderLayout());
@@ -478,7 +461,7 @@ public class DatPhongPanel extends JPanel {
         Date checkIn = txtNgayNhan.getDate();
         Date checkOut = txtNgayTra.getDate();
         if (!checkOut.after(checkIn)) {
-            JOptionPane.showMessageDialog(this, "Ngày trả phải sau ngày nhận!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+            NotificationManager.showWarning("Lỗi ngày tháng", "Ngày trả phải sau ngày nhận!");
             return;
         }
 
@@ -500,8 +483,7 @@ public class DatPhongPanel extends JPanel {
                     || (ph.getView() != null && ph.getView().equalsIgnoreCase(viewFilter));
             boolean matchType = typeFilter == null
                     || (ph.getTenLoaiPhong() != null && ph.getTenLoaiPhong().equalsIgnoreCase(typeFilter));
-            boolean matchCap = ph.getSucChua() >= soKhach;
-            if (matchTang && matchView && matchType && matchCap)
+            if (matchTang && matchView && matchType)
                 rooms.add(ph);
         }
         showResults(rooms, checkIn, checkOut);
@@ -509,6 +491,7 @@ public class DatPhongPanel extends JPanel {
 
     private void showResults(java.util.List<Phong> rooms, Date checkIn, Date checkOut) {
         resultPanel.removeAll();
+        selectedRooms.clear();
         if (rooms.isEmpty()) {
             JPanel empty = new JPanel();
             empty.setOpaque(false);
@@ -532,7 +515,7 @@ public class DatPhongPanel extends JPanel {
             summary.setOpaque(false);
             summary.setBorder(BorderFactory.createEmptyBorder(10, 0, 8, 0));
 
-            JLabel cnt = new JLabel("✅  Tìm thấy " + rooms.size() + " phòng trống phù hợp");
+            JLabel cnt = new JLabel("Tìm thấy " + rooms.size() + " phòng trống phù hợp");
             cnt.setFont(UIConstants.FONT_BODY_BOLD);
             cnt.setForeground(UIConstants.SUCCESS);
 
@@ -544,434 +527,232 @@ public class DatPhongPanel extends JPanel {
             summary.add(cnt, BorderLayout.WEST);
             summary.add(nights, BorderLayout.EAST);
 
-            JPanel grid = new JPanel(new WrapLayout(FlowLayout.LEFT, 12, 10));
-            grid.setOpaque(false);
-            for (Phong ph : rooms)
-                grid.add(buildRoomCard(ph, soNgay, checkIn, checkOut));
+            // Group by Floor
+            Map<Integer, java.util.List<Phong>> byFloor = new TreeMap<>();
+            for (Phong p : rooms) {
+                byFloor.computeIfAbsent(p.getTang(), k -> new ArrayList<>()).add(p);
+            }
 
-            JScrollPane sp = new JScrollPane(grid);
+            JPanel roomGrid = new JPanel();
+            roomGrid.setOpaque(false);
+            roomGrid.setLayout(new BoxLayout(roomGrid, BoxLayout.Y_AXIS));
+
+            for (Map.Entry<Integer, java.util.List<Phong>> entry : byFloor.entrySet()) {
+                roomGrid.add(buildFloorSection(entry.getKey(), entry.getValue(), soNgay, checkIn, checkOut));
+                roomGrid.add(Box.createVerticalStrut(12));
+            }
+
+            JScrollPane sp = new JScrollPane(roomGrid);
             sp.setOpaque(false);
             sp.getViewport().setOpaque(false);
             sp.setBorder(null);
+            sp.getVerticalScrollBar().setUnitIncrement(20);
+            sp.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+            // Selection Bar
+            JPanel selectionBar = new JPanel(new BorderLayout());
+            selectionBar.setOpaque(false);
+            selectionBar.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+            lblSelectedCount = new JLabel("Chưa chọn phòng nào");
+            lblSelectedCount.setFont(UIConstants.FONT_BODY_BOLD);
+            btnDatNhieuPhong = new RoundedButton("Đặt phòng đã chọn", UIConstants.PRIMARY, Color.WHITE);
+            btnDatNhieuPhong.setEnabled(false);
+            btnDatNhieuPhong.setPreferredSize(new Dimension(180, 40));
+            btnDatNhieuPhong.addActionListener(e -> {
+                if (!selectedRooms.isEmpty()) {
+                    new DatPhongDialog(
+                        (Frame) SwingUtilities.getWindowAncestor(this), 
+                        new ArrayList<>(selectedRooms), 
+                        checkIn, checkOut, 
+                        () -> {
+                            refresh();
+                            cardLayout.show(cardContainer, CARD_LIST);
+                        }
+                    ).setVisible(true);
+                }
+            });
+            selectionBar.add(lblSelectedCount, BorderLayout.WEST);
+            selectionBar.add(btnDatNhieuPhong, BorderLayout.EAST);
 
             resultPanel.add(summary, BorderLayout.NORTH);
             resultPanel.add(sp, BorderLayout.CENTER);
+            resultPanel.add(selectionBar, BorderLayout.SOUTH);
         }
         resultPanel.revalidate();
         resultPanel.repaint();
     }
 
-    private RoundedPanel buildRoomCard(Phong p, long soNgay, Date checkIn, Date checkOut) {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
-        card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout(0, 6));
-        card.setPreferredSize(new Dimension(230, 188));
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UIConstants.BORDER, 1),
-                BorderFactory.createEmptyBorder(14, 16, 14, 16)));
+    private JPanel buildFloorSection(int floor, java.util.List<Phong> phongs, long soNgay, Date checkIn,
+            Date checkOut) {
+        JPanel section = new JPanel();
+        section.setOpaque(false);
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 9999));
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Top: room number + view badge
+        // Floor header
+        JPanel floorHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+        floorHeader.setOpaque(false);
+        floorHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+        floorHeader.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+        JLabel lblFloor = new JLabel("Tầng " + floor);
+        lblFloor.setFont(UIConstants.FONT_HEADER);
+        lblFloor.setForeground(UIConstants.TEXT_PRIMARY);
+        JLabel lblCount = new JLabel("(" + phongs.size() + " phòng)");
+        lblCount.setFont(UIConstants.FONT_SMALL);
+        lblCount.setForeground(UIConstants.TEXT_MUTED);
+        floorHeader.add(lblFloor);
+        floorHeader.add(lblCount);
+
+        JSeparator separator = new JSeparator(SwingConstants.HORIZONTAL);
+        separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        separator.setForeground(new Color(200, 210, 245));
+        separator.setBackground(new Color(235, 240, 255));
+        separator.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel cardsPanel = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 10));
+        cardsPanel.setOpaque(false);
+        cardsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (Phong p : phongs)
+            cardsPanel.add(buildRoomCard(p, soNgay, checkIn, checkOut));
+
+        section.add(floorHeader);
+        section.add(Box.createVerticalStrut(6));
+        section.add(separator);
+        section.add(Box.createVerticalStrut(8));
+        section.add(cardsPanel);
+        return section;
+    }
+
+    private RoundedPanel buildRoomCard(Phong p, long soNgay, Date checkIn, Date checkOut) {
+        Color borderClr = new Color(0x10B981); // AVAILABLE color
+        Color bgHover = new Color(0xECFDF5);
+        String txtStatus = "Có sẵn";
+
+        RoundedPanel card = new RoundedPanel(10);
+        card.setBackground(Color.WHITE);
+        card.setLayout(new BorderLayout(0, 4));
+        card.setPreferredSize(new Dimension(190, 128));
+        card.setMinimumSize(new Dimension(190, 128));
+        card.setMaximumSize(new Dimension(190, 128));
+        card.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(10, borderClr),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Top: số phòng + trạng thái
         JPanel topRow = new JPanel(new BorderLayout());
         topRow.setOpaque(false);
-        JLabel lRoom = new JLabel("P." + p.getSoPhong());
-        lRoom.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        JLabel lblNum = new JLabel("P." + p.getSoPhong());
+        lblNum.setFont(new Font("Segoe UI", Font.BOLD, 15));
 
-        // View badge
-        JLabel lView = new JLabel(p.getView() != null ? p.getView() : "");
-        lView.setFont(UIConstants.FONT_TINY);
-        lView.setForeground(UIConstants.PRIMARY);
-        lView.setBackground(UIConstants.PRIMARY_LIGHT);
-        lView.setOpaque(true);
-        lView.setBorder(BorderFactory.createEmptyBorder(2, 7, 2, 7));
-        topRow.add(lRoom, BorderLayout.WEST);
-        topRow.add(lView, BorderLayout.EAST);
+        JLabel lblTT = new JLabel(txtStatus);
+        lblTT.setFont(UIConstants.FONT_TINY);
+        lblTT.setForeground(borderClr);
 
-        JLabel lType = new JLabel(p.getTenLoaiPhong() != null ? p.getTenLoaiPhong() : "");
-        lType.setFont(UIConstants.FONT_SMALL);
-        lType.setForeground(UIConstants.TEXT_SECONDARY);
+        topRow.add(lblNum, BorderLayout.WEST);
+        topRow.add(lblTT, BorderLayout.EAST);
 
-        JLabel lFloor = new JLabel("🏢 Tầng " + p.getTang() + "   👥 " + p.getSucChua() + " người tối đa");
-        lFloor.setFont(UIConstants.FONT_SMALL);
-        lFloor.setForeground(UIConstants.TEXT_MUTED);
+        // Middle: loại + view + khách
+        JLabel lblType = new JLabel(p.getTenLoaiPhong() != null ? p.getTenLoaiPhong() : "");
+        lblType.setFont(UIConstants.FONT_SMALL);
+        lblType.setForeground(UIConstants.TEXT_SECONDARY);
 
-        // Price
-        JLabel lPrice = new JLabel(String.format("%,.0fđ / đêm", p.getGiaTheoNgay()));
-        lPrice.setFont(UIConstants.FONT_BODY_BOLD);
-        lPrice.setForeground(UIConstants.SUCCESS);
+        JLabel lblView = new JLabel(p.getView() != null ? "Hướng: " + p.getView() : "");
+        lblView.setFont(UIConstants.FONT_TINY);
+        lblView.setForeground(UIConstants.TEXT_MUTED);
 
-        JLabel lTotal = new JLabel(String.format("→ Tổng %,.0fđ (%d đêm)", p.getGiaTheoNgay() * soNgay, soNgay));
-        lTotal.setFont(UIConstants.FONT_SMALL);
-        lTotal.setForeground(UIConstants.TEXT_MUTED);
+        JLabel lblGuest = new JLabel(p.getSucChua() + " người tối đa");
+        lblGuest.setFont(UIConstants.FONT_SMALL);
+        lblGuest.setForeground(UIConstants.TEXT_MUTED);
 
-        RoundedButton btnDat = new RoundedButton("Đặt phòng này", UIConstants.PRIMARY, Color.WHITE);
-        btnDat.setFont(UIConstants.FONT_SMALL_BOLD);
-        btnDat.addActionListener(e -> showDatPhongDialog(p, checkIn, checkOut));
+        JPanel center = new JPanel();
+        center.setOpaque(false);
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        center.add(lblType);
+        center.add(Box.createVerticalStrut(1));
+        center.add(lblView);
+        center.add(Box.createVerticalStrut(3));
+        center.add(lblGuest);
 
-        // Hover effect
+        // Bottom: giá
+        double giaActive = bangGiaService.layGiaVaoThoiDiem(p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "", 
+                           checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        JLabel lblPrice = new JLabel(String.format("%,.0fđ/đêm", giaActive));
+        lblPrice.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblPrice.setForeground(UIConstants.SUCCESS);
+
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
+        bottom.add(lblPrice, BorderLayout.WEST);
+
+        card.add(topRow, BorderLayout.NORTH);
+        card.add(center, BorderLayout.CENTER);
+        card.add(bottom, BorderLayout.SOUTH);
+
+        Color selectedBorderClr = UIConstants.PRIMARY;
+        Color selectedBg = new Color(0xEFF6FF);
+
         card.addMouseListener(new MouseAdapter() {
             @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON1) {
+                    if (selectedRooms.contains(p)) {
+                        selectedRooms.remove(p);
+                    } else {
+                        selectedRooms.add(p);
+                    }
+                    updateSelectionBar();
+                    card.setBackground(selectedRooms.contains(p) ? selectedBg : Color.WHITE);
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                            new RoundedBorder(10, selectedRooms.contains(p) ? selectedBorderClr : borderClr),
+                            BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+                    card.repaint();
+                }
+            }
+
+            @Override
             public void mouseEntered(MouseEvent e) {
-                card.setBackground(UIConstants.PRIMARY_LIGHT);
-                card.repaint();
+                if (!selectedRooms.contains(p)) {
+                    card.setBackground(bgHover);
+                    card.repaint();
+                }
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                card.setBackground(Color.WHITE);
-                card.repaint();
+                if (!selectedRooms.contains(p)) {
+                    card.setBackground(Color.WHITE);
+                    card.repaint();
+                }
             }
         });
+        
+        card.setBackground(selectedRooms.contains(p) ? selectedBg : Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(10, selectedRooms.contains(p) ? selectedBorderClr : borderClr),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
 
-        JPanel info = new JPanel();
-        info.setOpaque(false);
-        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-        info.add(topRow);
-        info.add(Box.createVerticalStrut(2));
-        info.add(lType);
-        info.add(lFloor);
-        info.add(Box.createVerticalStrut(6));
-        info.add(lPrice);
-        info.add(lTotal);
-
-        card.add(info, BorderLayout.CENTER);
-        card.add(btnDat, BorderLayout.SOUTH);
         return card;
     }
 
-    // ================================================================
-    // DIALOG ĐẶT PHÒNG — Cải tiến: thêm số khách, cọc, ghi chú, CCCD
-    // ================================================================
-    private void showDatPhongDialog(Phong p, Date checkIn, Date checkOut) {
-        JDialog dlg = new JDialog(
-                (Frame) SwingUtilities.getWindowAncestor(this),
-                "Đặt phòng — P." + p.getSoPhong(), true);
-        dlg.setSize(540, 620);
-        dlg.setLocationRelativeTo(this);
-        dlg.setResizable(false);
-
-        JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(new Color(0xF8FAFC));
-
-        // ---- Top banner (room info) ----
-        JPanel banner = new JPanel(new BorderLayout());
-        banner.setBackground(UIConstants.PRIMARY);
-        banner.setBorder(BorderFactory.createEmptyBorder(18, 24, 18, 24));
-
-        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-        long soNgay = new ThuePhongService().tinhSoNgay(checkIn, checkOut);
-
-        JLabel bannerTitle = new JLabel("Xác nhận đặt phòng P." + p.getSoPhong());
-        bannerTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        bannerTitle.setForeground(Color.WHITE);
-
-        JPanel bannerDetails = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
-        bannerDetails.setOpaque(false);
-
-        for (String info : new String[] {
-                "🛏 " + (p.getTenLoaiPhong() != null ? p.getTenLoaiPhong() : ""),
-                "📅 " + sdf.format(checkIn) + " → " + sdf.format(checkOut),
-                "🌙 " + soNgay + " đêm",
-                "💰 " + String.format("%,.0fđ/đêm", p.getGiaTheoNgay())
-        }) {
-            JLabel lbl = new JLabel(info);
-            lbl.setFont(UIConstants.FONT_SMALL);
-            lbl.setForeground(new Color(255, 255, 255, 200));
-            bannerDetails.add(lbl);
-        }
-
-        banner.add(bannerTitle, BorderLayout.NORTH);
-        banner.add(bannerDetails, BorderLayout.CENTER);
-
-        // ---- Form content ----
-        JPanel form = new JPanel();
-        form.setBackground(Color.WHITE);
-        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-        form.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
-
-        // Section: Thông tin khách hàng
-        form.add(sectionLabel("👤  Thông tin khách hàng"));
-        form.add(Box.createVerticalStrut(10));
-
-        // Row: Họ tên + SĐT
-        JPanel row1 = new JPanel(new GridLayout(1, 2, 12, 0));
-        row1.setOpaque(false);
-        row1.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        row1.setAlignmentX(Component.LEFT_ALIGNMENT);
-        ModernTextField txtHoTen = new ModernTextField("Nhập họ và tên...");
-        ModernTextField txtSDT = new ModernTextField("Nhập số điện thoại...");
-        row1.add(fieldGroup("Họ và tên *", txtHoTen));
-        row1.add(fieldGroup("Số điện thoại *", txtSDT));
-        form.add(row1);
-        form.add(Box.createVerticalStrut(10));
-
-        // Row: CCCD + Số khách
-        JPanel row2 = new JPanel(new GridLayout(1, 2, 12, 0));
-        row2.setOpaque(false);
-        row2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        row2.setAlignmentX(Component.LEFT_ALIGNMENT);
-        ModernTextField txtCCCD = new ModernTextField("CCCD/Hộ chiếu (tùy chọn)");
-        JSpinner spnKhach = new JSpinner(new SpinnerNumberModel(1, 1, p.getSucChua() > 0 ? p.getSucChua() : 10, 1));
-        spnKhach.setFont(UIConstants.FONT_BODY);
-        row2.add(fieldGroup("CCCD / Hộ chiếu", txtCCCD));
-        row2.add(fieldGroup("Số lượng khách (tối đa " + p.getSucChua() + ")", spnKhach));
-        form.add(row2);
-        form.add(Box.createVerticalStrut(18));
-
-        // Auto-fill CRM Data if available
-        if (prefilledKhachHang != null) {
-            txtHoTen.setText(prefilledKhachHang.getHoTen());
-            txtSDT.setText(prefilledKhachHang.getSoDienThoai());
-            if (prefilledKhachHang.getCccd() != null) {
-                txtCCCD.setText(prefilledKhachHang.getCccd());
-            }
-            // Khóa lại không cho tự ý đổi tên người đặt
-            txtHoTen.setEditable(false);
-            txtHoTen.setBackground(new Color(0xE2E8F0)); 
-            txtSDT.setEditable(false);
-            txtSDT.setBackground(new Color(0xE2E8F0));
-        }
-
-        // Section: Thanh toán
-        form.add(sectionLabel("💳  Thông tin thanh toán"));
-        form.add(Box.createVerticalStrut(10));
-
-        double tongTien = p.getGiaTheoNgay() * soNgay;
-        JPanel row3 = new JPanel(new GridLayout(1, 2, 12, 0));
-        row3.setOpaque(false);
-        row3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        row3.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Tổng tiền (readonly display)
-        JTextField txtTongTien = new JTextField(String.format("%,.0fđ", tongTien));
-        txtTongTien.setFont(UIConstants.FONT_BODY_BOLD);
-        txtTongTien.setForeground(UIConstants.SUCCESS);
-        txtTongTien.setEditable(false);
-        txtTongTien.setBackground(new Color(0xF0FDF4));
-        txtTongTien.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-
-        // Đặt cọc spinner (% of total)
-        String[] cocOptions = { "Không đặt cọc", "30% (" + String.format("%,.0fđ", tongTien * 0.3) + ")",
-                "50% (" + String.format("%,.0fđ", tongTien * 0.5) + ")",
-                "100% (" + String.format("%,.0fđ", tongTien) + ")" };
-        JComboBox<String> cboCoc = new JComboBox<>(cocOptions);
-        cboCoc.setFont(UIConstants.FONT_BODY);
-
-        row3.add(fieldGroup("Tổng tiền phòng (ước tính)", txtTongTien));
-        row3.add(fieldGroup("Đặt cọc", cboCoc));
-        form.add(row3);
-        form.add(Box.createVerticalStrut(18));
-
-        // Section: Ghi chú
-        form.add(sectionLabel("📝  Ghi chú / Yêu cầu đặc biệt"));
-        form.add(Box.createVerticalStrut(8));
-        JTextArea txtGhiChu = new JTextArea(3, 0);
-        txtGhiChu.setFont(UIConstants.FONT_BODY);
-        txtGhiChu.setLineWrap(true);
-        txtGhiChu.setWrapStyleWord(true);
-        txtGhiChu.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(8, 10, 8, 10)));
-        txtGhiChu.setBackground(Color.WHITE);
-        String[] hints = { "VD: Cần giường phụ, yêu cầu tầng cao, check-in muộn...", "" };
-        txtGhiChu.setText(hints[0]);
-        txtGhiChu.setForeground(UIConstants.TEXT_MUTED);
-        txtGhiChu.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusGained(FocusEvent e) {
-                if (txtGhiChu.getText().equals(hints[0])) {
-                    txtGhiChu.setText("");
-                    txtGhiChu.setForeground(UIConstants.TEXT_PRIMARY);
-                }
-            }
-
-            @Override
-            public void focusLost(FocusEvent e) {
-                if (txtGhiChu.getText().isBlank()) {
-                    txtGhiChu.setText(hints[0]);
-                    txtGhiChu.setForeground(UIConstants.TEXT_MUTED);
-                }
-            }
-        });
-        JScrollPane spGhiChu = new JScrollPane(txtGhiChu);
-        spGhiChu.setAlignmentX(Component.LEFT_ALIGNMENT);
-        spGhiChu.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-        spGhiChu.setBorder(null);
-        form.add(spGhiChu);
-
-        // ---- Buttons ----
-        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        btns.setBackground(new Color(0xF8FAFC));
-        btns.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(14, 16, 14, 16)));
-
-        RoundedButton btnCancel = new RoundedButton("Hủy", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        btnCancel.setPreferredSize(new Dimension(90, 38));
-        RoundedButton btnOk = new RoundedButton("✓  Xác nhận đặt phòng", UIConstants.PRIMARY, Color.WHITE);
-        btnOk.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnOk.setPreferredSize(new Dimension(200, 38));
-
-        btnCancel.addActionListener(e -> dlg.dispose());
-
-        btnOk.addActionListener(e -> {
-            String hoTen = txtHoTen.getText().trim();
-            String sdt = txtSDT.getText().trim();
-            String cccd = txtCCCD.getText().trim();
-            int soKhach = (int) spnKhach.getValue();
-            String ghiChuText = txtGhiChu.getText().trim();
-            if (ghiChuText.equals(hints[0]))
-                ghiChuText = "";
-
-            // Validate
-            if (hoTen.isEmpty()) {
-                showError(dlg, "Vui lòng nhập họ và tên khách hàng!");
-                return;
-            }
-            if (sdt.isEmpty()) {
-                showError(dlg, "Vui lòng nhập số điện thoại!");
-                return;
-            }
-            if (!sdt.matches("\\d{9,11}")) {
-                showError(dlg, "Số điện thoại không hợp lệ (9–11 chữ số)!");
-                return;
-            }
-            if (soKhach > p.getSucChua() && p.getSucChua() > 0) {
-                showError(dlg, "Số khách vượt quá sức chứa phòng (" + p.getSucChua() + " người)!");
-                return;
-            }
-
-            // Tìm hoặc tạo khách hàng
-            KhachHang kh = khService.getByPhone(sdt);
-            if (kh == null) {
-                kh = new KhachHang();
-                kh.setHoTen(hoTen);
-                kh.setSoDienThoai(sdt);
-                kh.setCccd(cccd);
-                String errKH = khService.them(kh);
-                if (errKH != null) {
-                    showError(dlg, "Lỗi tạo khách hàng: " + errKH);
-                    return;
-                }
-                kh = khService.getByPhone(sdt);
+    private void updateSelectionBar() {
+        if (lblSelectedCount != null && btnDatNhieuPhong != null) {
+            if (selectedRooms.isEmpty()) {
+                lblSelectedCount.setText("Chưa chọn phòng nào");
+                lblSelectedCount.setForeground(UIConstants.TEXT_MUTED);
+                btnDatNhieuPhong.setEnabled(false);
             } else {
-                // Update CCCD nếu có
-                if (!cccd.isEmpty() && (kh.getCccd() == null || kh.getCccd().isBlank())) {
-                    kh.setCccd(cccd);
-                }
+                lblSelectedCount.setText("Đã chọn " + selectedRooms.size() + " phòng");
+                lblSelectedCount.setForeground(UIConstants.PRIMARY);
+                btnDatNhieuPhong.setEnabled(true);
             }
-
-            // Tính tiền cọc
-            int cocIdx = cboCoc.getSelectedIndex();
-            double[] cocRatios = { 0.0, 0.3, 0.5, 1.0 };
-            double tienCoc = tongTien * cocRatios[cocIdx];
-
-            // Tạo đặt phòng
-            DatPhong dp = new DatPhong();
-            dp.setKhachHang(kh);
-            dp.setNgayNhanDuKien(checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
-            dp.setNgayTraDuKien(checkOut.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
-            dp.setSoLuongKhach(soKhach);
-            dp.setTienDatCoc(tienCoc);
-            dp.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
-            dp.setTrangThai(TrangThaiDatPhong.CONFIRMED);
-
-            NhanVien nv = new NhanVien();
-            nv.setMaNhanVien(AuthService.getInstance().getCurrentMaNV());
-            dp.setNhanVien(nv);
-
-            ChiTietDatPhong ct = new ChiTietDatPhong();
-            ct.setPhong(p);
-            ct.setDatPhong(dp);
-            ct.setGiaThucTeChot(p.getGiaTheoNgay());
-            dp.getDsChiTiet().add(ct);
-
-            String err = datPhongService.datPhong(dp);
-            if (err == null) {
-                showSuccessDialog(dlg, dp, p, soNgay, tienCoc);
-                dlg.dispose();
-                refresh();
-                cardLayout.show(cardContainer, CARD_LIST);
-            } else {
-                showError(dlg, "Lỗi: " + err);
-            }
-        });
-
-        btns.add(btnCancel);
-        btns.add(btnOk);
-
-        JScrollPane formScroll = new JScrollPane(form);
-        formScroll.setBorder(null);
-        formScroll.getVerticalScrollBar().setUnitIncrement(10);
-
-        root.add(banner, BorderLayout.NORTH);
-        root.add(formScroll, BorderLayout.CENTER);
-        root.add(btns, BorderLayout.SOUTH);
-
-        dlg.setContentPane(root);
-        dlg.setVisible(true);
+        }
     }
 
-    // Show success notification with booking summary
-    private void showSuccessDialog(JDialog parent, DatPhong dp, Phong p, long soNgay, double tienCoc) {
-        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        String msg = "<html><div style='font-family:Segoe UI; padding:4px'>"
-                + "<b style='font-size:14px; color:#10B981'>✅ Đặt phòng thành công!</b><br><br>"
-                + "<table cellpadding='3'>"
-                + "<tr><td><b>Mã đặt:</b></td><td><b style='color:#2563EB'>" + dp.getMaDatPhong() + "</b></td></tr>"
-                + "<tr><td><b>Phòng:</b></td><td>P." + p.getSoPhong() + " (" + p.getTenLoaiPhong() + ")</td></tr>"
-                + "<tr><td><b>Khách:</b></td><td>" + dp.getTenKhachHang() + "</td></tr>"
-                + "<tr><td><b>Số khách:</b></td><td>" + dp.getSoLuongKhach() + " người</td></tr>"
-                + "<tr><td><b>Check-in:</b></td><td>"
-                + (dp.getNgayNhanDK_Date() != null ? sdf.format(dp.getNgayNhanDK_Date()) : "") + "</td></tr>"
-                + "<tr><td><b>Check-out:</b></td><td>"
-                + (dp.getNgayTraDK_Date() != null ? sdf.format(dp.getNgayTraDK_Date()) : "") + "</td></tr>"
-                + "<tr><td><b>Số đêm:</b></td><td>" + soNgay + " đêm</td></tr>"
-                + "<tr><td><b>Giá/đêm:</b></td><td>" + String.format("%,.0fđ", p.getGiaTheoNgay()) + "</td></tr>"
-                + (tienCoc > 0
-                        ? "<tr><td><b>Tiền cọc:</b></td><td style='color:#F59E0B'>" + String.format("%,.0fđ", tienCoc)
-                                + "</td></tr>"
-                        : "")
-                + (dp.getGhiChu() != null ? "<tr><td><b>Ghi chú:</b></td><td>" + dp.getGhiChu() + "</td></tr>" : "")
-                + "</table></div></html>";
-        JOptionPane.showMessageDialog(parent, msg, "Đặt phòng thành công", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private JPanel fieldGroup(String label, JComponent comp) {
-        JPanel g = new JPanel(new BorderLayout(0, 4));
-        g.setOpaque(false);
-        JLabel lbl = new JLabel(label);
-        lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-        lbl.setForeground(UIConstants.TEXT_SECONDARY);
-        g.add(lbl, BorderLayout.NORTH);
-        g.add(comp, BorderLayout.CENTER);
-        return g;
-    }
-
-    private JLabel sectionLabel(String text) {
-        JLabel lbl = new JLabel(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(UIConstants.PRIMARY_LIGHT);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-        lbl.setForeground(UIConstants.PRIMARY);
-        lbl.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        lbl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        return lbl;
-    }
-
-    private void showError(JDialog parent, String msg) {
-        JOptionPane.showMessageDialog(parent, msg, "Lỗi", JOptionPane.WARNING_MESSAGE);
+    private void showError(String msg) {
+        NotificationManager.showError("Lỗi", msg);
     }
 
     // ================================================================
@@ -1001,7 +782,20 @@ public class DatPhongPanel extends JPanel {
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
 
-                if (col == 8) { // Đặt cọc column
+                if (col == 2) { // Loại khách column
+                    String val = v != null ? v.toString() : "Khách lẻ";
+                    lbl.setText(val);
+                    boolean isDoan = val.contains("đoàn");
+                    lbl.setForeground(isDoan ? new Color(0x7C3AED) : new Color(0x0EA5E9));
+                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                }
+
+                if (col == 3) { // Kênh (View index 3 sau khi ẩn cột 0)
+                    lbl.setForeground(new Color(0x64748B));
+                    lbl.setFont(UIConstants.FONT_SMALL);
+                }
+
+                if (col == 9) { // Đặt cọc column
                     String val = v != null ? v.toString() : "0đ";
                     lbl.setText(val);
                     lbl.setForeground("0đ".equals(val) || "0,0đ".equals(val)
@@ -1010,7 +804,7 @@ public class DatPhongPanel extends JPanel {
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                 }
 
-                if (col == 9) { // Trạng thái column
+                if (col == 10) { // Trạng thái column
                     TrangThaiDatPhong st = null;
                     if (v instanceof TrangThaiDatPhong) {
                         st = (TrangThaiDatPhong) v;
@@ -1030,14 +824,40 @@ public class DatPhongPanel extends JPanel {
     }
 
     private void loadDatPhongTable() {
+        allDatPhong = datPhongService.getAll();
+        filterListTable();
+    }
+
+    private void displayDatPhongPage() {
         modelDatPhong.setRowCount(0);
+        if (filteredDatPhong == null) return;
+
+        int pageSize = 12;
+        int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
+
+        int totalPages = (int) Math.ceil((double) filteredDatPhong.size() / pageSize);
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+            if (pagination != null) pagination.setCurrentPage(currentPage);
+        }
+
+        int start = (currentPage - 1) * pageSize;
+        int end = Math.min(start + pageSize, filteredDatPhong.size());
+
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        for (DatPhong dp : datPhongService.getAll()) {
+        for (int i = start; i < end; i++) {
+            DatPhong dp = filteredDatPhong.get(i);
+            String loaiLabel = dp.getLoaiKhachLabel();
+            if (dp.isDoan() && dp.getTenDoan() != null && !dp.getTenDoan().isEmpty()) {
+                loaiLabel += " (" + dp.getTenDoan() + ")";
+            }
             modelDatPhong.addRow(new Object[] {
                     dp.getMaDatPhong(),
                     dp.getMaDatPhong(),
                     dp.getTenKhachHang() != null ? dp.getTenKhachHang() : "—",
-                    dp.getSoPhong(),
+                    loaiLabel,
+                    dp.getTenKenh() != null ? dp.getTenKenh() : "Trực tiếp",
+                    dp.getDanhSachTenPhong(),
                     dp.getTenLoaiPhong() != null ? dp.getTenLoaiPhong() : "",
                     dp.getNgayNhanDK() != null ? sdf.format(dp.getNgayNhanDK_Date()) : "",
                     dp.getNgayTraDK() != null ? sdf.format(dp.getNgayTraDK_Date()) : "",
@@ -1048,6 +868,10 @@ public class DatPhongPanel extends JPanel {
                     dp.getTrangThai()
             });
         }
+
+        if (pagination != null) {
+            pagination.update(filteredDatPhong.size(), pageSize, currentPage);
+        }
     }
 
     // ================================================================
@@ -1056,9 +880,52 @@ public class DatPhongPanel extends JPanel {
     private void showQuickCheckinDialog(DatPhong dp) {
         if (dp == null)
             return;
-        if (dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED) {
-            JOptionPane.showMessageDialog(this, "Chỉ đơn 'Đã xác nhận' mới có thể Check-in.",
-                    "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        if (dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED && 
+            dp.getTrangThai() != TrangThaiDatPhong.PARTIALLY_CHECKED_IN &&
+            dp.getTrangThai() != TrangThaiDatPhong.CHECKED_IN) {
+            NotificationManager.showInfo("Thông báo", "Chỉ đơn 'Đã xác nhận' hoặc 'Đang check-in' mới có thể tiếp tục Check-in.");
+            return;
+        }
+
+        // --- GROUP CHECK-IN HANDLING ---
+        if (dp.getDsChiTiet() != null && dp.getDsChiTiet().size() > 1) {
+            JDialog mapDlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Chọn phòng để Check-in", true);
+            mapDlg.setSize(400, Math.min(600, 100 + dp.getDsChiTiet().size() * 50));
+            mapDlg.setLocationRelativeTo(this);
+            JPanel mapPanel = new JPanel();
+            mapPanel.setLayout(new BoxLayout(mapPanel, BoxLayout.Y_AXIS));
+            mapPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            mapPanel.setBackground(Color.WHITE);
+            
+            JLabel lblGuide = new JLabel("Đơn đặt này có " + dp.getDsChiTiet().size() + " phòng. Chọn phòng để xử lý:");
+            lblGuide.setFont(UIConstants.FONT_BODY_BOLD);
+            lblGuide.setAlignmentX(Component.CENTER_ALIGNMENT);
+            mapPanel.add(lblGuide);
+            mapPanel.add(Box.createVerticalStrut(15));
+            
+            for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                Phong p = ct.getPhong();
+                RoundedButton btnRoom = new RoundedButton("P." + p.getSoPhong() + " (" + p.getTenLoaiPhong() + ")", UIConstants.PRIMARY, Color.WHITE);
+                btnRoom.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+                btnRoom.setAlignmentX(Component.CENTER_ALIGNMENT);
+                
+                if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
+                     btnRoom.setText("P." + p.getSoPhong() + " - Đã nhận phòng");
+                     btnRoom.setBackground(new Color(156, 163, 175)); // Khóa nút
+                } else {
+                     btnRoom.addActionListener(ev -> {
+                         mapDlg.dispose();
+                         KhachHang kh = (dp.getMaKH() != null) ? khService.getById(dp.getMaKH()) : null;
+                         ui.dialogs.CheckinDialog ck = new ui.dialogs.CheckinDialog((Frame) SwingUtilities.getWindowAncestor(this), p, kh, dp);
+                         ck.setVisible(true);
+                         if (ck.isConfirmed()) refresh();
+                     });
+                }
+                mapPanel.add(btnRoom);
+                mapPanel.add(Box.createVerticalStrut(10));
+            }
+            mapDlg.add(new JScrollPane(mapPanel));
+            mapDlg.setVisible(true);
             return;
         }
 
@@ -1079,10 +946,15 @@ public class DatPhongPanel extends JPanel {
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
         addInfoRow(info, "🕐 Thời gian hiện tại:", sdf.format(new Date()), UIConstants.TEXT_PRIMARY);
-        addInfoRow(info, "🏠 Phòng:", dp.getSoPhong() + " — " + dp.getTenLoaiPhong(), UIConstants.TEXT_PRIMARY);
+        // Fallback cho khách lẻ
+        String phongDisplay = dp.getSoPhong();
+        if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty() && dp.getDsChiTiet().get(0).getPhong() != null) {
+            phongDisplay = dp.getDsChiTiet().get(0).getPhong().getMaPhong();
+        }
+        addInfoRow(info, "🏠 Phòng:", phongDisplay + " — " + dp.getTenLoaiPhong(), UIConstants.TEXT_PRIMARY);
         addInfoRow(info, "👤 Khách:", dp.getTenKhachHang() != null ? dp.getTenKhachHang() : "—",
                 UIConstants.TEXT_PRIMARY);
-        addInfoRow(info, "👥 Số khách:", dp.getSoLuongKhach() + " người", UIConstants.TEXT_PRIMARY);
+        addInfoRow(info, "👥 Số lượng khách:", dp.getSoLuongKhach() + " người", UIConstants.TEXT_PRIMARY);
         addInfoRow(info, "📅 Check-in dự kiến:",
                 dp.getNgayNhanDK_Date() != null
                         ? new SimpleDateFormat("dd/MM/yyyy HH:mm").format(dp.getNgayNhanDK_Date())
@@ -1108,29 +980,33 @@ public class DatPhongPanel extends JPanel {
                 return;
             String err = datPhongService.huyDatPhong(dp.getMaDatPhong());
             if (err != null) {
-                JOptionPane.showMessageDialog(dlg, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
+                NotificationManager.showError("Lỗi", err);
                 return;
             }
-            JOptionPane.showMessageDialog(dlg, "Đã hủy đơn thành công.");
+            NotificationManager.showSuccess("Thành công", "Đã hủy đơn " + dp.getMaDatPhong());
             dlg.dispose();
             refresh();
         });
 
         btnCheckin.addActionListener(e -> {
-            Phong phong = phongService.getPhongById(dp.getSoPhong());
+            Phong phong = null;
+            if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
+                phong = phongService.getPhongById(dp.getDsChiTiet().get(0).getPhong().getMaPhong());
+            } else {
+                phong = phongService.getPhongById(dp.getSoPhong());
+            }
             if (phong == null) {
-                JOptionPane.showMessageDialog(dlg, "Không tìm thấy thông tin phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                NotificationManager.showError("Lỗi", "Không tìm thấy thông tin phòng!");
                 return;
             }
             String status = phong.getTrangThaiString();
             if (!"Có sẵn".equals(status) && !"Đã đặt".equals(status)) {
-                JOptionPane.showMessageDialog(dlg, "Phòng hiện không trống. Trạng thái: " + status,
-                        "Không thể Check-in", JOptionPane.WARNING_MESSAGE);
+                NotificationManager.showWarning("Không thể Check-in", "Phòng hiện không trống. Trạng thái: " + status);
                 return;
             }
             KhachHang kh = (dp.getMaKH() != null) ? khService.getById(dp.getMaKH()) : null;
             dlg.dispose();
-            CheckinDialog ck = new CheckinDialog((Frame) SwingUtilities.getWindowAncestor(this), phong, kh, dp);
+            ui.dialogs.CheckinDialog ck = new ui.dialogs.CheckinDialog((Frame) SwingUtilities.getWindowAncestor(this), phong, kh, dp);
             ck.setVisible(true);
             if (ck.isConfirmed())
                 refresh();
@@ -1161,73 +1037,457 @@ public class DatPhongPanel extends JPanel {
         panel.add(Box.createVerticalStrut(4));
     }
 
-    // ★ No-show warning banner
-    private JPanel buildNoShowBanner() {
-        java.util.List<DatPhong> noShows = datPhongService.getNoShowBookings(2); // 2 giờ quá hạn
-        if (noShows.isEmpty())
-            return null;
+    // ================================================================
+    // ================================================================
+    // ALERT BELL
+    // ================================================================
 
-        JPanel banner = new JPanel(new BorderLayout(10, 0)) {
+
+    private void showAlertDialog(
+            java.util.List<DatPhong> noShows,
+            java.util.List<DatPhong> upcoming,
+            java.util.List<DatPhong> longPending) {
+
+        int total = noShows.size() + upcoming.size() + longPending.size();
+        Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
+
+        JDialog dlg = new JDialog(parent, "Trung tam canh bao", true);
+        dlg.setUndecorated(true);
+        dlg.setSize(560, total == 0 ? 320 : Math.min(680, 180 + total * 80));
+        dlg.setLocationRelativeTo(parent);
+
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBackground(Color.WHITE);
+        root.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0, 0, 0, 50), 1),
+            BorderFactory.createLineBorder(Color.WHITE, 1)
+        ));
+
+        // === HEADER ===
+        JPanel hdr = new JPanel(new BorderLayout(16, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(new Color(0xF1F5F9));
+                g.fillRect(0, getHeight() - 1, getWidth(), 1);
+            }
+        };
+        hdr.setBackground(Color.WHITE);
+        hdr.setPreferredSize(new Dimension(0, 76));
+        hdr.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 16));
+
+        JPanel hdrIcon = new JPanel() {
+            @Override public Dimension getPreferredSize() { return new Dimension(44, 44); }
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0xFEF3C7));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.setColor(new Color(0xF59E0B, true));
-                g2.setStroke(new BasicStroke(1));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+                g2.setColor(new Color(0xFEF2F2));
+                g2.fillOval(0, 0, 44, 44);
+                g2.setColor(new Color(0xEF4444));
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int cx = 22, cy = 21;
+                g2.drawArc(cx - 8, cy - 8, 16, 16, 0, 180);
+                g2.drawLine(cx - 8, cy, cx - 8, cy + 7);
+                g2.drawLine(cx + 8, cy, cx + 8, cy + 7);
+                g2.drawLine(cx - 10, cy + 7, cx + 10, cy + 7);
+                g2.fillOval(cx - 2, cy + 8, 4, 4);
+                g2.drawLine(cx - 2, cy - 8, cx + 2, cy - 8);
                 g2.dispose();
             }
         };
-        banner.setOpaque(false);
-        banner.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        hdrIcon.setOpaque(false);
 
-        JLabel lblIcon = new JLabel("⚠️");
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+        JPanel titleBlock = new JPanel();
+        titleBlock.setOpaque(false);
+        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+        JLabel t1 = new JLabel("Trung tâm cảnh báo");
+        t1.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        t1.setForeground(new Color(0x0F172A));
+        JLabel t2 = new JLabel(total > 0 ? "Bạn có " + total + " việc cần ưu tiên xử lý" : "Mọi thứ đang hoạt động ổn định");
+        t2.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        t2.setForeground(new Color(0x64748B));
+        titleBlock.add(t1);
+        titleBlock.add(Box.createVerticalStrut(3));
+        titleBlock.add(t2);
 
-        StringBuilder sb = new StringBuilder(
-                "<html><b style='color:#92400E'>No-show: " + noShows.size() + " đơn quá hạn check-in</b><br>");
-        sb.append("<span style='color:#78716C; font-size:10px'>");
-        for (int i = 0; i < Math.min(noShows.size(), 3); i++) {
-            DatPhong d = noShows.get(i);
-            sb.append("• ").append(d.getMaDatPhong());
-            sb.append(" — ").append(d.getTenKhachHang() != null ? d.getTenKhachHang() : "—");
-            sb.append(" (P.").append(d.getSoPhong()).append(")");
-            if (i < Math.min(noShows.size(), 3) - 1)
-                sb.append("<br>");
-        }
-        if (noShows.size() > 3)
-            sb.append("<br>... và ").append(noShows.size() - 3).append(" đơn khác");
-        sb.append("</span></html>");
+        JPanel hdrLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 14));
+        hdrLeft.setOpaque(false);
+        hdrLeft.add(hdrIcon);
+        hdrLeft.add(titleBlock);
 
-        JLabel lblText = new JLabel(sb.toString());
-        lblText.setFont(UIConstants.FONT_SMALL);
-
-        RoundedButton btnMarkAll = new RoundedButton("Đánh dấu No-show", UIConstants.WARNING, Color.WHITE);
-        btnMarkAll.setFont(UIConstants.FONT_SMALL_BOLD);
-        btnMarkAll.setPreferredSize(new Dimension(155, 30));
-        btnMarkAll.addActionListener(e -> {
-            int ok = JOptionPane.showConfirmDialog(this,
-                    "Đánh dấu " + noShows.size() + " đơn quá hạn là No-show?\nCác đơn này sẽ bị hủy.",
-                    "Xác nhận No-show", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (ok != JOptionPane.YES_OPTION)
-                return;
-            int success = 0;
-            for (DatPhong d : noShows) {
-                if (datPhongService.markNoShow(d.getMaDatPhong()) == null)
-                    success++;
-            }
-            JOptionPane.showMessageDialog(this,
-                    "Đã xử lý " + success + "/" + noShows.size() + " đơn No-show.",
-                    "Hoàn tất", JOptionPane.INFORMATION_MESSAGE);
-            refresh();
+        JButton btnCloseHdr = new JButton("×");
+        btnCloseHdr.setFont(new Font("Segoe UI", Font.PLAIN, 28));
+        btnCloseHdr.setForeground(new Color(0x94A3B8));
+        btnCloseHdr.setContentAreaFilled(false);
+        btnCloseHdr.setBorderPainted(false);
+        btnCloseHdr.setFocusPainted(false);
+        btnCloseHdr.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnCloseHdr.addActionListener(e -> dlg.dispose());
+        btnCloseHdr.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { btnCloseHdr.setForeground(new Color(0xEF4444)); }
+            @Override public void mouseExited(MouseEvent e) { btnCloseHdr.setForeground(new Color(0x94A3B8)); }
         });
 
-        banner.add(lblIcon, BorderLayout.WEST);
-        banner.add(lblText, BorderLayout.CENTER);
-        banner.add(btnMarkAll, BorderLayout.EAST);
-        return banner;
+        hdr.add(hdrLeft, BorderLayout.WEST);
+        hdr.add(btnCloseHdr, BorderLayout.EAST);
+        root.add(hdr, BorderLayout.NORTH);
+
+        // === BODY ===
+        JPanel body = new JPanel();
+        body.setBackground(Color.WHITE);
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm - dd/MM");
+
+        if (total == 0) {
+            JPanel empty = new JPanel(new GridBagLayout());
+            empty.setBackground(Color.WHITE);
+            empty.setBorder(BorderFactory.createEmptyBorder(40, 20, 50, 20));
+            JPanel inner = new JPanel();
+            inner.setOpaque(false);
+            inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
+            
+            JPanel okMark = new JPanel() {
+                @Override public Dimension getPreferredSize() { return new Dimension(72, 72); }
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0xDCFCE7));
+                    g2.fillOval(0, 0, 72, 72);
+                    g2.setColor(new Color(0x10B981));
+                    g2.setStroke(new BasicStroke(4.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(22, 36, 32, 46);
+                    g2.drawLine(32, 46, 52, 26);
+                    g2.dispose();
+                }
+            };
+            okMark.setOpaque(false);
+            okMark.setAlignmentX(Component.CENTER_ALIGNMENT);
+            
+            JLabel okMsg = new JLabel("Tất cả đơn đặt đều ổn!");
+            okMsg.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            okMsg.setForeground(new Color(0x1E293B));
+            okMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
+            
+            JLabel okSub = new JLabel("Không có cảnh báo trễ hạn nào lúc này.");
+            okSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            okSub.setForeground(new Color(0x64748B));
+            okSub.setAlignmentX(Component.CENTER_ALIGNMENT);
+            
+            inner.add(okMark);
+            inner.add(Box.createVerticalStrut(20));
+            inner.add(okMsg);
+            inner.add(Box.createVerticalStrut(8));
+            inner.add(okSub);
+            empty.add(inner);
+            body.add(empty);
+        } else {
+            if (!noShows.isEmpty()) {
+                body.add(alertGroupHeader("Quá thời gian nhận phòng", noShows.size(),
+                    new Color(0xFEF2F2), new Color(0xEF4444)));
+                for (DatPhong dp : noShows)
+                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444),
+                        "Đã quá hạn check-in", "Đánh dấu No-show",
+                        () -> { dlg.dispose(); new dao.DatPhongDAO().markNoShow(dp.getMaDatPhong(), 0); refresh(); }));
+            }
+            if (!upcoming.isEmpty()) {
+                body.add(alertGroupHeader("Sắp lấy phòng hôm nay", upcoming.size(),
+                    new Color(0xFFFBEB), new Color(0xF59E0B)));
+                for (DatPhong dp : upcoming) {
+                    String tg = dp.getNgayNhanDuKien() != null ? fmt.format(dp.getNgayNhanDuKien()) : "--";
+                    body.add(alertItemRow(dp, fmt, new Color(0xF59E0B),
+                        "Dự kiến nhận lúc " + tg, "Nhận phòng",
+                        () -> { dlg.dispose(); showQuickCheckinDialog(dp); }));
+                }
+            }
+            if (!longPending.isEmpty()) {
+                body.add(alertGroupHeader("Đơn chờ phản hồi lâu", longPending.size(),
+                    new Color(0xEFF6FF), new Color(0x3B82F6)));
+                for (DatPhong dp : longPending) {
+                    String tg = dp.getNgayDat() != null ? dp.getNgayDat().format(fmt) : "--";
+                    body.add(alertItemRow(dp, fmt, new Color(0x3B82F6),
+                        "Đã tạo từ " + tg, "Xem chi tiết",
+                        () -> {
+                            dlg.dispose();
+                            DatPhong full = datPhongService.getById(dp.getMaDatPhong());
+                            if (full != null)
+                                new ui.dialogs.DatPhongDetailDialog(parent, full, DatPhongPanel.this).setVisible(true);
+                        }));
+                }
+            }
+            body.add(Box.createVerticalStrut(12));
+        }
+
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(null);
+        scroll.setBackground(Color.WHITE);
+        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        root.add(scroll, BorderLayout.CENTER);
+
+        dlg.setContentPane(root);
+        dlg.setVisible(true);
+    }
+
+    private JPanel alertGroupHeader(String label, int count, Color bg, Color accent) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(false);
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        p.setBorder(BorderFactory.createEmptyBorder(18, 24, 6, 24));
+        
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setForeground(new Color(0x64748B));
+        
+        JLabel cnt = new JLabel(String.valueOf(count), SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        cnt.setOpaque(false);
+        cnt.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        cnt.setForeground(accent);
+        cnt.setPreferredSize(new Dimension(28, 22));
+
+        p.add(lbl, BorderLayout.WEST);
+        p.add(cnt, BorderLayout.EAST);
+        return p;
+    }
+
+    private JPanel alertItemRow(DatPhong dp, java.time.format.DateTimeFormatter fmt,
+                                 Color accent, String subText,
+                                 String btnLabel, Runnable onAction) {
+        JPanel row = new JPanel(new BorderLayout(14, 0));
+        row.setOpaque(true);
+        row.setBackground(Color.WHITE);
+        row.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createEmptyBorder(4, 20, 6, 20),
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(0xF1F5F9), 1),
+                BorderFactory.createEmptyBorder(14, 16, 14, 16))
+        ));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 86));
+
+        String tenKH = (dp.getTenKhachHang() != null && !dp.getTenKhachHang().trim().isEmpty()) ? dp.getTenKhachHang() : "?";
+        String init  = tenKH.substring(0, 1).toUpperCase();
+        
+        JPanel av = new JPanel() {
+            @Override public Dimension getPreferredSize() { return new Dimension(40, 40); }
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 28));
+                g2.fillOval(0, 0, 40, 40);
+                g2.setColor(accent);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 15));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(init, (40 - fm.stringWidth(init)) / 2, (40 + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        av.setOpaque(false);
+
+        JPanel info = new JPanel();
+        info.setOpaque(false);
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        JLabel l1 = new JLabel(dp.getMaDatPhong() + " • " + tenKH);
+        l1.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        l1.setForeground(new Color(0x1E293B));
+        JLabel l2 = new JLabel(subText);
+        l2.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        l2.setForeground(new Color(0x64748B));
+        info.add(l1);
+        info.add(Box.createVerticalStrut(4));
+        info.add(l2);
+
+        JButton btn = new JButton(btnLabel) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(accent);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setPreferredSize(new Dimension(130, 34));
+        btn.addActionListener(e -> onAction.run());
+
+        JPanel center = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
+        center.setOpaque(false);
+        center.add(av);
+        center.add(info);
+
+        row.add(center, BorderLayout.CENTER);
+        
+        JPanel rightFlow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 4));
+        rightFlow.setOpaque(false);
+        rightFlow.add(btn);
+        row.add(rightFlow, BorderLayout.EAST);
+
+        return row;
+    }
+
+    private JPopupMenu createDynamicMenu(String ma, String ten, TrangThaiDatPhong status) {
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+
+        // 1. Xem chi tiết (Luôn có)
+        JMenuItem mnuDetail = createMenuItem("Xem chi tiết", UIConstants.TEXT_PRIMARY);
+        mnuDetail.addActionListener(e -> viewDetails(ma));
+        menu.add(mnuDetail);
+        menu.addSeparator();
+
+        // 2. Nhận phòng
+        if (status == TrangThaiDatPhong.CONFIRMED || status == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) {
+            JMenuItem mnuCheckin = createMenuItem("Nhận phòng", UIConstants.SUCCESS);
+            mnuCheckin.setFont(UIConstants.FONT_BODY_BOLD);
+            mnuCheckin.addActionListener(e -> {
+                DatPhong dp = datPhongService.getById(ma);
+                if (dp != null) showQuickCheckinDialog(dp);
+            });
+            menu.add(mnuCheckin);
+        }
+
+        // 3. Xác nhận (PENDING hoặc WAITLIST)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
+            JMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
+            mnuConfirm.setFont(UIConstants.FONT_BODY_BOLD);
+            mnuConfirm.addActionListener(e -> {
+                if (status == TrangThaiDatPhong.PENDING) doConfirmPending(ma, ten);
+                else doConfirmWaitlist(ma, ten);
+            });
+            menu.add(mnuConfirm);
+        }
+
+        // 4. No-show
+        if (status == TrangThaiDatPhong.CONFIRMED) {
+            JMenuItem mnuNoShow = createMenuItem("Đánh dấu No-show", new Color(0xB91C1C));
+            mnuNoShow.addActionListener(e -> doMarkNoShow(ma, ten));
+            menu.add(mnuNoShow);
+        }
+
+        // 4. Hủy (Dành cho đơn chưa check-in: PENDING, CONFIRMED, WAITLIST)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED || status == TrangThaiDatPhong.WAITLIST) {
+            menu.addSeparator();
+            JMenuItem mnuHuy = createMenuItem("Hủy đặt phòng", UIConstants.TEXT_SECONDARY);
+            mnuHuy.addActionListener(e -> doCancel(ma, ten));
+            menu.add(mnuHuy);
+        }
+
+        // 5. Xóa (Hard delete - Chỉ dành cho nghiệp vụ nháp hoặc đã hủy để dọn rác)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CANCELLED || status == TrangThaiDatPhong.WAITLIST) {
+            // Nếu là PENDING hoặc WAITLIST, không cần separator nếu đã có ở trên
+            if (status == TrangThaiDatPhong.CANCELLED) menu.addSeparator();
+            
+            JMenuItem mnuXoa = createMenuItem("Xóa vĩnh viễn", UIConstants.DANGER);
+            mnuXoa.addActionListener(e -> doDelete(ma, ten));
+            menu.add(mnuXoa);
+        }
+
+        return menu;
+    }
+
+    private JMenuItem createMenuItem(String text, Color color) {
+        JMenuItem item = new JMenuItem(text);
+        item.setFont(UIConstants.FONT_BODY);
+        item.setForeground(color);
+        item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        return item;
+    }
+
+    private void viewDetails(String ma) {
+        DatPhong dp = datPhongService.getById(ma);
+        if (dp != null) {
+            try {
+                new ui.dialogs.DatPhongDetailDialog((Frame) SwingUtilities.getWindowAncestor(this), dp, this).setVisible(true);
+            } catch (Exception ex) {
+                showError("Không thể mở hộp thoại: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void doCancel(String ma, String ten) {
+        int ok = JOptionPane.showConfirmDialog(this, "Hủy đặt phòng của \"" + ten + "\"?\nLịch sử vẫn sẽ được lưu lại.", 
+            "Xác nhận", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = datPhongService.huyDatPhong(ma);
+            if (err == null) {
+                loadDatPhongTable();
+                NotificationManager.showSuccess("Thành công", "Đã hủy đơn đặt phòng của " + ten);
+            } else showError(err);
+        }
+    }
+
+    private void doDelete(String ma, String ten) {
+        int ok = JOptionPane.showConfirmDialog(this, 
+            "<html><b>Cảnh báo:</b> Xóa hoàn toàn dữ liệu đơn đặt của \"" + ten + "\".<br>Hành động này không thể hoàn tác!</html>", 
+            "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = datPhongService.xoaDatPhong(ma);
+            if (err == null) {
+                loadDatPhongTable();
+                NotificationManager.showSuccess("Thành công", "Đã xóa đơn đặt phòng của " + ten);
+            } else showError(err);
+        }
+    }
+
+    private void doMarkNoShow(String ma, String ten) {
+        NoShowDialog dlg = new NoShowDialog((Frame) SwingUtilities.getWindowAncestor(this), ma, ten);
+        dlg.setVisible(true);
+
+        if (dlg.isConfirmed()) {
+            double phi = dlg.getPhiPhat();
+            String maNV = AuthService.getInstance().getCurrentMaNV();
+            if (maNV == null) maNV = "ADMIN"; 
+
+            String err = datPhongService.markNoShow(ma, maNV, phi);
+            if (err == null) {
+                loadDatPhongTable();
+                NotificationManager.showSuccess("Thành công", 
+                    "Đã đánh dấu no-show" + (phi > 0 ? " (Phí: " + String.format("%,.0fđ", phi) + ")" : ""));
+            } else showError(err);
+        }
+    }
+
+    private void doConfirmPending(String ma, String ten) {
+        int ok = JOptionPane.showConfirmDialog(this, "Xác nhận đặt phòng cho \"" + ten + "\"?\nĐơn sẽ chuyển sang trạng thái CONFIRMED.", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (ok == JOptionPane.YES_OPTION) {
+            if (datPhongService.updateTrangThai(ma, TrangThaiDatPhong.CONFIRMED)) {
+                loadDatPhongTable();
+                NotificationManager.showSuccess("Thành công", "Đã xác nhận đặt phòng!");
+            } else showError("Không thể cập nhật trạng thái!");
+        }
+    }
+
+    private void doConfirmWaitlist(String ma, String ten) {
+        int ok = JOptionPane.showConfirmDialog(this, "Xác nhận đặt phòng cho \"" + ten + "\" từ danh sách chờ?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (ok == JOptionPane.YES_OPTION) {
+            if (new dao.DatPhongDAO().confirmFromWaitlist(ma)) {
+                loadDatPhongTable();
+                NotificationManager.showSuccess("Thành công", "Đã xác nhận từ waitlist thành công!");
+            } else showError("Không thể cập nhật trạng thái!");
+        }
+    }
+
+    private void showWarning(JDialog parent, String msg) {
+        NotificationManager.showWarning("Cảnh báo", msg);
     }
 
     public void refresh() {

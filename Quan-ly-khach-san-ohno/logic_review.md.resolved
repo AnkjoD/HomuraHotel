@@ -1,0 +1,105 @@
+# 🏨 Review Logic Thuê Phòng — Ràng buộc sức chứa & Phụ thu
+
+## Tổng quan hệ thống hiện tại
+
+### Sức chứa các loại phòng (trong DB)
+
+| Loại phòng | `soNguoiToiDa` | Giá/đêm |
+|---|---|---|
+| Standard Single | 1 | 400,000đ |
+| Standard Double | 2 | 600,000đ |
+| Deluxe Twin | 2 | 900,000đ |
+| Deluxe King | 2 | 1,200,000đ |
+| Suite Family | 4 | 2,000,000đ |
+
+---
+
+## ✅ Những điểm ĐÚNG trong logic hiện tại
+
+### 1. Kiểm tra sức chứa 3 tầng (CheckinDialog — Bước 3)
+
+```
+Sức chứa tiêu chuẩn (maxPax) ← từ LoaiPhong.soNguoiToiDa
+│
+├─ soKhach <= maxPax         → ✅ Cho qua bình thường
+├─ maxPax < soKhach <= maxPax + 2  → ⚠️ Cảnh báo soft, gợi ý thêm dịch vụ phụ thu
+└─ soKhach > maxPax + 2     → ❌ Chặn cứng (hard block)
+```
+
+Logic này **hợp lý với thực tế**: Khách sạn thường cho phép thêm 1-2 khách bằng giường phụ/nệm.
+
+### 2. Validate lại ở Service layer (ThuePhongService.checkIn)
+```java
+int maxPax = sucChua + 2;
+if (soLuongKhach > maxPax) return "Lỗi vượt mức tuyệt đối";
+```
+Có validate 2 lớp (UI + Service) — **tốt**, phòng tránh bypass.
+
+---
+
+## ⚠️ Các VẤN ĐỀ cần sửa
+
+### Vấn đề 1: Spinner số khách chỉ cố định max = 10
+
+```java
+// CheckinDialog.java — dòng 433
+spnSoKhach = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+```
+
+**Vấn đề**: Spinner cố định max = 10 cho MỌI loại phòng. Với Standard Single (sức chứa = 1), spinner vẫn cho nhập tới 10 là **phi thực tế**.
+
+> [!WARNING]
+> **Nên sửa**: Max của spinner nên là `sucChua + 2` (tối đa tuyệt đối) thay vì cố định 10. Nếu phòng Standard Single (1 người), max spinner nên là 3. Nếu Suite Family (4 người), max spinner nên là 6.
+
+### Vấn đề 2: CHƯA CÓ dịch vụ phụ thu người thêm trong Database
+
+Trong cảnh báo check-in, hệ thống gợi ý:
+> *"Hãy thêm dịch vụ 'Phụ thu người lớn/trẻ em' ở Bước 4"*
+
+Nhưng danh sách dịch vụ trong DB (`DichVu`) **KHÔNG HỀ CÓ** dịch vụ "Phụ thu người lớn" hay "Phụ thu trẻ em":
+
+```sql
+-- Danh sách dịch vụ hiện tại:
+DV001: Nước suối          — 15,000đ
+DV002: Coca Cola          — 25,000đ
+DV003: Bia Tiger           — 35,000đ
+DV004: Mì ly              — 20,000đ
+DV005: Giặt ủi            — 40,000đ/kg
+DV006: Thuê xe máy        — 150,000đ/ngày
+DV007: Ăn sáng tại phòng  — 100,000đ/suất
+DV008: Massage thư giãn   — 300,000đ/lượt
+```
+
+> [!CAUTION]
+> **BUG NGHIÊM TRỌNG**: Hệ thống cảnh báo khách thêm phụ thu nhưng **KHÔNG CÓ** dịch vụ phụ thu để thêm. Cần INSERT thêm dịch vụ phụ thu vào bảng `DichVu`.
+
+### Vấn đề 3: Phụ thu KHÔNG tự động tính vào hóa đơn
+
+Hiện tại logic phụ thu phụ thuộc hoàn toàn vào **thao tác thủ công** của lễ tân (phải tự thêm dịch vụ phụ thu ở Bước 4). Nếu lễ tân quên → khách sạn mất tiền.
+
+> [!TIP]
+> **Gợi ý cải tiến**: Khi số khách vượt sức chứa tiêu chuẩn, hệ thống nên **tự động thêm** dịch vụ phụ thu vào danh sách dịch vụ ở Bước 4, thay vì chỉ cảnh báo.
+
+### Vấn đề 4: Logic phụ phí check-in sớm/check-out muộn cứng nhắc
+
+```java
+// ThuePhongService.java — dòng 155-161
+if (gioNhan < 12) phuPhi += 50,000;   // Check-in trước 12h
+if (gioTra > 13)  phuPhi += 50,000;   // Check-out sau 13h
+```
+
+**Vấn đề**: 
+- Phí cố định 50k cho mọi loại phòng là **phi thực tế**. Phòng Suite 2 triệu/đêm mà phụ thu chỉ 50k là quá ít.
+- Giờ check-in chuẩn thường là 14:00, không phải 12:00. Check-out chuẩn thường là 12:00.
+- Bảng `ChiTietBangGia` đã có `phuPhiTraTre` nhưng **chưa được sử dụng**.
+
+---
+
+## 🔧 Tóm tắt các thay đổi cần thực hiện
+
+| # | Mức độ | Nội dung |
+|---|---|---|
+| 1 | 🔴 Cao | Thêm dịch vụ "Phụ thu người lớn" và "Phụ thu trẻ em" vào DB |
+| 2 | 🟡 Trung bình | Sửa max spinner số khách = `sucChua + 2` theo loại phòng |
+| 3 | 🟢 Tùy chọn | Tự động thêm dịch vụ phụ thu khi vượt sức chứa |
+| 4 | 🟢 Tùy chọn | Sử dụng `phuPhiTraTre` từ bảng giá thay vì fix 50k |

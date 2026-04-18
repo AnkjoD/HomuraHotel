@@ -1,8 +1,0 @@
-package entity;
-
-import java.util.List;
-
-public interface ITinhTienPhong {
-    double tinhTienPhong(ChiTietDatPhong ctdp, List<BangGia> dsBangGia);
-    double tinhPhuPhi(java.time.LocalDateTime gioNhan, java.time.LocalDateTime gioTra);
-}

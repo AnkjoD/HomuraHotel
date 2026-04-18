@@ -14,28 +14,41 @@ public class NhanVienDialog extends JDialog {
 
     private final NhanVienService service = new NhanVienService();
     private final NhanVien entity;
+    private final boolean readOnly;
     private boolean confirmed = false;
 
-    private JTextField txtTen, txtSDT;
+    private JTextField txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi, txtLuong;
+    private ui.components.DatePicker dtNgaySinh, dtNgayVaoLam;
     private JPasswordField txtMatKhau;
-    private JComboBox<String> cboChucVu, cboVaiTro;
+    private JComboBox<String> cboChucVu, cboVaiTro, cboGioiTinh;
+    private JCheckBox chkActive;
 
     // Regex hợp lệ
     private static final String REGEX_TEN = "^[\\p{L} .'-]{2,50}$";
     private static final String REGEX_SDT = "^(0[35789])[0-9]{8}$";
     private static final String REGEX_MK = "^.{6,32}$";
+    private static final String REGEX_EMAIL = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
+    private static final String REGEX_CCCD = "^(\\d{9}|\\d{12})$";
 
-    private JLabel errTen, errSDT, errMK;
+    private JLabel errTen, errSDT, errMK, errEmail, errCCCD, errLuong, errNgay;
 
     public NhanVienDialog(Frame parent, NhanVien nv) {
-        super(parent, nv == null ? "Thêm nhân viên mới" : "Chỉnh sửa – " + nv.getHoTen(), true);
+        this(parent, nv, false);
+    }
+
+    public NhanVienDialog(Frame parent, NhanVien nv, boolean readOnly) {
+        super(parent, nv == null ? "Thêm nhân viên mới"
+                : (readOnly ? "Xem thông tin – " + nv.getHoTen() : "Chỉnh sửa – " + nv.getHoTen()), true);
         this.entity = nv;
+        this.readOnly = readOnly;
         setSize(450, 580);
         setLocationRelativeTo(parent);
         setResizable(false);
         buildUI();
         if (nv != null)
             fillData();
+        if (readOnly)
+            applyReadOnlyMode();
     }
 
     private void buildUI() {
@@ -67,12 +80,22 @@ public class NhanVienDialog extends JDialog {
 
         txtTen = field();
         txtSDT = field();
+        txtEmail = field();
+        txtCCCD = field();
+        txtDiaChi = field();
+        dtNgaySinh = new ui.components.DatePicker(null);
+        dtNgayVaoLam = new ui.components.DatePicker(new java.util.Date()); // Hôm nay
+        txtLuong = field(); // double
         txtMatKhau = new JPasswordField();
         styleField(txtMatKhau);
 
         errTen = errLabel();
         errSDT = errLabel();
         errMK = errLabel();
+        errEmail = errLabel();
+        errCCCD = errLabel();
+        errLuong = errLabel();
+        errNgay = errLabel();
 
         txtTen.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
@@ -86,6 +109,24 @@ public class NhanVienDialog extends JDialog {
                 validateSDT();
             }
         });
+        txtEmail.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                validateEmail();
+            }
+        });
+        txtCCCD.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                validateCCCD();
+            }
+        });
+        txtLuong.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                validateLuong();
+            }
+        });
         txtMatKhau.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
@@ -96,6 +137,10 @@ public class NhanVienDialog extends JDialog {
         // Chức vụ hiển thị & vai trò hệ thống đồng nhất
         cboChucVu = combo("Lễ tân", "Quản lý", "Quản trị viên");
         cboVaiTro = combo("RECEPTIONIST", "MANAGER", "ADMIN");
+        cboGioiTinh = combo("Nam", "Nữ", "Khác");
+        chkActive = new JCheckBox("Đang làm việc", true);
+        chkActive.setBackground(Color.WHITE);
+        chkActive.setFont(UIConstants.FONT_BODY);
 
         // Đồng bộ chức vụ ↔ vai trò
         cboChucVu.addActionListener(e -> {
@@ -110,31 +155,53 @@ public class NhanVienDialog extends JDialog {
         });
 
         String pwHint = entity == null ? " *" : " (để trống = giữ nguyên)";
-        body.add(labelField("Họ và tên *", txtTen, errTen));
+
+        // Cấu trúc form: 2 cột cho các thông tin ngắn
+        JPanel fContent = new JPanel(new GridLayout(0, 2, 10, 8));
+        fContent.setOpaque(false);
+        fContent.add(labelField("Họ và tên *", txtTen, errTen));
+        fContent.add(labelField("Số điện thoại *", txtSDT, errSDT));
+        fContent.add(labelField("Email", txtEmail, errEmail));
+        fContent.add(labelField("Số CCCD/ID Card *", txtCCCD, errCCCD));
+        fContent.add(labelField("Ngày sinh *", dtNgaySinh, errNgay));
+        fContent.add(labelField("Giới tính", cboGioiTinh, null));
+        fContent.add(labelField("Ngày vào làm", dtNgayVaoLam, null));
+        fContent.add(labelField("Lương cơ bản (VNĐ) *", txtLuong, errLuong));
+        fContent.add(labelField("Chức vụ", cboChucVu, null));
+        fContent.add(labelField("Vai trò hệ thống", cboVaiTro, null));
+        fContent.add(labelField("Mật khẩu" + pwHint, txtMatKhau, errMK));
+        fContent.add(labelField("Trạng thái", chkActive, null));
+
+        body.add(fContent);
         body.add(Box.createVerticalStrut(8));
-        body.add(labelField("Số điện thoại *", txtSDT, errSDT));
-        body.add(Box.createVerticalStrut(8));
-        body.add(labelField("Chức vụ", cboChucVu, null));
-        body.add(Box.createVerticalStrut(8));
-        body.add(labelField("Vai trò hệ thống", cboVaiTro, null));
-        body.add(Box.createVerticalStrut(8));
-        body.add(labelField("Mật khẩu" + pwHint, txtMatKhau, errMK));
+        body.add(labelField("Địa chỉ liên lạc", txtDiaChi, null));
+
+        setSize(700, 720); // Tăng kích thước dialog vì nhiều thông tin hơn
+        setLocationRelativeTo(null); // Đưa ra giữa trung tâm màn hình sau khi tăng kích thước
 
         // Footer
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         footer.setBackground(Color.WHITE);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
-        RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        RoundedButton btnSave = new RoundedButton(entity == null ? "Thêm nhân viên" : "Lưu thay đổi",
-                UIConstants.PRIMARY, Color.WHITE);
+        RoundedButton btnCancel = new RoundedButton(readOnly ? "Đóng" : "Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
         btnCancel.addActionListener(e -> dispose());
-        btnSave.addActionListener(e -> doSave());
-        getRootPane().setDefaultButton(btnSave);
         footer.add(btnCancel);
-        footer.add(btnSave);
+
+        // === PHÂN QUYỀN: Ẩn nút Lưu khi chế độ chỉ xem ===
+        if (!readOnly) {
+            RoundedButton btnSave = new RoundedButton(entity == null ? "Thêm nhân viên" : "Lưu thay đổi",
+                    UIConstants.PRIMARY, Color.WHITE);
+            btnSave.addActionListener(e -> doSave());
+            getRootPane().setDefaultButton(btnSave);
+            footer.add(btnSave);
+        }
+
+        JScrollPane scrollPane = new JScrollPane(body);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         root.add(header, BorderLayout.NORTH);
-        root.add(body, BorderLayout.CENTER);
+        root.add(scrollPane, BorderLayout.CENTER);
         root.add(footer, BorderLayout.SOUTH);
         setContentPane(root);
     }
@@ -142,6 +209,17 @@ public class NhanVienDialog extends JDialog {
     private void fillData() {
         txtTen.setText(entity.getHoTen());
         txtSDT.setText(entity.getSdt());
+        txtEmail.setText(entity.getEmail());
+        txtCCCD.setText(entity.getCccd());
+        txtDiaChi.setText(entity.getDiaChi());
+        if (entity.getNgaySinh() != null)
+            dtNgaySinh.setDate(java.sql.Date.valueOf(entity.getNgaySinh()));
+        if (entity.getNgayVaoLam() != null)
+            dtNgayVaoLam.setDate(java.sql.Date.valueOf(entity.getNgayVaoLam()));
+        txtLuong.setText(String.valueOf(entity.getLuongCoBan()));
+        chkActive.setSelected(entity.isDangLamViec());
+        setCombo(cboGioiTinh, entity.getGioiTinh());
+
         // KHÔNG điền mật khẩu vào trường – để trống khi sửa
         if (entity.getTaiKhoan() != null) {
             VaiTro vaiTro = entity.getTaiKhoan().getVaiTro();
@@ -157,8 +235,27 @@ public class NhanVienDialog extends JDialog {
         }
     }
 
+    private String formatName(String name) {
+        if (name == null || name.isBlank()) return "";
+        String[] words = name.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.length() > 0) {
+                sb.append(Character.toUpperCase(w.charAt(0)));
+                if (w.length() > 1) {
+                    sb.append(w.substring(1).toLowerCase());
+                }
+                sb.append(" ");
+            }
+        }
+        return sb.toString().trim();
+    }
+
     private boolean validateTen() {
         String ten = txtTen.getText().trim();
+        ten = formatName(ten);
+        txtTen.setText(ten);
+        
         errTen.setText(" ");
         if (ten.isEmpty()) {
             errTen.setText("Bắt buộc - Vui lòng nhập họ và tên");
@@ -189,11 +286,71 @@ public class NhanVienDialog extends JDialog {
         String pw = new String(txtMatKhau.getPassword()).trim();
         errMK.setText(" ");
         if (entity == null && pw.isEmpty()) {
-            errMK.setText("Mật khẩu không được để trống khi thêm nhân viên!");
+            errMK.setText("Bắt buộc khi thêm mới!");
             return false;
         }
         if (!pw.isEmpty() && !pw.matches(REGEX_MK)) {
-            errMK.setText("Mật khẩu phải có từ 6 đến 32 ký tự!");
+            errMK.setText("Mật khẩu từ 6-32 ký tự!");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateEmail() {
+        String email = txtEmail.getText().trim();
+        errEmail.setText(" ");
+        if (!email.isEmpty() && !email.matches(REGEX_EMAIL)) {
+            errEmail.setText("Email không hợp lệ!");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateCCCD() {
+        String cccd = txtCCCD.getText().trim();
+        errCCCD.setText(" ");
+        if (cccd.isEmpty()) {
+            errCCCD.setText("Bắt buộc nhập CCCD!");
+            return false;
+        }
+        if (!cccd.matches(REGEX_CCCD)) {
+            errCCCD.setText("CCCD phải 9 hoặc 12 số!");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateLuong() {
+        String lStr = txtLuong.getText().trim();
+        errLuong.setText(" ");
+        try {
+            double l = Double.parseDouble(lStr);
+            if (l < 0) {
+                errLuong.setText("Lương không được âm!");
+                return false;
+            }
+        } catch (Exception e) {
+            errLuong.setText("Vui lòng nhập số!");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateNgay() {
+        errNgay.setText(" ");
+        try {
+            java.util.Date birthDate = dtNgaySinh.getDate();
+            if (birthDate == null) {
+                errNgay.setText("Bắt buộc chọn ngày sinh!");
+                return false;
+            }
+            java.time.LocalDate birth = birthDate.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+            if (birth.isAfter(java.time.LocalDate.now().minusYears(18))) {
+                errNgay.setText("Nhân viên phải từ 18 tuổi!");
+                return false;
+            }
+        } catch (Exception e) {
+            errNgay.setText("Vui lòng chọn ngày hợp lệ");
             return false;
         }
         return true;
@@ -203,7 +360,11 @@ public class NhanVienDialog extends JDialog {
         boolean ok1 = validateTen();
         boolean ok2 = validateSDT();
         boolean ok3 = validateMK();
-        if (!ok1 || !ok2 || !ok3)
+        boolean ok4 = validateEmail();
+        boolean ok5 = validateCCCD();
+        boolean ok6 = validateLuong();
+        boolean ok7 = validateNgay();
+        if (!ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7)
             return;
 
         String ten = txtTen.getText().trim();
@@ -213,6 +374,26 @@ public class NhanVienDialog extends JDialog {
         NhanVien nv = entity != null ? entity : new NhanVien();
         nv.setHoTen(ten);
         nv.setSdt(sdt);
+        nv.setEmail(txtEmail.getText().trim());
+        nv.setCccd(txtCCCD.getText().trim());
+        nv.setDiaChi(txtDiaChi.getText().trim());
+        nv.setDangLamViec(chkActive.isSelected());
+        nv.setGioiTinh((String) cboGioiTinh.getSelectedItem());
+
+        try {
+            if (dtNgaySinh.getDate() != null)
+                nv.setNgaySinh(dtNgaySinh.getDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+
+            if (dtNgayVaoLam.getDate() != null)
+                nv.setNgayVaoLam(
+                        dtNgayVaoLam.getDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+
+            if (!txtLuong.getText().isBlank())
+                nv.setLuongCoBan(Double.parseDouble(txtLuong.getText().trim()));
+        } catch (Exception e) {
+            showErr("Lỗi định dạng ngày hoặc lương!");
+            return;
+        }
 
         // Chức vụ từ combo
         String[] chucVuMap = { "Lễ tân", "Quản lý", "Quản trị viên" };
@@ -224,8 +405,11 @@ public class NhanVienDialog extends JDialog {
             TaiKhoan tk = new TaiKhoan();
             tk.setTenDangNhap(nv.getMaNhanVien() != null ? nv.getMaNhanVien() : "");
             tk.setVaiTro(VaiTro.RECEPTIONIST);
+            tk.setTrangThai(chkActive.isSelected());
             nv.setTaiKhoan(tk);
             tk.setNhanVien(nv);
+        } else {
+            nv.getTaiKhoan().setTrangThai(chkActive.isSelected());
         }
 
         String rolStr = (String) cboVaiTro.getSelectedItem();
@@ -311,5 +495,30 @@ public class NhanVienDialog extends JDialog {
                 return;
             }
     }
+
+    /** === PHÂN QUYỀN: Khóa toàn bộ form khi chế độ chỉ xem === */
+    private void applyReadOnlyMode() {
+        txtTen.setEditable(false);
+        txtSDT.setEditable(false);
+        txtEmail.setEditable(false);
+        txtCCCD.setEditable(false);
+        txtDiaChi.setEditable(false);
+        txtLuong.setEditable(false);
+        txtMatKhau.setEditable(false);
+        cboChucVu.setEnabled(false);
+        cboVaiTro.setEnabled(false);
+        cboGioiTinh.setEnabled(false);
+        chkActive.setEnabled(false);
+        dtNgaySinh.setEnabled(false);
+        dtNgayVaoLam.setEnabled(false);
+
+        // Đổi màu nền nhẹ để người dùng nhận biết là read-only
+        Color readOnlyBg = new Color(0xF8FAFC);
+        for (JTextField f : new JTextField[]{txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi, txtLuong}) {
+            f.setBackground(readOnlyBg);
+        }
+        txtMatKhau.setBackground(readOnlyBg);
+    }
 }
+
 
