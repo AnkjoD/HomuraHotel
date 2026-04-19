@@ -67,14 +67,49 @@ public class KhuyenMaiPanel extends JPanel {
 
         // Context Menu
         JPopupMenu popup = new JPopupMenu();
-        JMenuItem editItem = new JMenuItem("Chỉnh sửa", new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/edit.png"));
+        JMenuItem viewItem = new JMenuItem("Xem chi tiết");
+        viewItem.addActionListener(e -> viewSelected());
+        
+        JMenuItem editItem = new JMenuItem("Chỉnh sửa");
+        editItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/edit.png"));
         editItem.addActionListener(e -> editSelected());
-        JMenuItem deleteItem = new JMenuItem("Xóa", new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/delete.png"));
+        
+        JMenuItem deleteItem = new JMenuItem("Xóa");
+        deleteItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/delete.png"));
         deleteItem.addActionListener(e -> deleteSelected());
+        
+        popup.add(viewItem);
         popup.add(editItem);
         popup.addSeparator();
         popup.add(deleteItem);
-        table.setComponentPopupMenu(popup);
+
+        // Mouse Listener for Double-click and Right-click selection
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                if (row >= 0 && row < table.getRowCount()) {
+                    table.setRowSelectionInterval(row, row);
+                }
+                if (e.isPopupTrigger()) showPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) showPopup(e);
+            }
+
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && table.getSelectedRow() != -1) {
+                    viewSelected();
+                }
+            }
+
+            private void showPopup(java.awt.event.MouseEvent e) {
+                popup.show(e.getComponent(), e.getX(), e.getY());
+            }
+        });
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
@@ -138,7 +173,7 @@ public class KhuyenMaiPanel extends JPanel {
         RoundedButton btnAdd = new RoundedButton("➕ Thêm khuyến mãi", UIConstants.PRIMARY, Color.WHITE);
         btnAdd.setPreferredSize(new Dimension(180, 42));
         btnAdd.addActionListener(e -> {
-            new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), null, false).setVisible(true);
+            new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), null, false, false).setVisible(true);
             loadData();
         });
 
@@ -235,13 +270,24 @@ public class KhuyenMaiPanel extends JPanel {
         return "HOẠT ĐỘNG";
     }
 
+    private void viewSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) return;
+        String id = (String) model.getValueAt(row, 0);
+        KhuyenMai km = kmDAO.getByVoucherCode(id);
+        if (km != null) {
+            new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), km, false, true).setVisible(true);
+            loadData();
+        }
+    }
+
     private void editSelected() {
         int row = table.getSelectedRow();
         if (row < 0) return;
         String id = (String) model.getValueAt(row, 0);
         KhuyenMai km = kmDAO.getByVoucherCode(id);
         if (km != null) {
-            new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), km, true).setVisible(true);
+            new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), km, true, false).setVisible(true);
             loadData();
         }
     }
@@ -250,6 +296,13 @@ public class KhuyenMaiPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) return;
         String id = (String) model.getValueAt(row, 0);
+        KhuyenMai km = kmDAO.getByVoucherCode(id);
+        
+        if (km != null && km.getDaDung() > 0) {
+            JOptionPane.showMessageDialog(this, "Không thể xóa khuyến mãi đã được sử dụng! Hãy chuyển trạng thái sang Tạm dừng.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         if (JOptionPane.showConfirmDialog(this, "Xác nhận xóa mã " + id + "?", "Cảnh báo", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
             if (kmDAO.delete(id)) {
                 loadData();

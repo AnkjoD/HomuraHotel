@@ -45,6 +45,7 @@ public class DatPhong {
     private HoaDon hoaDon;
     private List<ChiTietDatPhong> dsChiTiet = new ArrayList<>();
     private List<SuDungDichVu> dsDichVu = new ArrayList<>();
+    private String maKhuyenMai; // Voucher code entered during check-in or booking
 
     public DatPhong() {}
 
@@ -226,6 +227,9 @@ public class DatPhong {
         this.trangThai = TrangThaiDatPhong.CANCELLED;
         this.ghiChu = (this.ghiChu != null ? this.ghiChu + " | " : "") + "Hủy: " + lyDo;
     }
+
+    public String getMaKhuyenMai() { return maKhuyenMai; }
+    public void setMaKhuyenMai(String maKhuyenMai) { this.maKhuyenMai = maKhuyenMai; }
 
     public double tinhTienTamTinh() {
         double total = 0;

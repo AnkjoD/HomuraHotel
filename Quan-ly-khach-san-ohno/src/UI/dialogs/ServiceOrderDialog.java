@@ -27,13 +27,11 @@ public class ServiceOrderDialog extends JDialog {
 
     private JPanel gridPanel;
     private JPanel cartItemsPanel;
-    private JPanel historyItemsPanel;
     private JPanel categoryContainer;
     private JLabel lblTotal;
     private JTextField txtSearch;
     
     private final List<SuDungDichVu> cart = new ArrayList<>();
-    private final List<SuDungDichVu> history = new ArrayList<>();
     private List<DichVu> allServices;
     private List<String> categories = new ArrayList<>();
     private String selectedCategory = "Tất cả";
@@ -43,7 +41,7 @@ public class ServiceOrderDialog extends JDialog {
         super(parent, "Dịch vụ phòng " + (ctdp.getPhong() != null ? ctdp.getPhong().getSoPhong() : ""), true);
         this.chiTietDatPhong = ctdp;
 
-        setSize(1280, 800);
+        setSize(1000, 700);
         setLocationRelativeTo(parent);
         setResizable(false);
         setLayout(new BorderLayout());
@@ -95,12 +93,12 @@ public class ServiceOrderDialog extends JDialog {
         leftPanel.setBorder(new EmptyBorder(25, 30, 25, 20));
 
         // Category Filter
-        categoryContainer = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        categoryContainer = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 10));
         categoryContainer.setOpaque(false);
-        categoryContainer.setBorder(new EmptyBorder(0, 0, 20, 0));
+        categoryContainer.setBorder(new EmptyBorder(0, 0, 5, 0));
         leftPanel.add(categoryContainer, BorderLayout.NORTH);
 
-        gridPanel = new ScrollablePanel(new WrapLayout(FlowLayout.LEFT, 18, 18));
+        gridPanel = new ScrollablePanel(new WrapLayout(FlowLayout.LEFT, 12, 12));
         gridPanel.setOpaque(false);
         JScrollPane scrollGrid = new JScrollPane(gridPanel);
         scrollGrid.setBorder(null);
@@ -114,31 +112,8 @@ public class ServiceOrderDialog extends JDialog {
         // Right: Modern Sidebar Cart
         JPanel cartPanel = new JPanel(new BorderLayout());
         cartPanel.setBackground(Color.WHITE);
-        cartPanel.setPreferredSize(new Dimension(320, 0));
+        cartPanel.setPreferredSize(new Dimension(300, 0));
         cartPanel.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, UIConstants.BORDER));
-
-        // Sidebar Container for History & Cart
-        JPanel sidebarContent = new JPanel();
-        sidebarContent.setOpaque(false);
-        sidebarContent.setLayout(new BoxLayout(sidebarContent, BoxLayout.Y_AXIS));
-
-        // -- Section: History --
-        JPanel historyHeader = new JPanel(new BorderLayout());
-        historyHeader.setOpaque(false);
-        historyHeader.setBorder(new EmptyBorder(15, 25, 10, 25));
-        JLabel lblHistoryTitle = new JLabel("Lịch sử sử dụng");
-        lblHistoryTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        lblHistoryTitle.setForeground(UIConstants.TEXT_SECONDARY);
-        historyHeader.add(lblHistoryTitle, BorderLayout.WEST);
-        
-        historyItemsPanel = new JPanel();
-        historyItemsPanel.setBackground(Color.WHITE);
-        historyItemsPanel.setLayout(new BoxLayout(historyItemsPanel, BoxLayout.Y_AXIS));
-        
-        sidebarContent.add(historyHeader);
-        sidebarContent.add(historyItemsPanel);
-        sidebarContent.add(Box.createVerticalStrut(20));
-        sidebarContent.add(new JSeparator());
 
         // -- Section: Cart --
         JPanel cartHeader = new JPanel(new BorderLayout());
@@ -152,11 +127,12 @@ public class ServiceOrderDialog extends JDialog {
         cartItemsPanel.setBackground(Color.WHITE);
         cartItemsPanel.setLayout(new BoxLayout(cartItemsPanel, BoxLayout.Y_AXIS));
 
-        sidebarContent.add(cartHeader);
-        sidebarContent.add(cartItemsPanel);
-
-        JScrollPane scrollSidebar = new JScrollPane(sidebarContent);
+        JScrollPane scrollSidebar = new JScrollPane(cartItemsPanel);
         scrollSidebar.setBorder(null);
+        scrollSidebar.setOpaque(false);
+        scrollSidebar.getViewport().setOpaque(false);
+        
+        cartPanel.add(cartHeader, BorderLayout.NORTH);
         cartPanel.add(scrollSidebar, BorderLayout.CENTER);
 
         // Cart Footer
@@ -229,9 +205,6 @@ public class ServiceOrderDialog extends JDialog {
     private void loadData() {
         allServices = dichVuService.getAll();
         
-        // Load existing services for this stay
-        history.clear();
-        history.addAll(new SuDungDichVuDAO().getByChiTietDatPhong(chiTietDatPhong.getMaChiTiet()));
         
         // Dynamically build category list from actual data
         categories = allServices.stream()
@@ -259,7 +232,6 @@ public class ServiceOrderDialog extends JDialog {
             })
             .collect(Collectors.toList());
         renderGrid(filtered);
-        updateHistoryUI();
         updateCartUI();
     }
 
@@ -268,14 +240,16 @@ public class ServiceOrderDialog extends JDialog {
         for (DichVu dv : services) {
             gridPanel.add(new ServiceCard(dv));
         }
+        // Add glue to prevent vertical stretching if items don't fill the page
         gridPanel.revalidate();
         gridPanel.repaint();
     }
 
     private void addToCart(DichVu dv) {
-        // Check if already in cart
+        // Kiểm tra xem đã có trong giỏ hàng chưa
         for (SuDungDichVu s : cart) {
-            if (s.getDichVu().getMaDichVu().equals(dv.getMaDichVu())) {
+            String mid = s.getDichVu() != null ? s.getDichVu().getMaDichVu() : "";
+            if (mid.equals(dv.getMaDichVu())) {
                 s.setSoLuong(s.getSoLuong() + 1);
                 updateCartUI();
                 return;
@@ -296,35 +270,36 @@ public class ServiceOrderDialog extends JDialog {
         cartItemsPanel.removeAll();
         double total = 0;
         
-        // History Total (informative)
-        for (SuDungDichVu s : history) {
-            total += s.tinhThanhTien();
-        }
-        
         for (SuDungDichVu s : cart) {
-            cartItemsPanel.add(new CartItemRow(s, false));
+            cartItemsPanel.add(new CartItemRow(s));
             total += s.tinhThanhTien();
         }
         lblTotal.setText(String.format("%,.0fđ", total));
+        cartItemsPanel.add(Box.createVerticalGlue());
         cartItemsPanel.revalidate();
         cartItemsPanel.repaint();
     }
 
-    private void updateHistoryUI() {
-        historyItemsPanel.removeAll();
-        if (history.isEmpty()) {
-            JLabel lblEmpty = new JLabel("Chưa có dịch vụ nào");
-            lblEmpty.setFont(UIConstants.FONT_SMALL);
-            lblEmpty.setForeground(UIConstants.TEXT_MUTED);
-            lblEmpty.setBorder(new EmptyBorder(5, 25, 5, 25));
-            historyItemsPanel.add(lblEmpty);
-        } else {
-            for (SuDungDichVu s : history) {
-                historyItemsPanel.add(new CartItemRow(s, true));
+    private JButton createPillBtn(String text, boolean plus) {
+        JButton btn = new JButton(text);
+        btn.setPreferredSize(new Dimension(24, 24));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setFocusPainted(false);
+        btn.setBorder(null);
+        btn.setBackground(new Color(0xF8FAFC));
+        btn.setForeground(new Color(0x64748B));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(0xF1F5F9));
+                btn.setForeground(UIConstants.PRIMARY);
             }
-        }
-        historyItemsPanel.revalidate();
-        historyItemsPanel.repaint();
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(0xF8FAFC));
+                btn.setForeground(new Color(0x64748B));
+            }
+        });
+        return btn;
     }
 
     private void saveAll() {
@@ -359,18 +334,18 @@ public class ServiceOrderDialog extends JDialog {
         private final DichVu dv;
         public ServiceCard(DichVu dv) {
             this.dv = dv;
-            setLayout(new BorderLayout(0, 10));
-            setPreferredSize(new Dimension(260, 180));
+            setLayout(new BorderLayout(0, 8));
+            setPreferredSize(new Dimension(210, 150));
             setBackground(Color.WHITE);
-            setBorder(new EmptyBorder(15, 15, 15, 15));
+            setBorder(new EmptyBorder(12, 12, 12, 12));
             
             // Icon Placeholder
             JLabel icon = new JLabel(dv.getLoai().substring(0, 2).toUpperCase(), SwingConstants.CENTER);
-            icon.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            icon.setFont(new Font("Segoe UI", Font.BOLD, 15));
             icon.setOpaque(true);
             icon.setBackground(new Color(0xEFF6FF));
             icon.setForeground(UIConstants.PRIMARY);
-            icon.setPreferredSize(new Dimension(45, 45));
+            icon.setPreferredSize(new Dimension(38, 38));
             icon.setBorder(BorderFactory.createLineBorder(new Color(0xDBEAFE)));
             
             JPanel top = new JPanel(new BorderLayout());
@@ -416,51 +391,74 @@ public class ServiceOrderDialog extends JDialog {
 
     // --- Inner Component: Cart Item Row ---
     class CartItemRow extends JPanel {
-        public CartItemRow(SuDungDichVu s, boolean isHistory) {
+        public CartItemRow(SuDungDichVu s) {
             setLayout(new BorderLayout(10, 0));
             setBackground(Color.WHITE);
-            setBorder(new EmptyBorder(10, 25, 10, 25));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+            setBorder(new EmptyBorder(8, 25, 8, 15));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
 
             JPanel leftContent = new JPanel(new BorderLayout());
             leftContent.setOpaque(false);
             
             JLabel name = new JLabel(s.getDichVu().getTenDichVu());
-            name.setFont(UIConstants.FONT_BODY);
+            name.setFont(new Font("Segoe UI", Font.BOLD, 12));
             leftContent.add(name, BorderLayout.CENTER);
 
-            if (isHistory) {
-                boolean paid = s.getCtdp() != null && s.getCtdp().isDaThanhToan();
-                JLabel badge = new JLabel(paid ? " [Đã xuất HĐ]" : " [Chờ thanh toán]");
-                badge.setFont(new Font("Segoe UI", Font.BOLD, 10));
-                badge.setForeground(paid ? UIConstants.SUCCESS : UIConstants.PRIMARY);
-                leftContent.add(badge, BorderLayout.SOUTH);
-            }
-
-            JPanel qtyBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-            qtyBox.setOpaque(false);
-            
-            JLabel qty = new JLabel(s.getSoLuong() + "x");
-            qty.setFont(UIConstants.FONT_SMALL_BOLD);
-            qty.setForeground(UIConstants.TEXT_SECONDARY);
-            
             JLabel price = new JLabel(String.format("%,.0fđ", s.tinhThanhTien()));
-            price.setFont(UIConstants.FONT_SMALL_BOLD);
-            
-            qtyBox.add(qty);
-            qtyBox.add(price);
+            price.setFont(UIConstants.FONT_SMALL);
+            price.setForeground(UIConstants.PRIMARY);
+            leftContent.add(price, BorderLayout.SOUTH);
 
-            if (!isHistory) {
-                JButton btnDel = new JButton("<html><font color='red'>&times;</font></html>");
-                btnDel.setContentAreaFilled(false);
-                btnDel.setBorder(null);
-                btnDel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                btnDel.addActionListener(e -> { cart.remove(s); updateCartUI(); });
-                qtyBox.add(btnDel);
-            }
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            actions.setOpaque(false);
+            actions.setBorder(new EmptyBorder(10, 0, 0, 0));
+
+            // Pill Picker (+/-)
+            JPanel pill = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            pill.setBackground(Color.WHITE);
+            pill.setBorder(BorderFactory.createLineBorder(new Color(0xE2E8F0), 1));
+
+            JButton btnMin = createPillBtn("-", false);
+            JLabel lblQtyValue = new JLabel(String.valueOf(s.getSoLuong()), SwingConstants.CENTER);
+            lblQtyValue.setPreferredSize(new Dimension(30, 24));
+            lblQtyValue.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            JButton btnPlus = createPillBtn("+", true);
+
+            btnMin.addActionListener(e -> {
+                if (s.getSoLuong() > 1) {
+                    s.setSoLuong(s.getSoLuong() - 1);
+                } else {
+                    cart.remove(s);
+                }
+                updateCartUI();
+            });
+            btnPlus.addActionListener(e -> {
+                s.setSoLuong(s.getSoLuong() + 1);
+                updateCartUI();
+            });
+
+            pill.add(btnMin);
+            pill.add(lblQtyValue);
+            pill.add(btnPlus);
+
+            JButton btnDel = new JButton("\u00d7");
+            btnDel.setFont(new Font("Segoe UI", Font.PLAIN, 20));
+            btnDel.setForeground(new Color(0x94A3B8));
+            btnDel.setBorder(null);
+            btnDel.setOpaque(false);
+            btnDel.setContentAreaFilled(false);
+            btnDel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            btnDel.addActionListener(e -> { cart.remove(s); updateCartUI(); });
+            btnDel.addMouseListener(new java.awt.event.MouseAdapter() {
+                public void mouseEntered(java.awt.event.MouseEvent e) { btnDel.setForeground(Color.RED); }
+                public void mouseExited(MouseEvent e) { btnDel.setForeground(new Color(0x94A3B8)); }
+            });
+
+            actions.add(pill);
+            actions.add(btnDel);
 
             add(leftContent, BorderLayout.CENTER);
-            add(qtyBox, BorderLayout.EAST);
+            add(actions, BorderLayout.EAST);
         }
     }
 

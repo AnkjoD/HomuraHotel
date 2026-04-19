@@ -291,7 +291,7 @@ public class HoaDonDialog extends JDialog {
             tableModel.addRow(new Object[] { "Phí phát sinh khác", "—", "—", String.format("%,.0f đ", phiKhac) });
         }
 
-        java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
+        java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByChiTiet(thuePhong.getMaChiTiet());
         long totalDV = 0;
         for (SuDungDichVu sddv : dsDichVu) {
             tableModel.addRow(new Object[] {
@@ -537,7 +537,7 @@ public class HoaDonDialog extends JDialog {
             double phiCheckinOut = (ngayNhanR != null) ? calc.tinhPhuPhi(thuePhong, ngayNhanR, java.time.LocalDateTime.now()) : 0;
             double phuPhi = phiCheckinOut + thuePhong.getPhuPhiPhatSinh();
 
-            java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
+            java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByChiTiet(thuePhong.getMaChiTiet());
             double tienDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
             
             java.math.BigDecimal bdPhong = java.math.BigDecimal.valueOf(tienPhong);
@@ -647,7 +647,7 @@ public class HoaDonDialog extends JDialog {
         double phiKhac = thuePhong.getPhuPhiPhatSinh();
         double phuPhi = phiCheckinOut + phiKhac;
 
-        java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByThue(thuePhong.getMaChiTiet());
+        java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByChiTiet(thuePhong.getMaChiTiet());
         double totalDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
 
         // Header
