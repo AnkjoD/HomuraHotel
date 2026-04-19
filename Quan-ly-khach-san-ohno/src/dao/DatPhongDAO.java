@@ -64,9 +64,9 @@ public class DatPhongDAO {
     }
 
     public boolean insert(DatPhong dp) {
-        String sql = "INSERT INTO DatPhong(maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu, loaiKhach, tenDoan, maKenh, maXacNhanKenh, phiNoShow, hanCheckIn, thuTuWaitlist) "
+        String sql = "INSERT INTO DatPhong(maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu, loaiKhach, tenDoan, maKenh, maXacNhanKenh, phiNoShow, hanCheckIn, thuTuWaitlist, hanNopCoc, phiHuyPhong) "
                 +
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dp.getMaDatPhong());
             ps.setString(2, dp.getKhachHang() != null ? dp.getKhachHang().getMaKhachHang() : null);
@@ -90,6 +90,8 @@ public class DatPhongDAO {
             ps.setDouble(16, dp.getPhiNoShow());
             ps.setTimestamp(17, dp.getHanCheckIn() != null ? Timestamp.valueOf(dp.getHanCheckIn()) : null);
             ps.setInt(18, dp.getThuTuWaitlist());
+            ps.setTimestamp(19, dp.getHanNopCoc() != null ? Timestamp.valueOf(dp.getHanNopCoc()) : null);
+            ps.setDouble(20, dp.getPhiHuyPhong());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             // Fallback for old schema without new columns
@@ -129,7 +131,7 @@ public class DatPhongDAO {
     }
 
     public boolean update(DatPhong dp) {
-        String sql = "UPDATE DatPhong SET maKhachHang=?, maNhanVien=?, ngayNhanDuKien=?, ngayTraDuKien=?, soNguoi=?, tienDatCoc=?, tongTienTamTinh=?, trangThai=?, ghiChu=?, loaiKhach=?, tenDoan=?, maKenh=?, maXacNhanKenh=?, phiNoShow=?, hanCheckIn=?, thuTuWaitlist=? WHERE maDatPhong=?";
+        String sql = "UPDATE DatPhong SET maKhachHang=?, maNhanVien=?, ngayNhanDuKien=?, ngayTraDuKien=?, soNguoi=?, tienDatCoc=?, tongTienTamTinh=?, trangThai=?, ghiChu=?, loaiKhach=?, tenDoan=?, maKenh=?, maXacNhanKenh=?, phiNoShow=?, hanCheckIn=?, thuTuWaitlist=?, hanNopCoc=?, phiHuyPhong=? WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dp.getKhachHang() != null ? dp.getKhachHang().getMaKhachHang() : null);
             ps.setString(2, dp.getNhanVien() != null ? dp.getNhanVien().getMaNhanVien() : null);
@@ -150,7 +152,9 @@ public class DatPhongDAO {
             ps.setDouble(14, dp.getPhiNoShow());
             ps.setTimestamp(15, dp.getHanCheckIn() != null ? Timestamp.valueOf(dp.getHanCheckIn()) : null);
             ps.setInt(16, dp.getThuTuWaitlist());
-            ps.setString(17, dp.getMaDatPhong());
+            ps.setTimestamp(17, dp.getHanNopCoc() != null ? Timestamp.valueOf(dp.getHanNopCoc()) : null);
+            ps.setDouble(18, dp.getPhiHuyPhong());
+            ps.setString(19, dp.getMaDatPhong());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             // Fallback for old schema
@@ -430,6 +434,12 @@ public class DatPhongDAO {
         // Đọc waitlist fields
         try {
             dp.setThuTuWaitlist(rs.getInt("thuTuWaitlist"));
+        } catch (SQLException ignored) {
+        }
+        try {
+            Timestamp tsHanCoc = rs.getTimestamp("hanNopCoc");
+            if (tsHanCoc != null) dp.setHanNopCoc(tsHanCoc.toLocalDateTime());
+            dp.setPhiHuyPhong(rs.getDouble("phiHuyPhong"));
         } catch (SQLException ignored) {
         }
 

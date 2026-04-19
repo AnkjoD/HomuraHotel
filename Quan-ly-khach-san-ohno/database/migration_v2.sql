@@ -1,34 +1,37 @@
--- migration_v2.sql
--- Thêm chức năng Giao Ca và Nhật ký hệ thống
-
+-- ======================================================
+-- MIGRATION SCRIPT v2 (Professional Upgrades)
+-- ======================================================
 USE HotelMs;
 GO
 
--- 1. Bảng Nhật ký hệ thống
-IF OBJECT_ID('NhatKyHeThong', 'U') IS NOT NULL DROP TABLE NhatKyHeThong;
-CREATE TABLE NhatKyHeThong (
-    maLog INT IDENTITY(1,1) PRIMARY KEY,
-    thoiGian DATETIME DEFAULT GETDATE(),
-    tenDangNhap VARCHAR(50), -- Tài khoản thực hiện
-    hanhDong NVARCHAR(50),    -- LOGIN, LOGOUT, CREATE, UPDATE, DELETE, ...
-    doiTuong NVARCHAR(100),   -- Tên thực thể tác động (Phòng P101, Hóa đơn HD001, ...)
-    chiTiet NVARCHAR(MAX)     -- Mô tả chi tiết thay đổi (ví dụ: Thay đổi giá từ 500k -> 400k)
-);
+-- 1. Nâng cấp bảng KhachHang (CRM Profiles)
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('KhachHang') AND name = 'isBlacklist')
+BEGIN
+    ALTER TABLE KhachHang ADD isBlacklist BIT DEFAULT 0;
+END
 
--- 2. Bảng Giao ca
-IF OBJECT_ID('GiaoCa', 'U') IS NOT NULL DROP TABLE GiaoCa;
-CREATE TABLE GiaoCa (
-    maGiaoCa VARCHAR(20) PRIMARY KEY,
-    maNhanVien VARCHAR(20) REFERENCES NhanVien(maNhanVien), -- Nhân viên bàn giao
-    thoiGianBatDau DATETIME NOT NULL,
-    thoiGianKetThuc DATETIME, -- NULL nếu ca đang diễn ra
-    tienMatDauCa DECIMAL(18,2) DEFAULT 0,
-    tienMatThuTrongCa DECIMAL(18,2) DEFAULT 0, -- Tổng tiền từ các hóa đơn PAID trong ca
-    tienMatBanGiao DECIMAL(18,2) DEFAULT 0,     -- Số tiền thực tế đếm được và bàn giao
-    maNhanVienNhan VARCHAR(20) REFERENCES NhanVien(maNhanVien), -- Nhân viên nhận ca (optional)
-    ghiChu NVARCHAR(MAX),
-    trangThai VARCHAR(20) DEFAULT 'OPEN' CHECK (trangThai IN ('OPEN', 'CLOSED'))
-);
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('KhachHang') AND name = 'preferences')
+BEGIN
+    ALTER TABLE KhachHang ADD preferences NVARCHAR(MAX);
+END
 
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('KhachHang') AND name = 'vipLevel')
+BEGIN
+    ALTER TABLE KhachHang ADD vipLevel VARCHAR(20) DEFAULT 'BRONZE';
+END
 GO
-PRINT '✓ Migration v2 completed successfully.';
+
+-- 2. Nâng cấp bảng DatPhong (Professional Logic)
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('DatPhong') AND name = 'hanNopCoc')
+BEGIN
+    ALTER TABLE DatPhong ADD hanNopCoc DATETIME;
+END
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('DatPhong') AND name = 'phiHuyPhong')
+BEGIN
+    ALTER TABLE DatPhong ADD phiHuyPhong DECIMAL(18,2) DEFAULT 0;
+END
+GO
+
+PRINT '✓ Migration v2 completed successfully!';
+GO

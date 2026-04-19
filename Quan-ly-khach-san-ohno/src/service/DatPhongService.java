@@ -98,22 +98,97 @@ public class DatPhongService {
         return null;
     }
 
-    public String huyDatPhong(String maDatPhong) {
+    /**
+     * Tính toán phí phạt hủy phòng dự kiến dựa trên thời điểm hủy.
+     * Policy:
+     * - < 24h: Phạt 100% tiền cọc (hoặc 1 đêm)
+     * - 24h - 48h: Phạt 50% tiền cọc
+     * - > 48h: Miễn phí
+     */
+    public double tinhPhiHuyDien(String maDatPhong) {
         DatPhong dp = datPhongDAO.getById(maDatPhong);
-        if (dp == null) return "Không tìm thấy đặt phòng!";
+        if (dp == null || dp.getNgayNhan() == null) return 0;
         
-        // Chỉ cho phép hủy đơn PENDING, CONFIRMED, WAITLIST
-        if (dp.getTrangThai() != TrangThaiDatPhong.PENDING && 
-            dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED && 
-            dp.getTrangThai() != TrangThaiDatPhong.WAITLIST) {
-            return "Không thể hủy đơn đặt ở trạng thái: " + dp.getTrangThai();
-        }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime arrival = dp.getNgayNhan();
+        java.time.Duration duration = java.time.Duration.between(now, arrival);
+        long hours = duration.toHours();
+        
+        if (hours < 0) return dp.getTienDatCoc(); // Đã quá ngày nhận
+        if (hours < 24) return dp.getTienDatCoc(); // Phạt 100% cọc
+        if (hours < 48) return dp.getTienDatCoc() * 0.5; // Phạt 50% cọc
+        return 0; // Miễn phí
+    }
 
-        if (datPhongDAO.softDelete(maDatPhong)) {
-            LogService.addLog("Hủy đặt phòng", "Nghiệp vụ", "Hủy đơn " + maDatPhong);
-            return null;
+    public String huyDatPhong(String maDatPhong) {
+        return huyDatPhong(maDatPhong, tinhPhiHuyDien(maDatPhong), "Yêu cầu khách hàng");
+    }
+
+    /**
+     * Hủy đặt phòng có tính phí phạt và xử lý hóa đơn.
+     */
+    public String huyDatPhong(String maDatPhong, double phiPhat, String lyDo) {
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            DatPhong dp = datPhongDAO.getById(maDatPhong);
+            if (dp == null) {
+                db.rollbackTransaction();
+                return "Không tìm thấy đặt phòng!";
+            }
+            
+            // Chỉ cho phép hủy đơn PENDING, CONFIRMED, WAITLIST
+            if (dp.getTrangThai() != TrangThaiDatPhong.PENDING && 
+                dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED && 
+                dp.getTrangThai() != TrangThaiDatPhong.WAITLIST) {
+                db.rollbackTransaction();
+                return "Không thể hủy đơn đặt ở trạng thái: " + dp.getTrangThai();
+            }
+
+            // 1. Tạo hóa đơn phạt nếu có phí
+            if (phiPhat > 0) {
+                HoaDon hd = new HoaDon();
+                hd.setMaHoaDon(hoaDonDAO.generateMaHD());
+                hd.setDatPhong(dp);
+                hd.setNgayLap(LocalDateTime.now());
+                hd.setTongThanhToan(phiPhat);
+                hd.setTrangThai(entity.enums.TrangThaiThanhToan.PAID);
+                hd.setPhuongThucThanhToan("DEPOSIT");
+                hd.setNhanVien(nhanVienDAO.getById(AuthService.getInstance().getCurrentMaNV() != null ? AuthService.getInstance().getCurrentMaNV() : "admin_nv"));
+
+                if (!hoaDonDAO.insert(hd)) {
+                    db.rollbackTransaction();
+                    return "Lỗi tạo hóa đơn phạt hủy!";
+                }
+
+                ChiTietHoaDon cthd = new ChiTietHoaDon();
+                cthd.setHoaDon(hd);
+                cthd.setLoaiChiTiet(entity.enums.LoaiChiTietHoaDon.PHU_PHI);
+                cthd.setNoiDung("Phí phạt hủy phòng (Late Cancellation Penalty)");
+                cthd.setSoLuong(1);
+                cthd.setDonGia(phiPhat);
+                cthd.setThanhTien(phiPhat);
+                cthdDAO.insert(cthd);
+            }
+
+            // 2. Cập nhật trạng thái
+            dp.setTrangThai(TrangThaiDatPhong.CANCELLED);
+            dp.setPhiHuyPhong(phiPhat);
+            dp.setGhiChu((dp.getGhiChu() != null ? dp.getGhiChu() + " | " : "") + "Hủy: " + lyDo + " (Phạt: " + String.format("%,.0fđ", phiPhat) + ")");
+            
+            if (datPhongDAO.update(dp)) {
+                db.commitTransaction();
+                LogService.addLog("Hủy đặt phòng", "Nghiệp vụ", "Hủy đơn " + maDatPhong + " kèm phạt " + phiPhat);
+                return null;
+            } else {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật CSDL khi hủy!";
+            }
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi khi hủy đơn", e);
+            return "Lỗi hệ thống: " + e.getMessage();
         }
-        return "Lỗi khi hủy đơn đặt phòng!";
     }
 
     public boolean updateTrangThai(String maDatPhong, TrangThaiDatPhong trangThai) {
@@ -308,5 +383,57 @@ public class DatPhongService {
             }
         }
         return result;
+    }
+
+    /**
+     * Lấy danh sách các đơn đặt phòng PENDING đã quá hạn nộp cọc.
+     */
+    public List<DatPhong> getOverdueDepositBookings() {
+        List<DatPhong> result = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (DatPhong dp : datPhongDAO.getAll()) {
+            if (dp.getTrangThai() == TrangThaiDatPhong.PENDING && 
+                dp.getTienDatCoc() <= 0 && // Chưa cọc
+                dp.getHanNopCoc() != null && 
+                dp.getHanNopCoc().isBefore(now)) {
+                result.add(dp);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Cập nhật thông tin đơn đặt phòng (Sửa đơn).
+     */
+    public String suaDatPhong(DatPhong dp) {
+        if (dp == null || dp.getMaDatPhong() == null) return "Dữ liệu không hợp lệ!";
+        
+        // Kiểm tra xem đơn có còn ở trạng thái cho phép sửa không (PENDING/CONFIRMED)
+        DatPhong old = datPhongDAO.getById(dp.getMaDatPhong());
+        if (old == null) return "Không tìm thấy đơn đặt phòng!";
+        if (old.getTrangThai() != TrangThaiDatPhong.PENDING && old.getTrangThai() != TrangThaiDatPhong.CONFIRMED) {
+            return "Chỉ có thể sửa đơn ở trạng thái Chờ xác nhận hoặc Đã xác nhận!";
+        }
+
+        // Thực hiện cập nhật
+        return datPhongDAO.update(dp) ? null : "Lỗi cập nhật cơ sở dữ liệu!";
+    }
+
+    /**
+     * Tính phí hủy phòng dựa trên chính sách khách sạn.
+     */
+    public double tinhPhiHuy(DatPhong dp) {
+        if (dp == null || dp.getNgayNhanDuKien() == null) return 0;
+        
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime deadlineFree = dp.getNgayNhanDuKien().minusHours(24);
+        
+        if (now.isBefore(deadlineFree)) {
+            return 0; // Hủy sớm miễn phí
+        } else if (now.isBefore(dp.getNgayNhanDuKien())) {
+            return dp.getTienDatCoc() * 0.5; // Hủy trong vòng 24h phạt 50%
+        } else {
+            return dp.getTienDatCoc(); // Hủy sau giờ check-in phạt toàn bộ cọc
+        }
     }
 }

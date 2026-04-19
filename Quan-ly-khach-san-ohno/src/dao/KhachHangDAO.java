@@ -96,7 +96,7 @@ public class KhachHangDAO {
     }
 
     public boolean insert(KhachHang kh) {
-        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, soVisa, ngayHetHanVisa, noiCapHoChieu, ngayNhapCanh, trangThai, anhCCCD, soLanO, tongChiTieu, diemTichLuy, hangKhachHang) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, soVisa, ngayHetHanVisa, noiCapHoChieu, ngayNhapCanh, trangThai, anhCCCD, soLanO, tongChiTieu, diemTichLuy, hangKhachHang, isBlacklist, preferences, vipLevel) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getMaKhachHang());
             ps.setString(2, kh.getHoTen());
@@ -117,6 +117,9 @@ public class KhachHangDAO {
             ps.setDouble(17, kh.getTongChiTieu());
             ps.setInt(18, kh.getDiemTichLuy());
             ps.setString(19, kh.getHangKhachHang());
+            ps.setBoolean(20, kh.isBlacklist());
+            ps.setString(21, kh.getPreferences());
+            ps.setString(22, kh.getVipLevel());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { 
             // Attempt to update only primary columns if CRM columns aren't ready
@@ -142,7 +145,7 @@ public class KhachHangDAO {
     }
 
     public boolean update(KhachHang kh) {
-        String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=?, ngaySinh=?, gioiTinh=?, quocTich=?, loaiGiayTo=?, soHoChieu=?, soVisa=?, ngayHetHanVisa=?, noiCapHoChieu=?, ngayNhapCanh=?, trangThai=?, anhCCCD=?, soLanO=?, tongChiTieu=?, diemTichLuy=?, hangKhachHang=? WHERE maKhachHang=?";
+        String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=?, ngaySinh=?, gioiTinh=?, quocTich=?, loaiGiayTo=?, soHoChieu=?, soVisa=?, ngayHetHanVisa=?, noiCapHoChieu=?, ngayNhapCanh=?, trangThai=?, anhCCCD=?, soLanO=?, tongChiTieu=?, diemTichLuy=?, hangKhachHang=?, isBlacklist=?, preferences=?, vipLevel=? WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getHoTen());
             ps.setString(2, kh.getSdt());
@@ -162,7 +165,10 @@ public class KhachHangDAO {
             ps.setDouble(16, kh.getTongChiTieu());
             ps.setInt(17, kh.getDiemTichLuy());
             ps.setString(18, kh.getHangKhachHang());
-            ps.setString(19, kh.getMaKhachHang());
+            ps.setBoolean(19, kh.isBlacklist());
+            ps.setString(20, kh.getPreferences());
+            ps.setString(21, kh.getVipLevel());
+            ps.setString(22, kh.getMaKhachHang());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { 
             // Fallback
@@ -252,6 +258,9 @@ public class KhachHangDAO {
         try { kh.setTongChiTieu(rs.getDouble("tongChiTieu")); } catch (SQLException ignored) { }
         try { kh.setDiemTichLuy(rs.getInt("diemTichLuy")); } catch (SQLException ignored) { }
         try { kh.setHangKhachHang(rs.getString("hangKhachHang")); } catch (SQLException ignored) { }
+        try { kh.setBlacklist(rs.getBoolean("isBlacklist")); } catch (SQLException ignored) { }
+        try { kh.setPreferences(rs.getString("preferences")); } catch (SQLException ignored) { }
+        try { kh.setVipLevel(rs.getString("vipLevel")); } catch (SQLException ignored) { }
         
         return kh;
     }

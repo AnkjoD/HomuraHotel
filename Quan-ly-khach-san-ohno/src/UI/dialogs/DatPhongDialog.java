@@ -12,6 +12,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class DatPhongDialog extends JDialog {
@@ -227,7 +228,7 @@ public class DatPhongDialog extends JDialog {
         g.gridx = 1; form.add(new JPanel() {{ setOpaque(false); }}, g);
         rowIdx++;
 
-        // Auto-fill logic
+        // Auto-fill logic + Blacklist check
         txtSDT.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -238,6 +239,17 @@ public class DatPhongDialog extends JDialog {
                         txtHoTen.setText(kh.getHoTen());
                         txtCCCD.setText(kh.getCccd());
                         if (kh.getQuocTich() != null) cboQuocTich.setSelectedItem(kh.getQuocTich());
+                        
+                        // Cảnh báo Blacklist
+                        if (kh.isBlacklist()) {
+                            NotificationManager.showWarning("CẢNH BÁO", "Khách hàng này đang nằm trong DANH SÁCH ĐEN!\nGhi chú: " + kh.getPreferences());
+                            txtHoTen.setForeground(Color.RED);
+                        } else {
+                            txtHoTen.setForeground(UIConstants.TEXT_PRIMARY);
+                            if (kh.getPreferences() != null && !kh.getPreferences().isBlank()) {
+                                NotificationManager.showInfo("Sở thích/Lưu ý", kh.getPreferences());
+                            }
+                        }
                     }
                 }
             }
@@ -259,10 +271,17 @@ public class DatPhongDialog extends JDialog {
         JComboBox<String> cboCoc = new ModernComboBox<>(cocOptions);
 
         g.gridy = rowIdx; g.gridwidth = 1; g.weightx = 0.5;
-        g.gridx = 0; g.insets = new Insets(0, 0, 24, 8);
+        g.gridx = 0; g.insets = new Insets(0, 0, 16, 8);
         form.add(fieldGroup("Tổng tiền phòng (ước tính)", txtTongTien), g);
-        g.gridx = 1; g.insets = new Insets(0, 8, 24, 0);
+        g.gridx = 1; g.insets = new Insets(0, 8, 16, 0);
         form.add(fieldGroup("Đặt cọc", cboCoc), g);
+        rowIdx++;
+
+        // Hạn nộp cọc
+        ui.components.DateTimePicker txtHanCoc = new ui.components.DateTimePicker(new Date(System.currentTimeMillis() + 86400000));
+        g.gridy = rowIdx; g.gridx = 0; g.insets = new Insets(0, 0, 24, 8);
+        form.add(fieldGroup("Hạn nộp cọc (Deadline)", txtHanCoc), g);
+        g.gridx = 1; form.add(new JPanel() {{ setOpaque(false); }}, g);
         rowIdx++;
 
         // Section: Ghi chu
@@ -360,6 +379,9 @@ public class DatPhongDialog extends JDialog {
             dp.setTienDatCoc(tongTien * (new double[]{0, 0.3, 0.5, 1.0})[cboCoc.getSelectedIndex()]);
             dp.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
             dp.setTrangThai(TrangThaiDatPhong.PENDING);
+            
+            // Section: Check Deadline
+            dp.setHanNopCoc(txtHanCoc.getLocalDateTime());
             
             entity.KenhDatPhong kenh = (entity.KenhDatPhong) cboKenh.getSelectedItem();
             dp.setMaKenh(kenh != null ? kenh.getMaKenh() : "DIR");

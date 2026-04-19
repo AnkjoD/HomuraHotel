@@ -22,6 +22,9 @@ public class KhachHang {
     private double tongChiTieu;         // Tổng chi tiền quyết toán (VND)
     private int diemTichLuy;            // Điểm thưởng (loyalty points)
     private String hangKhachHang = "Hạng Thường"; 
+    private boolean isBlacklist = false;
+    private String preferences;
+    private String vipLevel = "BRONZE";
 
     public KhachHang() {}
 
@@ -163,4 +166,13 @@ public class KhachHang {
         return "Hạng Thường (Bronze)";
     }
     public void setHangKhachHang(String hangKhachHang) { this.hangKhachHang = hangKhachHang; }
+
+    public boolean isBlacklist() { return isBlacklist; }
+    public void setBlacklist(boolean blacklist) { isBlacklist = blacklist; }
+
+    public String getPreferences() { return preferences != null ? preferences : ""; }
+    public void setPreferences(String preferences) { this.preferences = preferences; }
+
+    public String getVipLevel() { return vipLevel; }
+    public void setVipLevel(String vipLevel) { this.vipLevel = vipLevel; }
 }

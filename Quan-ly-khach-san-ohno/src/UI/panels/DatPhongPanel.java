@@ -13,6 +13,7 @@ import ui.dialogs.DatPhongDialog;
 import ui.components.DateTimePicker;
 import ui.components.RoundedComponents.*;
 import entity.enums.TrangThaiDatPhong;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -105,12 +106,9 @@ public class DatPhongPanel extends JPanel {
         titleBox.add(Box.createVerticalStrut(2));
         titleBox.add(sub);
 
-        // Right-side action panel: bell + button
-        // JPanel rightHdr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        // rightHdr.setOpaque(false);
-        // rightHdr.add(buildAlertBell());
         JPanel rightHdr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         rightHdr.setOpaque(false);
+        rightHdr.add(buildAlertBell());
         RoundedButton btnDatPhong = new RoundedButton("+ Đặt phòng", UIConstants.PRIMARY, Color.WHITE);
         btnDatPhong.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnDatPhong.setPreferredSize(new Dimension(150, 38));
@@ -818,6 +816,20 @@ public class DatPhongPanel extends JPanel {
                     lbl.setForeground(UIConstants.getTrangThaiDatPhongColor(st));
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                 }
+                
+                // Indicator: Overdue Deposit
+                DatPhong rowDp = null;
+                try {
+                    String ma = (String) t.getModel().getValueAt(row, 0);
+                    rowDp = allDatPhong.stream().filter(d -> d.getMaDatPhong().equals(ma)).findFirst().orElse(null);
+                } catch(Exception e) {}
+                
+                if (rowDp != null && rowDp.getTrangThai() == TrangThaiDatPhong.PENDING && 
+                    rowDp.getTienDatCoc() <= 0 && rowDp.getHanNopCoc() != null && rowDp.getHanNopCoc().isBefore(LocalDateTime.now())) {
+                    lbl.setBackground(new Color(0xFEF2F2)); // Light red background
+                    if (col == 1) lbl.setForeground(Color.RED); // Highlight ID
+                }
+
                 return lbl;
             }
         });
@@ -973,19 +985,12 @@ public class DatPhongPanel extends JPanel {
         btnCheckin.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
         btnCancel.addActionListener(e -> {
-            int ok = JOptionPane.showConfirmDialog(dlg,
-                    "Hủy đơn đặt phòng " + dp.getMaDatPhong() + "?", "Xác nhận",
-                    JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (ok != JOptionPane.YES_OPTION)
-                return;
-            String err = datPhongService.huyDatPhong(dp.getMaDatPhong());
-            if (err != null) {
-                NotificationManager.showError("Lỗi", err);
-                return;
+            ui.dialogs.HuyDatPhongDialog cancelDlg = new ui.dialogs.HuyDatPhongDialog((Frame) SwingUtilities.getWindowAncestor(this), dp.getMaDatPhong(), dp.getTenKhachHang());
+            cancelDlg.setVisible(true);
+            if (cancelDlg.isConfirmed()) {
+                dlg.dispose();
+                refresh();
             }
-            NotificationManager.showSuccess("Thành công", "Đã hủy đơn " + dp.getMaDatPhong());
-            dlg.dispose();
-            refresh();
         });
 
         btnCheckin.addActionListener(e -> {
@@ -1046,12 +1051,13 @@ public class DatPhongPanel extends JPanel {
     private void showAlertDialog(
             java.util.List<DatPhong> noShows,
             java.util.List<DatPhong> upcoming,
-            java.util.List<DatPhong> longPending) {
+            java.util.List<DatPhong> longPending,
+            java.util.List<DatPhong> overdueDeposit) {
 
-        int total = noShows.size() + upcoming.size() + longPending.size();
+        int total = noShows.size() + upcoming.size() + longPending.size() + overdueDeposit.size();
         Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
 
-        JDialog dlg = new JDialog(parent, "Trung tam canh bao", true);
+        JDialog dlg = new JDialog(parent, "Trung tâm cảnh báo", true);
         dlg.setUndecorated(true);
         dlg.setSize(560, total == 0 ? 320 : Math.min(680, 180 + total * 80));
         dlg.setLocationRelativeTo(parent);
@@ -1124,10 +1130,6 @@ public class DatPhongPanel extends JPanel {
         btnCloseHdr.setFocusPainted(false);
         btnCloseHdr.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnCloseHdr.addActionListener(e -> dlg.dispose());
-        btnCloseHdr.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { btnCloseHdr.setForeground(new Color(0xEF4444)); }
-            @Override public void mouseExited(MouseEvent e) { btnCloseHdr.setForeground(new Color(0x94A3B8)); }
-        });
 
         hdr.add(hdrLeft, BorderLayout.WEST);
         hdr.add(btnCloseHdr, BorderLayout.EAST);
@@ -1135,96 +1137,63 @@ public class DatPhongPanel extends JPanel {
 
         // === BODY ===
         JPanel body = new JPanel();
-        body.setBackground(Color.WHITE);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm - dd/MM");
+        body.setBackground(Color.WHITE);
+
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM");
 
         if (total == 0) {
             JPanel empty = new JPanel(new GridBagLayout());
             empty.setBackground(Color.WHITE);
             empty.setBorder(BorderFactory.createEmptyBorder(40, 20, 50, 20));
-            JPanel inner = new JPanel();
-            inner.setOpaque(false);
-            inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
-            
-            JPanel okMark = new JPanel() {
-                @Override public Dimension getPreferredSize() { return new Dimension(72, 72); }
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(0xDCFCE7));
-                    g2.fillOval(0, 0, 72, 72);
-                    g2.setColor(new Color(0x10B981));
-                    g2.setStroke(new BasicStroke(4.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g2.drawLine(22, 36, 32, 46);
-                    g2.drawLine(32, 46, 52, 26);
-                    g2.dispose();
-                }
-            };
-            okMark.setOpaque(false);
-            okMark.setAlignmentX(Component.CENTER_ALIGNMENT);
             
             JLabel okMsg = new JLabel("Tất cả đơn đặt đều ổn!");
             okMsg.setFont(new Font("Segoe UI", Font.BOLD, 18));
             okMsg.setForeground(new Color(0x1E293B));
-            okMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
-            
-            JLabel okSub = new JLabel("Không có cảnh báo trễ hạn nào lúc này.");
-            okSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-            okSub.setForeground(new Color(0x64748B));
-            okSub.setAlignmentX(Component.CENTER_ALIGNMENT);
-            
-            inner.add(okMark);
-            inner.add(Box.createVerticalStrut(20));
-            inner.add(okMsg);
-            inner.add(Box.createVerticalStrut(8));
-            inner.add(okSub);
-            empty.add(inner);
+            empty.add(okMsg);
             body.add(empty);
         } else {
+            if (!overdueDeposit.isEmpty()) {
+                body.add(alertGroupHeader("Quá hạn nộp cọc", overdueDeposit.size(), new Color(0xFEF2F2), new Color(0xEF4444)));
+                for (DatPhong dp : overdueDeposit) {
+                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444), "Hạn nộp cọc: " + (dp.getHanNopCoc() != null ? dp.getHanNopCoc().format(fmt) : "--"), "Xem chi tiết", () -> {
+                        dlg.dispose();
+                        viewDetails(dp.getMaDatPhong());
+                    }));
+                }
+            }
             if (!noShows.isEmpty()) {
-                body.add(alertGroupHeader("Quá thời gian nhận phòng", noShows.size(),
-                    new Color(0xFEF2F2), new Color(0xEF4444)));
-                for (DatPhong dp : noShows)
-                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444),
-                        "Đã quá hạn check-in", "Đánh dấu No-show",
-                        () -> { dlg.dispose(); new dao.DatPhongDAO().markNoShow(dp.getMaDatPhong(), 0); refresh(); }));
+                body.add(alertGroupHeader("Quá hạn nhận phòng (No-show)", noShows.size(), new Color(0xFEF2F2), new Color(0xEF4444)));
+                for (DatPhong dp : noShows) {
+                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444), "Đã quá hạn check-in", "Đánh dấu No-show", () -> {
+                        dlg.dispose();
+                        doMarkNoShow(dp.getMaDatPhong(), dp.getTenKhachHang());
+                    }));
+                }
             }
             if (!upcoming.isEmpty()) {
-                body.add(alertGroupHeader("Sắp lấy phòng hôm nay", upcoming.size(),
-                    new Color(0xFFFBEB), new Color(0xF59E0B)));
+                body.add(alertGroupHeader("Sắp nhận phòng hôm nay", upcoming.size(), new Color(0xFFFBEB), new Color(0xF59E0B)));
                 for (DatPhong dp : upcoming) {
-                    String tg = dp.getNgayNhanDuKien() != null ? fmt.format(dp.getNgayNhanDuKien()) : "--";
-                    body.add(alertItemRow(dp, fmt, new Color(0xF59E0B),
-                        "Dự kiến nhận lúc " + tg, "Nhận phòng",
-                        () -> { dlg.dispose(); showQuickCheckinDialog(dp); }));
+                    String tg = dp.getNgayNhanDuKien() != null ? dp.getNgayNhanDuKien().format(fmt) : "--";
+                    body.add(alertItemRow(dp, fmt, new Color(0xF59E0B), "Dự kiến nhận lúc " + tg, "Nhận phòng", () -> {
+                        dlg.dispose();
+                        showQuickCheckinDialog(dp);
+                    }));
                 }
             }
             if (!longPending.isEmpty()) {
-                body.add(alertGroupHeader("Đơn chờ phản hồi lâu", longPending.size(),
-                    new Color(0xEFF6FF), new Color(0x3B82F6)));
+                body.add(alertGroupHeader("Đơn chờ phản hồi lâu", longPending.size(), new Color(0xEFF6FF), new Color(0x3B82F6)));
                 for (DatPhong dp : longPending) {
-                    String tg = dp.getNgayDat() != null ? dp.getNgayDat().format(fmt) : "--";
-                    body.add(alertItemRow(dp, fmt, new Color(0x3B82F6),
-                        "Đã tạo từ " + tg, "Xem chi tiết",
-                        () -> {
-                            dlg.dispose();
-                            DatPhong full = datPhongService.getById(dp.getMaDatPhong());
-                            if (full != null)
-                                new ui.dialogs.DatPhongDetailDialog(parent, full, DatPhongPanel.this).setVisible(true);
-                        }));
+                    body.add(alertItemRow(dp, fmt, new Color(0x3B82F6), "Đã tạo từ lâu", "Xem chi tiết", () -> {
+                        dlg.dispose();
+                        viewDetails(dp.getMaDatPhong());
+                    }));
                 }
             }
-            body.add(Box.createVerticalStrut(12));
         }
 
         JScrollPane scroll = new JScrollPane(body);
         scroll.setBorder(null);
-        scroll.setBackground(Color.WHITE);
-        scroll.getViewport().setBackground(Color.WHITE);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         root.add(scroll, BorderLayout.CENTER);
 
         dlg.setContentPane(root);
@@ -1365,6 +1334,20 @@ public class DatPhongPanel extends JPanel {
             menu.add(mnuCheckin);
         }
 
+        // 2.1 Sửa đặt phòng (Mới khôi phục)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {
+            JMenuItem mnuEdit = createMenuItem("Sửa đặt phòng", UIConstants.PRIMARY);
+            mnuEdit.addActionListener(e -> {
+                DatPhong dp = datPhongService.getById(ma);
+                if (dp != null) {
+                    ui.dialogs.EditDatPhongDialog dlg = new ui.dialogs.EditDatPhongDialog((Frame) SwingUtilities.getWindowAncestor(this), dp);
+                    dlg.setVisible(true);
+                    if (dlg.isConfirmed()) refresh();
+                }
+            });
+            menu.add(mnuEdit);
+        }
+
         // 3. Xác nhận (PENDING hoặc WAITLIST)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
             JMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
@@ -1424,15 +1407,9 @@ public class DatPhongPanel extends JPanel {
     }
 
     private void doCancel(String ma, String ten) {
-        int ok = JOptionPane.showConfirmDialog(this, "Hủy đặt phòng của \"" + ten + "\"?\nLịch sử vẫn sẽ được lưu lại.", 
-            "Xác nhận", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-        if (ok == JOptionPane.YES_OPTION) {
-            String err = datPhongService.huyDatPhong(ma);
-            if (err == null) {
-                loadDatPhongTable();
-                NotificationManager.showSuccess("Thành công", "Đã hủy đơn đặt phòng của " + ten);
-            } else showError(err);
-        }
+        ui.dialogs.HuyDatPhongDialog dlg = new ui.dialogs.HuyDatPhongDialog((Frame) SwingUtilities.getWindowAncestor(this), ma, ten);
+        dlg.setVisible(true);
+        if (dlg.isConfirmed()) refresh();
     }
 
     private void doDelete(String ma, String ten) {
@@ -1490,10 +1467,34 @@ public class DatPhongPanel extends JPanel {
         NotificationManager.showWarning("Cảnh báo", msg);
     }
 
+    private JPanel buildAlertBell() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        p.setOpaque(false);
+        
+        List<DatPhong> noShows = datPhongService.getNoShowBookings(4); // > 4h trễ
+        List<DatPhong> upcoming = datPhongService.getUpcomingArrivals(6); // Trong 6h tới
+        List<DatPhong> longPending = datPhongService.getLongPendingBookings(12); // PENDING > 12h
+        List<DatPhong> overdue = datPhongService.getOverdueDepositBookings();
+        
+        int count = noShows.size() + upcoming.size() + longPending.size() + overdue.size();
+        
+        JButton btnBell = new JButton(count > 0 ? "🔔 " + count : "🔔");
+        btnBell.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnBell.setFocusPainted(false);
+        btnBell.setBorderPainted(false);
+        btnBell.setContentAreaFilled(false);
+        btnBell.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBell.setForeground(count > 0 ? UIConstants.DANGER : UIConstants.TEXT_MUTED);
+        
+        btnBell.addActionListener(e -> {
+            showAlertDialog(noShows, upcoming, longPending, overdue);
+        });
+        
+        p.add(btnBell);
+        return p;
+    }
+
     public void refresh() {
-        removeAll();
-        buildUI();
-        revalidate();
-        repaint();
+        loadDatPhongTable();
     }
 }

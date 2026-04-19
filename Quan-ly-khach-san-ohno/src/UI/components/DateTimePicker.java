@@ -9,6 +9,8 @@ import java.util.*;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -363,6 +365,11 @@ public class DateTimePicker extends JPanel {
     /** Lấy ngày đã chọn dưới dạng String "dd/MM/yyyy HH:mm" */
     public String getFormattedDate() {
         return SDF.format(getDate());
+    }
+
+    /** Lấy ngày đã chọn dưới dạng LocalDateTime */
+    public LocalDateTime getLocalDateTime() {
+        return getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 
     /** Set ngày từ bên ngoài */

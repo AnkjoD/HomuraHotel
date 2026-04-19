@@ -37,6 +37,8 @@ public class DatPhong {
 
     // === Waitlist / Overbooking ===
     private int thuTuWaitlist;              // Thứ tự trong waitlist (0 = không phải waitlist)
+    private LocalDateTime hanNopCoc;        // Hạn nộp cọc (G-Hold)
+    private double phiHuyPhong;             // Phí phạt khi hủy đơn
 
     private KhachHang khachHang;
     private NhanVien nhanVien;
@@ -145,6 +147,12 @@ public class DatPhong {
             this.ghiChu = (this.ghiChu != null ? this.ghiChu + " | " : "") + "Đã xác nhận từ waitlist";
         }
     }
+
+    public LocalDateTime getHanNopCoc() { return hanNopCoc; }
+    public void setHanNopCoc(LocalDateTime hanNopCoc) { this.hanNopCoc = hanNopCoc; }
+
+    public double getPhiHuyPhong() { return phiHuyPhong; }
+    public void setPhiHuyPhong(double phiHuyPhong) { this.phiHuyPhong = phiHuyPhong; }
 
     public KhachHang getKhachHang() { return khachHang; }
     public void setKhachHang(KhachHang khachHang) { this.khachHang = khachHang; }

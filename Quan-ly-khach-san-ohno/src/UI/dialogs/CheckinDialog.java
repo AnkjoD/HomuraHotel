@@ -12,6 +12,7 @@ import ui.components.DateTimePicker;
 import ui.components.NotificationManager;
 import ui.components.UIConstants;
 import ui.components.RoundedComponents.*;
+import java.time.LocalDateTime;
 
 import javax.swing.*;
 import java.awt.*;
@@ -1059,6 +1060,31 @@ public class CheckinDialog extends JDialog {
     // DO CHECK-IN
     // =====================================================================
     private void doCheckin() {
+        // --- KIỂM TRA NHẬN PHÒNG SỚM ---
+        LocalDateTime now = LocalDateTime.now();
+        if (now.getHour() < 14) {
+             double phiEarly = thuePhongService.tinhPhuPhiEarlyCheckin(selectedPhong, now);
+             if (phiEarly > 0) {
+                 int confirm = JOptionPane.showConfirmDialog(this,
+                     "<html><b style='color:red;'>CẢNH BÁO NHẬN PHÒNG SỚM (EARLY CHECK-IN)</b><br>" +
+                     "Thời điểm nhận phòng (" + now.getHour() + "h) sớm hơn quy định (14h).<br>" +
+                     "Hệ thống sẽ tính thêm phụ phí: <b>" + String.format("%,.0f VNĐ", phiEarly) + "</b>.<br>" +
+                     "Bạn có muốn tiếp tục?</html>",
+                     "Cảnh báo", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                 if (confirm != JOptionPane.YES_OPTION) return;
+                 
+                 // Thêm vào danh sách dịch vụ chờ xử lý khi check-in
+                 SuDungDichVu sddv = new SuDungDichVu();
+                 DichVu dv = new DichVu();
+                 dv.setMaDichVu("DV_EXTRA_EARLY");
+                 dv.setTenDichVu("Phụ phí nhận phòng sớm");
+                 sddv.setDichVu(dv);
+                 sddv.setSoLuong(1);
+                 sddv.setDonGiaLuu(phiEarly);
+                 sddv.setThoiDiem(now);
+                 selectedDV.add(sddv);
+             }
+        }
         String tenKH = txtTenKH != null ? txtTenKH.getText().trim() : "";
         String sdt   = txtSDT   != null ? txtSDT.getText().trim()   : "";
         String cccd  = txtCCCD  != null ? txtCCCD.getText().trim()  : "";

@@ -154,10 +154,22 @@ public class ExtendStayDialog extends JDialog {
             return;
         }
 
-        // 1. Check Availability (Mockup or real check)
-        // In real PMS, we would check if (newDate) overlaps with any OTHER booking for this room.
-        lblAvailability.setText("✓ Phòng trống sẵn sàng cho gia hạn");
-        lblAvailability.setForeground(UIConstants.SUCCESS);
+        // 1. Check Availability (Real check)
+        boolean isAvailable = new dao.PhongDAO().isRoomAvailable(
+                chiTietDatPhong.getPhong().getMaPhong(), 
+                oldDate, 
+                newDate, 
+                datPhong.getMaDatPhong());
+                
+        if (!isAvailable) {
+            lblAvailability.setText("⚠ XUNG ĐỘT: Phòng đã có khách đặt trong khoảng thời gian này!");
+            lblAvailability.setForeground(java.awt.Color.RED);
+            this.newCheckoutTime = null; // Chặn xác nhận
+            return;
+        } else {
+            lblAvailability.setText("✓ Phòng trống sẵn sàng cho gia hạn");
+            lblAvailability.setForeground(UIConstants.SUCCESS);
+        }
 
         // 2. Calculate nights
         long oldNights = ChronoUnit.DAYS.between(arrival.toLocalDate(), oldDate.toLocalDate());
