@@ -25,17 +25,18 @@ public class EditDatPhongDialog extends JDialog {
     private final DatPhong dp;
 
     private DateTimePicker txtCheckIn, txtCheckOut;
-    private JTextField txtSoKhach;
+    private ModernTextField txtSoKhach;
     private JTextArea txtGhiChu;
-    private JTextField txtTienCoc;
+    private ModernTextField txtTienCoc;
 
     public EditDatPhongDialog(Frame parent, DatPhong dp) {
         super(parent, "Sửa thông tin đặt phòng", true);
         this.dp = dp;
         
         setLayout(new BorderLayout());
-        setSize(500, 600);
+        setSize(540, 700);
         setLocationRelativeTo(parent);
+        setResizable(false);
         
         buildUI();
         loadData();
@@ -43,74 +44,93 @@ public class EditDatPhongDialog extends JDialog {
 
     private void buildUI() {
         JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(Color.WHITE);
-        root.setBorder(new EmptyBorder(20, 20, 20, 20));
+        root.setBackground(UIConstants.BG_MAIN);
 
-        // Header
-        JLabel lblHeader = new JLabel("CHỈNH SỬA ĐƠN ĐẶT #" + dp.getMaDatPhong());
-        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        lblHeader.setForeground(UIConstants.PRIMARY);
-        root.add(lblHeader, BorderLayout.NORTH);
+        // --- Header Section ---
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(UIConstants.PRIMARY_LIGHT);
+        headerPanel.setBorder(new EmptyBorder(25, 30, 25, 30));
+        
+        JLabel lblTitle = new JLabel("Chỉnh sửa đơn đặt phòng");
+        lblTitle.setFont(UIConstants.FONT_TITLE);
+        lblTitle.setForeground(UIConstants.PRIMARY);
+        
+        JLabel lblSubTitle = new JLabel("Mã đơn: " + dp.getMaDatPhong() + " | Trạng thái: " + UIConstants.getTrangThaiDatPhongLabel(dp.getTrangThai()));
+        lblSubTitle.setFont(UIConstants.FONT_SMALL);
+        lblSubTitle.setForeground(UIConstants.TEXT_SECONDARY);
+        
+        headerPanel.add(lblTitle, BorderLayout.NORTH);
+        headerPanel.add(lblSubTitle, BorderLayout.CENTER);
+        root.add(headerPanel, BorderLayout.NORTH);
 
-        // Body
+        // --- Body Section ---
         JPanel body = new JPanel(new GridBagLayout());
         body.setOpaque(false);
+        body.setBorder(new EmptyBorder(20, 30, 20, 30));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(8, 0, 8, 0);
+        gbc.insets = new Insets(6, 0, 6, 0);
         gbc.weightx = 1.0;
 
         int row = 0;
 
-        // Check-in
+        // Check-in & Check-out in two columns
+        JPanel datesPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        datesPanel.setOpaque(false);
+        
+        JPanel checkinBox = createInputGroup("Ngày nhận phòng dự kiến", txtCheckIn = new DateTimePicker(new Date()));
+        JPanel checkoutBox = createInputGroup("Ngày trả phòng dự kiến", txtCheckOut = new DateTimePicker(new Date()));
+        
+        datesPanel.add(checkinBox);
+        datesPanel.add(checkoutBox);
+        
         gbc.gridy = row++;
-        body.add(new JLabel("Thời điểm nhận phòng dự kiến:"), gbc);
-        txtCheckIn = new DateTimePicker(new Date());
-        gbc.gridy = row++;
-        body.add(txtCheckIn, gbc);
+        body.add(datesPanel, gbc);
 
-        // Check-out
+        // So khach & Tien coc
+        JPanel infoPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        infoPanel.setOpaque(false);
+        
+        txtSoKhach = new ModernTextField("Ví dụ: 2");
+        txtTienCoc = new ModernTextField("0");
+        
+        infoPanel.add(createInputGroup("Số lượng khách", txtSoKhach));
+        infoPanel.add(createInputGroup("Tiền đặt cọc (VNĐ)", txtTienCoc));
+        
         gbc.gridy = row++;
-        body.add(new JLabel("Thời điểm trả phòng dự kiến:"), gbc);
-        txtCheckOut = new DateTimePicker(new Date());
-        gbc.gridy = row++;
-        body.add(txtCheckOut, gbc);
-
-        // Số khách
-        gbc.gridy = row++;
-        body.add(new JLabel("Số lượng khách:"), gbc);
-        txtSoKhach = new JTextField();
-        txtSoKhach.setPreferredSize(new Dimension(0, 40));
-        gbc.gridy = row++;
-        body.add(txtSoKhach, gbc);
-
-        // Tiền cọc
-        gbc.gridy = row++;
-        body.add(new JLabel("Tiền đặt cọc (VNĐ):"), gbc);
-        txtTienCoc = new JTextField();
-        txtTienCoc.setPreferredSize(new Dimension(0, 40));
-        gbc.gridy = row++;
-        body.add(txtTienCoc, gbc);
+        body.add(infoPanel, gbc);
 
         // Ghi chú
         gbc.gridy = row++;
-        body.add(new JLabel("Ghi chú:"), gbc);
-        txtGhiChu = new JTextArea(4, 20);
-        txtGhiChu.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+        JLabel lblNote = new JLabel("Ghi chú / Yêu cầu đặc biệt");
+        lblNote.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblNote.setForeground(UIConstants.TEXT_SECONDARY);
+        body.add(lblNote, gbc);
+        
+        txtGhiChu = new JTextArea(5, 20);
+        txtGhiChu.setFont(UIConstants.FONT_BODY);
+        txtGhiChu.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JScrollPane scrollGhiChu = new JScrollPane(txtGhiChu);
+        scrollGhiChu.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+        
         gbc.gridy = row++;
-        body.add(new JScrollPane(txtGhiChu), gbc);
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        body.add(scrollGhiChu, gbc);
 
         root.add(body, BorderLayout.CENTER);
 
-        // Buttons
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        footer.setOpaque(false);
-        footer.setBorder(new EmptyBorder(20, 0, 0, 0));
+        // --- Footer Section ---
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 20));
+        footer.setBackground(Color.WHITE);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
 
-        RoundedButton btnCancel = new RoundedButton("Hủy bỏ", UIConstants.DANGER_LIGHT, UIConstants.DANGER);
+        RoundedButton btnCancel = RoundedButton.outline("Hủy bỏ", UIConstants.BORDER);
+        btnCancel.setPreferredSize(new Dimension(120, 42));
         btnCancel.addActionListener(e -> dispose());
         
-        RoundedButton btnSave = new RoundedButton("Lưu thay đổi", UIConstants.SUCCESS, Color.WHITE);
+        RoundedButton btnSave = new RoundedButton("Lưu thay đổi", UIConstants.PRIMARY, Color.WHITE);
+        btnSave.setPreferredSize(new Dimension(160, 42));
         btnSave.addActionListener(e -> doSave());
 
         footer.add(btnCancel);
@@ -118,6 +138,21 @@ public class EditDatPhongDialog extends JDialog {
         root.add(footer, BorderLayout.SOUTH);
 
         add(root);
+    }
+
+    private JPanel createInputGroup(String label, JComponent comp) {
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.setOpaque(false);
+        
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+        lbl.setForeground(UIConstants.TEXT_SECONDARY);
+        
+        comp.setPreferredSize(new Dimension(0, 40));
+        
+        panel.add(lbl, BorderLayout.NORTH);
+        panel.add(comp, BorderLayout.CENTER);
+        return panel;
     }
 
     private void loadData() {

@@ -268,12 +268,12 @@ public class KhachHangDAO {
     /** Cập nhật thống kê CRM (nguyên tử) */
     public boolean updateCRMStats(String maKh, double addedSpending, boolean incrementStay) {
         String sql = "UPDATE KhachHang SET " +
-                     "soLanO = soLanO + ?, " +
-                     "tongChiTieu = tongChiTieu + ?, " +
-                     "diemTichLuy = diemTichLuy + ?, " +
+                     "soLanO = ISNULL(soLanO, 0) + ?, " +
+                     "tongChiTieu = ISNULL(tongChiTieu, 0) + ?, " +
+                     "diemTichLuy = ISNULL(diemTichLuy, 0) + ?, " +
                      "hangKhachHang = CASE " +
-                     "  WHEN (soLanO + ?) >= 10 OR (tongChiTieu + ?) >= 20000000 THEN N'VIP (Gold)' " +
-                     "  WHEN (soLanO + ?) >= 3 OR (tongChiTieu + ?) >= 5000000 THEN N'Thân thiết (Silver)' " +
+                     "  WHEN (ISNULL(soLanO, 0) + ?) >= 10 OR (ISNULL(tongChiTieu, 0) + ?) >= 20000000 THEN N'VIP (Gold)' " +
+                     "  WHEN (ISNULL(soLanO, 0) + ?) >= 3 OR (ISNULL(tongChiTieu, 0) + ?) >= 5000000 THEN N'Thân thiết (Silver)' " +
                      "  ELSE N'Hạng Thường (Bronze)' " +
                      "END " +
                      "WHERE maKhachHang = ?";

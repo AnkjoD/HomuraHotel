@@ -284,8 +284,17 @@ public class ThuePhongService {
                 }
             }
 
-            if (hd.getTrangThai() == TrangThaiThanhToan.PAID && mainCt.getKhachHang() != null) {
-                khachHangDAO.updateCRMStats(mainCt.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true);
+            if (hd.getTrangThai() == TrangThaiThanhToan.PAID) {
+                String targetMaKH = null;
+                if (mainCt.getKhachHang() != null) {
+                    targetMaKH = mainCt.getKhachHang().getMaKhachHang();
+                } else if (mainCt.getDatPhong() != null && mainCt.getDatPhong().getKhachHang() != null) {
+                    targetMaKH = mainCt.getDatPhong().getKhachHang().getMaKhachHang();
+                }
+                
+                if (targetMaKH != null) {
+                    khachHangDAO.updateCRMStats(targetMaKH, hd.getTongThanhToan(), true);
+                }
             }
 
             dbConn.commitTransaction();
@@ -433,6 +442,12 @@ public class ThuePhongService {
 
             if (!hoaDonDAO.insert(hd)) { dbConn.rollbackTransaction(); return "Lỗi tạo hóa đơn!"; }
             for (ChiTietHoaDon p : pendingCTHD) { if (!cthdDAO.insert(p)) { dbConn.rollbackTransaction(); return "Lỗi lưu chi tiết hóa đơn!"; } }
+            
+            // --- Cập nhật thống kê CRM (Mới bổ sung) ---
+            if (dp.getKhachHang() != null) {
+                khachHangDAO.updateCRMStats(dp.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true);
+            }
+
             dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
             datPhongDAO.update(dp);
             dbConn.commitTransaction();

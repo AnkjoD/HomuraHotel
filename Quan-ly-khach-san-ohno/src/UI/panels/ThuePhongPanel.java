@@ -137,7 +137,7 @@ public class ThuePhongPanel extends JPanel {
         filterTabsPanel.setBackground(Color.WHITE);
         filterTabsPanel.setShadow(true);
         filterTabsPanel.setLayout(new GridBagLayout());
-        filterTabsPanel.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        filterTabsPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
         java.util.List<Phong> allPhong = phongService.getAllPhong();
         GridBagConstraints g = new GridBagConstraints();
@@ -145,7 +145,7 @@ public class ThuePhongPanel extends JPanel {
         g.weighty = 0;
 
         // --- ROW 1: Status Chips + Search ---
-        g.gridy = 0; g.insets = new Insets(0, 0, 16, 0);
+        g.gridy = 0; g.insets = new Insets(0, 0, 10, 0); 
         
         // Status panel
         JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
@@ -167,7 +167,7 @@ public class ThuePhongPanel extends JPanel {
 
         // Search
         ModernTextField txtSearch = new ModernTextField("Tìm số phòng...");
-        txtSearch.setPreferredSize(new Dimension(150, 36));
+        txtSearch.setPreferredSize(new Dimension(160, 36));
         txtSearch.setText(searchRoom);
         txtSearch.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) {
@@ -181,18 +181,12 @@ public class ThuePhongPanel extends JPanel {
         g.anchor = GridBagConstraints.EAST;
         filterTabsPanel.add(txtSearch, g);
 
-        // --- ROW 2: Separator ---
-        g.fill = GridBagConstraints.BOTH; // Reset fill
-        g.anchor = GridBagConstraints.CENTER; // Reset anchor
-        g.gridy = 1; g.gridx = 0; g.gridwidth = 3; g.weightx = 1.0; g.insets = new Insets(0, 0, 16, 0);
-        JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(0xF1F5F9));
-        filterTabsPanel.add(sep, g);
-
-        // --- ROW 3: Floors + Dropdowns ---
-        g.gridy = 2; g.insets = new Insets(0, 0, 0, 0);
+        // --- ROW 2: Floors + Dropdowns (Consolidated) ---
+        g.fill = GridBagConstraints.BOTH;
+        g.anchor = GridBagConstraints.CENTER;
+        g.gridy = 1; g.insets = new Insets(0, 0, 0, 0);
         
-        // Collect data for filters
+        // Collect data
         Set<Integer> floors = new TreeSet<>();
         Set<String> types = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         Set<String> views = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -202,20 +196,23 @@ public class ThuePhongPanel extends JPanel {
             if (p.getView() != null && !p.getView().isBlank()) views.add(p.getView());
         }
 
+        // Left Container for Floor + Dropdowns
+        JPanel subFilterPanel = new JPanel(new BorderLayout());
+        subFilterPanel.setOpaque(false);
+
         JPanel floorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         floorPanel.setOpaque(false);
-        JLabel lblFloor = new JLabel("Tầng");
+        JLabel lblFloor = new JLabel("Tầng:");
         lblFloor.setFont(UIConstants.FONT_SMALL_BOLD);
         lblFloor.setForeground(UIConstants.TEXT_SECONDARY);
         floorPanel.add(lblFloor);
         floorPanel.add(floorChip("Tất cả", 0, currentFloor == 0));
         for (int f : floors) floorPanel.add(floorChip("T" + f, f, currentFloor == f));
+        
+        subFilterPanel.add(floorPanel, BorderLayout.WEST);
 
-        g.gridx = 0; g.weightx = 0.5; g.gridwidth = 1;
-        filterTabsPanel.add(floorPanel, g);
-
-        // Dropdowns panel
-        JPanel dropPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        // Dropdowns on the same row, pushed to the right but close to each other
+        JPanel dropPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         dropPanel.setOpaque(false);
 
         // Type
@@ -223,7 +220,7 @@ public class ThuePhongPanel extends JPanel {
         typeItems.add("Tất cả loại phòng");
         typeItems.addAll(types);
         ModernComboBox<String> cboType = new ModernComboBox<>(typeItems.toArray(new String[0]));
-        cboType.setPreferredSize(new Dimension(180, 40));
+        cboType.setPreferredSize(new Dimension(150, 38));
         cboType.setSelectedItem("ALL".equals(currentType) ? "Tất cả loại phòng" : currentType);
         cboType.addActionListener(e -> {
             String selected = (String) cboType.getSelectedItem();
@@ -237,7 +234,7 @@ public class ThuePhongPanel extends JPanel {
         viewItems.add("Tất cả hướng");
         viewItems.addAll(views);
         ModernComboBox<String> cboView = new ModernComboBox<>(viewItems.toArray(new String[0]));
-        cboView.setPreferredSize(new Dimension(160, 40));
+        cboView.setPreferredSize(new Dimension(140, 38));
         cboView.setSelectedItem("ALL".equals(currentView) ? "Tất cả hướng" : currentView);
         cboView.addActionListener(e -> {
             String selected = (String) cboView.getSelectedItem();
@@ -246,8 +243,10 @@ public class ThuePhongPanel extends JPanel {
         });
         dropPanel.add(labeledFilter("Hướng", cboView));
 
-        g.gridx = 1; g.weightx = 0.5; g.gridwidth = 2;
-        filterTabsPanel.add(dropPanel, g);
+        subFilterPanel.add(dropPanel, BorderLayout.EAST);
+
+        g.gridx = 0; g.gridwidth = 3; g.weightx = 1.0;
+        filterTabsPanel.add(subFilterPanel, g);
 
         return filterTabsPanel;
     }

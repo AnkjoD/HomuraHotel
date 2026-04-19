@@ -359,36 +359,34 @@ public class DatPhongPanel extends JPanel {
         // GridBag Layout configuration
         GridBagConstraints g = new GridBagConstraints();
         g.fill = GridBagConstraints.BOTH;
-        g.insets = new Insets(0, 0, 16, 12); // Spacing
+        g.insets = new Insets(0, 0, 0, 10); // Horizontal spacing
         g.weighty = 0;
-
-        // Row 1: Dates & Guests
         g.gridy = 0; 
-        g.gridx = 0; g.weightx = 0.4;
+
+        // Single Row Layout
+        g.gridx = 0; g.weightx = 0.18;
         searchCard.add(labeledComp("Ngày nhận phòng *", txtNgayNhan), g);
         
-        g.gridx = 1; g.weightx = 0.4;
+        g.gridx = 1; g.weightx = 0.18;
         searchCard.add(labeledComp("Ngày trả phòng *", txtNgayTra), g);
         
-        g.gridx = 2; g.weightx = 0.2; g.insets = new Insets(0, 0, 16, 0);
+        g.gridx = 2; g.weightx = 0.08;
         searchCard.add(labeledComp("Số khách", spnSoKhach), g);
 
-        // Row 2: Fine-tuning & Search Button
-        g.gridy = 1; g.insets = new Insets(0, 0, 0, 12);
-        
-        g.gridx = 0; g.weightx = 0.25;
+        g.gridx = 3; g.weightx = 0.12;
         searchCard.add(labeledComp("Tầng", cboTang), g);
         
-        g.gridx = 1; g.weightx = 0.25;
+        g.gridx = 4; g.weightx = 0.12;
         searchCard.add(labeledComp("Hướng view", cboView), g);
         
-        g.gridx = 2; g.weightx = 0.25; 
+        g.gridx = 5; g.weightx = 0.12; 
         searchCard.add(labeledComp("Loại phòng", cboLoaiPhong), g);
         
-        g.gridx = 3; g.weightx = 0.25; g.insets = new Insets(0, 4, 0, 0);
+        g.gridx = 6; g.weightx = 0.15; g.insets = new Insets(0, 5, 0, 0);
         JPanel btnWrapper = new JPanel(new BorderLayout());
         btnWrapper.setOpaque(false);
-        btnWrapper.add(Box.createVerticalStrut(22), BorderLayout.NORTH); // Alignment with labels
+        // Add vertical padding to match labels' height
+        btnWrapper.add(Box.createVerticalStrut(22), BorderLayout.NORTH); 
         btnWrapper.add(btnSearch, BorderLayout.CENTER);
         searchCard.add(btnWrapper, g);
 
@@ -1467,31 +1465,62 @@ public class DatPhongPanel extends JPanel {
         NotificationManager.showWarning("Cảnh báo", msg);
     }
 
-    private JPanel buildAlertBell() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        p.setOpaque(false);
-        
-        List<DatPhong> noShows = datPhongService.getNoShowBookings(4); // > 4h trễ
-        List<DatPhong> upcoming = datPhongService.getUpcomingArrivals(6); // Trong 6h tới
-        List<DatPhong> longPending = datPhongService.getLongPendingBookings(12); // PENDING > 12h
+    private JComponent buildAlertBell() {
+        List<DatPhong> noShows = datPhongService.getNoShowBookings(4);
+        List<DatPhong> upcoming = datPhongService.getUpcomingArrivals(6);
+        List<DatPhong> longPending = datPhongService.getLongPendingBookings(12);
         List<DatPhong> overdue = datPhongService.getOverdueDepositBookings();
         
         int count = noShows.size() + upcoming.size() + longPending.size() + overdue.size();
         
-        JButton btnBell = new JButton(count > 0 ? "🔔 " + count : "🔔");
-        btnBell.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        JButton btnBell = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Hover effect
+                if (getModel().isRollover()) {
+                    g2.setColor(new Color(0, 0, 0, 10));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                }
+
+                // Bell Icon
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
+                g2.setColor(count > 0 ? UIConstants.DANGER : UIConstants.TEXT_MUTED);
+                g2.drawString("🔔", 10, 28);
+                
+                // Notification Badge
+                if (count > 0) {
+                    int badgeSize = 18;
+                    int bx = getWidth() - badgeSize - 2;
+                    int by = 2;
+                    
+                    g2.setColor(UIConstants.DANGER);
+                    g2.fillOval(bx, by, badgeSize, badgeSize);
+                    
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 10));
+                    String s = String.valueOf(count);
+                    FontMetrics fm = g2.getFontMetrics();
+                    g2.drawString(s, bx + (badgeSize - fm.stringWidth(s)) / 2, 
+                                     by + (badgeSize + fm.getAscent() - fm.getDescent()) / 2);
+                }
+                g2.dispose();
+            }
+        };
+        btnBell.setToolTipText("Trung tâm cảnh báo (" + count + ")");
+        btnBell.setPreferredSize(new Dimension(44, 44));
         btnBell.setFocusPainted(false);
         btnBell.setBorderPainted(false);
         btnBell.setContentAreaFilled(false);
         btnBell.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnBell.setForeground(count > 0 ? UIConstants.DANGER : UIConstants.TEXT_MUTED);
         
         btnBell.addActionListener(e -> {
             showAlertDialog(noShows, upcoming, longPending, overdue);
         });
         
-        p.add(btnBell);
-        return p;
+        return btnBell;
     }
 
     public void refresh() {
