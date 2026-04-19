@@ -1,0 +1,290 @@
+package ui.panels;
+
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.UIConstants;
+import ui.dialogs.LoaiPhongDialog;
+import entity.LoaiPhong;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.table.*;
+import service.PhongService;
+
+public class LoaiPhongPanel extends JPanel {
+
+    private final PhongService service = new PhongService();
+
+    private DefaultTableModel tableModel;
+    private JTable table;
+
+    public LoaiPhongPanel() {
+        setOpaque(false);
+        setLayout(new BorderLayout());
+        buildUI();
+    }
+
+    private void buildUI() {
+        JPanel main = new JPanel(new BorderLayout());
+        main.setOpaque(false);
+        main.setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
+
+        main.add(buildHeader(), BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout(0, 12));
+        center.setOpaque(false);
+        center.add(buildStats(), BorderLayout.NORTH);
+        center.add(buildTableArea(), BorderLayout.CENTER);
+
+        main.add(center, BorderLayout.CENTER);
+        add(main, BorderLayout.CENTER);
+    }
+
+    private JPanel buildHeader() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(false);
+        p.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
+
+        JPanel left = new JPanel();
+        left.setOpaque(false);
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+        JLabel t = new JLabel("Quản lý loại phòng");
+        t.setFont(UIConstants.FONT_TITLE);
+        JLabel s = new JLabel("Cấu hình danh mục, tiện nghi và mức giá từng loại phòng");
+        s.setFont(UIConstants.FONT_BODY);
+        s.setForeground(UIConstants.TEXT_SECONDARY);
+        left.add(t);
+        left.add(Box.createVerticalStrut(2));
+        left.add(s);
+
+        RoundedButton btnAdd = new RoundedButton("+ Thêm loại phòng", UIConstants.PRIMARY, Color.WHITE);
+        btnAdd.addActionListener(e -> showDialog(null));
+
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btns.setOpaque(false);
+        btns.add(btnAdd);
+
+        p.add(left, BorderLayout.WEST);
+        p.add(btns, BorderLayout.EAST);
+        return p;
+    }
+
+    private JPanel buildStats() {
+        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+        row.setOpaque(false);
+        row.add(statCard("Tổng loại phòng", service.getAllLoaiPhong().size() + " loại", UIConstants.PRIMARY));
+        row.add(statCard("Đang hoạt động", service.countLoaiPhongActive() + " loại", UIConstants.SUCCESS));
+        row.add(statCard("Ngừng sử dụng", service.countLoaiPhongNgung() + " loại", UIConstants.WARNING));
+        return row;
+    }
+
+    private RoundedPanel statCard(String label, String val, Color c) {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+
+        JLabel l1 = new JLabel(label);
+        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setForeground(UIConstants.TEXT_SECONDARY);
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        JPanel bar = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(c);
+                g2.fillRoundRect(0, 3, getWidth(), 3, 3, 3);
+                g2.dispose();
+            }
+        };
+        bar.setOpaque(false);
+        bar.setPreferredSize(new Dimension(0, 8));
+
+        JPanel ct = new JPanel();
+        ct.setOpaque(false);
+        ct.setLayout(new BoxLayout(ct, BoxLayout.Y_AXIS));
+        ct.add(l1);
+        ct.add(Box.createVerticalStrut(4));
+        ct.add(l2);
+        card.add(ct, BorderLayout.CENTER);
+        card.add(bar, BorderLayout.SOUTH);
+        return card;
+    }
+
+    private JPanel buildTableArea() {
+        String[] cols = { "_ma", "Tên loại phòng", "Danh mục", "Sức chứa", "Giá từ (đ)", "Giá cao (đ)", "Tiện nghi",
+                "Trạng thái" };
+        tableModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        table = buildStyledTable(tableModel);
+        TableColumn colMa = table.getColumn("_ma");
+        table.removeColumn(colMa);
+
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2)
+                    editSelected();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int r = table.rowAtPoint(e.getPoint());
+                if (r >= 0)
+                    table.setRowSelectionInterval(r, r);
+            }
+        });
+        table.setComponentPopupMenu(buildContextMenu());
+
+        JScrollPane sp = new JScrollPane(table);
+        sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+
+        JLabel footer = buildFooter("Right-click chọn Xem/Sửa, Xoá • Double-click để xem chi tiết");
+
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setOpaque(false);
+        wrap.add(sp, BorderLayout.CENTER);
+        wrap.add(footer, BorderLayout.SOUTH);
+
+        loadData();
+        return wrap;
+    }
+
+    private JPopupMenu buildContextMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem miEdit = new JMenuItem("Xem / Sửa");
+        JMenuItem miAdd = new JMenuItem("Thêm mới");
+        JMenuItem miDel = new JMenuItem("Xóa loại phòng");
+        miEdit.setFont(UIConstants.FONT_BODY);
+        miAdd.setFont(UIConstants.FONT_BODY);
+        miDel.setFont(UIConstants.FONT_BODY);
+        miDel.setForeground(UIConstants.DANGER);
+        miEdit.addActionListener(e -> editSelected());
+        miAdd.addActionListener(e -> showDialog(null));
+        miDel.addActionListener(e -> deleteSelected());
+        menu.add(miEdit);
+        menu.add(miAdd);
+        menu.addSeparator();
+        menu.add(miDel);
+        return menu;
+    }
+
+    private JTable buildStyledTable(DefaultTableModel model) {
+        JTable t = new JTable(model);
+        t.setFont(UIConstants.FONT_BODY);
+        t.setRowHeight(40);
+        t.setShowGrid(false);
+        t.setIntercellSpacing(new Dimension(0, 0));
+        t.setBackground(Color.WHITE);
+        t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        t.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
+        t.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
+        t.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
+        t.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
+                    int col) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+                lbl.setFont(UIConstants.FONT_BODY);
+                lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                String v = val != null ? val.toString() : "";
+                if (v.equals("Hoạt động")) {
+                    lbl.setForeground(UIConstants.SUCCESS);
+                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                } else if (v.equals("Ngừng")) {
+                    lbl.setForeground(UIConstants.DANGER);
+                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                }
+                return lbl;
+            }
+        });
+        return t;
+    }
+
+    private JLabel buildFooter(String hint) {
+        JLabel lbl = new JLabel("  " + hint);
+        lbl.setFont(UIConstants.FONT_SMALL);
+        lbl.setForeground(UIConstants.TEXT_MUTED);
+        lbl.setBackground(Color.WHITE);
+        lbl.setOpaque(true);
+        lbl.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
+                BorderFactory.createEmptyBorder(6, 0, 6, 0)));
+        return lbl;
+    }
+
+    private void loadData() {
+        tableModel.setRowCount(0);
+        for (LoaiPhong lp : service.getAllLoaiPhong()) {
+            tableModel.addRow(new Object[] {
+                    lp.getMaLoai(), lp.getTenLoai(), lp.getDanhMuc(),
+                    lp.getSucChua() + " người",
+                    String.format("%,.0f", (double) lp.getGiaThapNhat()),
+                    String.format("%,.0f", (double) lp.getGiaCaoNhat()),
+                    lp.getTiNghi() != null && lp.getTiNghi().length() > 30
+                            ? lp.getTiNghi().substring(0, 30) + "..."
+                            : lp.getTiNghi(),
+                    lp.getTrangThai()
+            });
+        }
+    }
+
+    private LoaiPhong getSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0)
+            return null;
+        return service.getLoaiPhongById((String) tableModel.getValueAt(row, 0));
+    }
+
+    private void showDialog(LoaiPhong lp) {
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+        LoaiPhongDialog dlg = new LoaiPhongDialog(owner, lp);
+        dlg.setVisible(true);
+        if (dlg.isConfirmed())
+            refresh();
+    }
+
+    private void editSelected() {
+        LoaiPhong lp = getSelected();
+        if (lp == null) {
+            JOptionPane.showMessageDialog(this, "Chọn một loại phòng để sửa!");
+            return;
+        }
+        showDialog(lp);
+    }
+
+    private void deleteSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Chọn một loại phòng để xóa!");
+            return;
+        }
+        String ma = (String) tableModel.getValueAt(row, 0);
+        String ten = (String) tableModel.getValueAt(row, 1);
+        int ok = JOptionPane.showConfirmDialog(this,
+                "Xóa loại phòng \"" + ten + "\"?\nCác phòng thuộc loại này sẽ bị ảnh hưởng!",
+                "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = service.xoaLoaiPhong(ma);
+            if (err == null) {
+                JOptionPane.showMessageDialog(this, "Đã xóa thành công!");
+                refresh();
+            } else
+                JOptionPane.showMessageDialog(this, "Lỗi: " + err, "Không thể xóa", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void refresh() {
+        loadData();
+    }
+}

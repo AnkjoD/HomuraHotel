@@ -70,4 +70,8 @@ public class GiaoCaService {
     public List<GiaoCa> searchHistory(String keyword, String status) {
         return dao.search(keyword, status);
     }
+
+    public java.util.Map<Integer, Integer> getDenominations(String maGiaoCa) {
+        return dao.getDenominations(maGiaoCa);
+    }
 }

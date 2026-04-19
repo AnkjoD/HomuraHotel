@@ -175,4 +175,19 @@ public class GiaoCaDAO {
             return false;
         }
     }
+
+    public java.util.Map<Integer, Integer> getDenominations(String maGiaoCa) {
+        java.util.Map<Integer, Integer> map = new java.util.TreeMap<>(java.util.Collections.reverseOrder());
+        String sql = "SELECT menhGia, soLuong FROM ChiTietKiemTien WHERE maGiaoCa = ?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maGiaoCa);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                map.put(rs.getInt("menhGia"), rs.getInt("soLuong"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
 }

@@ -11,6 +11,15 @@ import javax.swing.table.DefaultTableModel;
 import ui.components.RoundedComponents.*;
 import ui.components.PaginationPanel;
 import javax.swing.table.DefaultTableCellRenderer;
+import ui.components.ModernPopupMenu;
+import ui.dialogs.ShiftDetailDialog;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.stream.Collectors;
 
 public class ShiftHistoryPanel extends JPanel {
     private final GiaoCaService service = new GiaoCaService();
@@ -21,12 +30,14 @@ public class ShiftHistoryPanel extends JPanel {
 
     private PaginationPanel pagination;
     private List<GiaoCa> allHistory;
+    private Timer refreshTimer;
 
     public ShiftHistoryPanel() {
         setOpaque(false);
         setLayout(new BorderLayout());
         buildUI();
         refresh();
+        setupAutoRefresh();
     }
 
     private void buildUI() {
@@ -60,6 +71,28 @@ public class ShiftHistoryPanel extends JPanel {
         // Pagination
         pagination = new PaginationPanel();
         pagination.setPageChangeListener(page -> displayCurrentPage());
+
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) showDetail();
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger()) showPopup(e);
+            }
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (e.isPopupTrigger()) showPopup(e);
+            }
+            private void showPopup(MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                if (row >= 0 && row < table.getRowCount()) {
+                    table.setRowSelectionInterval(row, row);
+                    buildContextMenu().show(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        });
         
         JPanel footer = new JPanel(new BorderLayout());
         footer.setBackground(Color.WHITE);
@@ -106,24 +139,18 @@ public class ShiftHistoryPanel extends JPanel {
 
         txtSearch = new ModernTextField("Tìm nhân viên, mã ca...");
         txtSearch.setPreferredSize(new Dimension(250, 40));
-        txtSearch.addActionListener(e -> refresh());
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { refresh(); }
+            public void removeUpdate(DocumentEvent e) { refresh(); }
+            public void changedUpdate(DocumentEvent e) { refresh(); }
+        });
 
         cbStatus = new ModernComboBox<>(new String[]{"Tất cả", "OPEN", "CLOSED"});
         cbStatus.setPreferredSize(new Dimension(150, 40));
         cbStatus.addActionListener(e -> refresh());
 
-        RoundedButton btnRefresh = new RoundedButton("", UIConstants.PRIMARY, Color.WHITE);
-        btnRefresh.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/refresh_white.png"));
-        btnRefresh.setPreferredSize(new Dimension(45, 40));
-        btnRefresh.addActionListener(e -> {
-            txtSearch.setText("");
-            cbStatus.setSelectedIndex(0);
-            refresh();
-        });
-
         filterPanel.add(txtSearch);
         filterPanel.add(cbStatus);
-        filterPanel.add(btnRefresh);
         p.add(filterPanel, BorderLayout.EAST);
 
         return p;
@@ -202,6 +229,51 @@ public class ShiftHistoryPanel extends JPanel {
         }
         
         pagination.update(allHistory.size(), pageSize, currentPage);
+    }
+
+    private void setupAutoRefresh() {
+        refreshTimer = new Timer(5000, e -> refreshLogsOnly());
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (isShowing()) refreshTimer.start();
+                else refreshTimer.stop();
+            }
+        });
+        if (isShowing()) refreshTimer.start();
+    }
+
+    private void refreshLogsOnly() {
+        String keyword = txtSearch.getText();
+        String status = (String) cbStatus.getSelectedItem();
+        List<GiaoCa> newHistory = service.searchHistory(keyword, status);
+        
+        if (allHistory == null || newHistory.size() != allHistory.size()) {
+            allHistory = newHistory;
+            displayCurrentPage();
+        }
+    }
+
+    private JPopupMenu buildContextMenu() {
+        ModernPopupMenu menu = new ModernPopupMenu();
+        JMenuItem miView = new JMenuItem("Xem chi tiết");
+        miView.setFont(UIConstants.FONT_BODY);
+        miView.addActionListener(e -> showDetail());
+        menu.add(miView);
+        return menu;
+    }
+
+    private GiaoCa getSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) return null;
+        int modelRow = table.convertRowIndexToModel(row);
+        String id = (String) model.getValueAt(modelRow, 0);
+        return allHistory.stream().filter(gc -> gc.getMaGiaoCa().equals(id)).findFirst().orElse(null);
+    }
+
+    private void showDetail() {
+        GiaoCa gc = getSelected();
+        if (gc == null) return;
+        new ShiftDetailDialog((Frame) SwingUtilities.getWindowAncestor(this), gc).setVisible(true);
     }
 
     // --- Custom Renderer for Shift Status ---

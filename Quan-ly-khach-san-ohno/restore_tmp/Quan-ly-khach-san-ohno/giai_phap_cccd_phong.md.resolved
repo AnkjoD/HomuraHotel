@@ -1,0 +1,95 @@
+# 🏨 Cải tiến Nghiệp vụ: Quản lý Khách Hàng theo từng Phòng
+
+> Ngày thực hiện: 13/04/2026
+
+---
+
+## 🎯 Bối cảnh & Vấn đề
+
+**Tình huống nghiệp vụ:**
+Ông Nguyễn Văn A đặt 2 phòng (P101, P102).
+Tuy nhiên, cấu trúc database cũ giới hạn 1 **Đơn Đặt Phòng (DatPhong)** chỉ lưu 1 **Khách Hàng**. Do đó, theo hệ thống cũ, cả P101 và P102 đều đăng ký dưới tên Nguyễn Văn A.
+Nếu ông A trả phòng P101 và rời đi, P102 theo lý thuyết sẽ mất dấu đại diện pháp lý (không có bản ghi CCCD nào trực tiếp gắn với khách đang thực sự ở P102). Theo pháp luật lưu trú tại Việt Nam, đây là lỗ hổng cần cảnh báo, vì cơ sở lưu trú phải quản lý CCCD/Hộ chiếu người thực tế ở trong phòng.
+
+**Giải pháp:**
+Cho phép mỗi "Chi tiết đặt phòng" (từng phòng) có một ID khách hàng lưu trú riêng. Nếu lúc vào khách đó chưa cung cấp CCCD, sẽ kế thừa và dùng tạm CCCD của người đặt lệnh. Khi người đặt lệnh rút hồ sơ rời đi trước, bắt buộc nhắc nhỏ lễ tân cập nhật khách đại diện cho các phòng còn lại. 
+
+---
+
+## 🚀 Các Thay Đổi Cốt Lõi
+
+### Bước 1: Điều chỉnh Database Struct
+
+`ChiTietDatPhong` phải được mở rộng để tự duy trì CCCD đại diện của chính mình.
+```diff
+CREATE TABLE ChiTietDatPhong (
+    maChiTiet VARCHAR(20) PRIMARY KEY,
+    maDatPhong VARCHAR(20) REFERENCES DatPhong(maDatPhong),
+    maPhong VARCHAR(20) REFERENCES Phong(maPhong),
++   maKhachHang VARCHAR(20) REFERENCES KhachHang(maKhachHang), -- Người lưu trú thực tế (NULL = dùng khách của DatPhong)
+    ...
+```
+*(Nếu bạn đã chạy DB, có thể chạy riêng lệnh: `ALTER TABLE ChiTietDatPhong ADD maKhachHang VARCHAR(20) REFERENCES KhachHang(maKhachHang)`).*
+
+### Bước 2: Tối ưu Model & Mapper (Java Entity/DAO)
+
+- **`ChiTietDatPhong.java`:**
+  Được bổ sung field `khachHang` và hàm cực kỳ quan trọng:
+  ```java
+  public KhachHang resolveKhachHang() {
+      if (khachHang != null) return khachHang; // Ưu tiên ưu tiên khách đăng ký phòng
+      if (datPhong != null) return datPhong.getKhachHang(); // Fallback về người đặt booking
+      return null;
+  }
+  ```
+- **`ChiTietDatPhongDAO.java`:**
+  Khai báo thêm việc xử lý column này trong các cấu trúc CRUD (`insert`, `update`, `mapRow`).
+
+---
+
+### Bước 3: Cập nhật luồng Giao diện Check-in
+
+- Tại file **`CheckinDialog.java`**, trong lúc Lễ tân làm thao tác xếp phòng (Bấm Xác Nhận). Code sẽ chủ động gán thẳng Khách đại diện Lễ tân vừa chọn vào chính Chi Tiết Phòng đó, tách biệt ID khỏi DatPhong gốc.
+  ```java
+  // Trong hàm doCheckin()
+  ct.setKhachHang(selectedKhach); // Gán người lưu trú thực tế cho phòng này
+  String err = thuePhongService.checkIn(ct);
+  ```
+
+---
+
+### Bước 4: Chặn và Cảnh báo Trả Phòng Thông Minh
+
+- Tại file **`HoaDonDialog.java`**, ngay thời điểm thanh toán phòng trước khi hiện mã QR chuyển khoản, hệ thống sẽ chèn nghiệp vụ rà soát chéo:
+  1. Kiểm tra phòng P101 đang trả. (Có khách Nguyễn Văn A).
+  2. Bốc tất cả các phòng khác nằm chung 1 mã Booking (VD: P102).
+  3. Quét kiểm tra xem P102 có đang "sài ké" khách A hay không qua hàm `resolveKhachHang()`.
+  4. Nếu P102 vẫn mang tên khách A. Lập tức bắn Popup WARNING.
+
+```java
+// Logic dò trùng lắp (Đã tích hợp trong HoaDonDialog.doCheckout())
+java.util.List<String> sharedRooms = new ArrayList<>();
+if (currentKH != null) {
+    for (ChiTietDatPhong c : otherRooms) {
+        if (!c.getMaChiTiet().equals(thuePhong.getMaChiTiet()) && c.getNgayTraThucTe() == null) {
+            String cKH = c.resolveKhachHang() != null ? c.resolveKhachHang().getMaKhachHang() : null;
+            if (currentKH.equals(cKH)) {
+                sharedRooms.add("P." + c.getSoPhong());
+            }
+        }
+    }
+}
+```
+
+> **Giao diện cảnh báo cho Lễ Tân (Màu Vàng):**
+> "Phòng P101 đang trả phòng.
+> Các phòng phụ thuộc: Phòng 102 đang dùng CHUNG thông tin người đại diện này.
+> Khi người đại diện rời đi, bạn NÊN bổ sung giấy tờ/CCCD cho người quản lý các phòng còn lại.
+> Bạn có muốn tiếp tục thanh toán...?"
+
+---
+
+## ✅ Lợi ích đạt được cho Dự án
+1. **Tuân thủ đúng pháp luật lưu trú** bằng cách nhắc nhở nhân sự tránh tình trạng "Phòng đang có khách ở không có khai báo tạm trú trong hệ thống".
+2. **Backward-compatibility (Tương thích ngược):** Toàn bộ giao diện tìm kiếm và UI hiển thị từ trước tới nay gọi `getKhachHang` thông qua `DatPhong` vẫn không bị crash/bug.
+3. Không bắt ép lễ tân, cho phép "skip" nếu trường hợp đoàn khách đã check-out đồng loạt nhưng chỉ chia ra thanh toán từ từ.

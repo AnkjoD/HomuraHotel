@@ -4,6 +4,7 @@ import service.LogService;
 import entity.NhatKyHeThong;
 import ui.components.UIConstants;
 import java.awt.*;
+import java.awt.event.*;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -11,7 +12,15 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import ui.components.RoundedComponents.*;
 import ui.components.PaginationPanel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.util.stream.Collectors;
+import ui.dialogs.LogDialog;
+import ui.components.ModernPopupMenu;
+import ui.components.NotificationManager;
+import javax.swing.table.TableColumn;
 
 public class LogPanel extends JPanel {
     private final LogService service = new LogService();
@@ -22,12 +31,50 @@ public class LogPanel extends JPanel {
 
     private PaginationPanel pagination;
     private List<NhatKyHeThong> allLogs;
+    private Timer autoRefreshTimer;
 
     public LogPanel() {
         setOpaque(false);
         setLayout(new BorderLayout());
         buildUI();
         refresh();
+        setupAutoRefresh();
+    }
+
+    private void setupAutoRefresh() {
+        autoRefreshTimer = new Timer(5000, e -> refreshLogsOnly());
+        autoRefreshTimer.setInitialDelay(5000);
+        
+        addHierarchyListener(new HierarchyListener() {
+            @Override
+            public void hierarchyChanged(HierarchyEvent e) {
+                if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
+                    if (isShowing()) {
+                        autoRefreshTimer.start();
+                    } else {
+                        autoRefreshTimer.stop();
+                    }
+                }
+            }
+        });
+        
+        if (isShowing()) autoRefreshTimer.start();
+    }
+
+    /**
+     * Refresh but preserves current pagination if it hasn't changed.
+     * For periodic background refresh.
+     */
+    private void refreshLogsOnly() {
+        String keyword = txtSearch.getText();
+        String actionType = (String) cbActionType.getSelectedItem();
+        List<NhatKyHeThong> newLogs = service.searchLogs(keyword, actionType);
+        
+        // Only update if data changed (simple size check or content check)
+        if (allLogs == null || newLogs.size() != allLogs.size()) {
+            allLogs = newLogs;
+            displayCurrentPage();
+        }
     }
 
     private void buildUI() {
@@ -40,12 +87,31 @@ public class LogPanel extends JPanel {
         JPanel center = new JPanel(new BorderLayout(0, 12));
         center.setOpaque(false);
 
-        String[] cols = {"THỜI GIAN", "TÀI KHOẢN", "HÀNH ĐỘNG", "ĐỐI TƯỢNG", "CHI TIẾT"};
+        String[] cols = {"_id", "THỜI GIAN", "TÀI KHOẢN", "HÀNH ĐỘNG", "ĐỐI TƯỢNG", "CHI TIẾT"};
         model = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(model);
+        
+        // Hide _id column
+        TableColumn idCol = table.getColumn("_id");
+        table.removeColumn(idCol);
+        
         styleTable();
+        
+        // Setup Interactions
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) showDetail();
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int r = table.rowAtPoint(e.getPoint());
+                if (r >= 0) table.setRowSelectionInterval(r, r);
+            }
+        });
+        table.setComponentPopupMenu(buildContextMenu());
 
         // Column widths
         table.getColumnModel().getColumn(0).setPreferredWidth(160);
@@ -107,25 +173,19 @@ public class LogPanel extends JPanel {
 
         txtSearch = new ModernTextField("Tìm tài khoản, đối tượng...");
         txtSearch.setPreferredSize(new Dimension(250, 40));
-        txtSearch.addActionListener(e -> refresh());
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { refresh(); }
+            @Override public void removeUpdate(DocumentEvent e) { refresh(); }
+            @Override public void changedUpdate(DocumentEvent e) { refresh(); }
+        });
 
         cbActionType = new ModernComboBox<>();
         cbActionType.setPreferredSize(new Dimension(180, 40));
         updateActionTypes();
         cbActionType.addActionListener(e -> refresh());
 
-        RoundedButton btnRefresh = new RoundedButton("", UIConstants.SUCCESS, Color.WHITE);
-        btnRefresh.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/refresh_white.png"));
-        btnRefresh.setPreferredSize(new Dimension(45, 40));
-        btnRefresh.addActionListener(e -> {
-            txtSearch.setText("");
-            cbActionType.setSelectedIndex(0);
-            refresh();
-        });
-
         filterPanel.add(txtSearch);
         filterPanel.add(cbActionType);
-        filterPanel.add(btnRefresh);
         p.add(filterPanel, BorderLayout.EAST);
 
         return p;
@@ -192,6 +252,7 @@ public class LogPanel extends JPanel {
         for (int i = start; i < end; i++) {
             NhatKyHeThong log = allLogs.get(i);
             model.addRow(new Object[]{
+                log.getMaLog(),
                 log.getThoiGian().format(fmt),
                 log.getTenDangNhap(),
                 log.getHanhDong(),
@@ -202,6 +263,32 @@ public class LogPanel extends JPanel {
         
         pagination.update(allLogs.size(), pageSize, currentPage);
     }
+
+    private JPopupMenu buildContextMenu() {
+        ModernPopupMenu menu = new ModernPopupMenu();
+        
+        JMenuItem miView = new JMenuItem("Xem chi tiết");
+        miView.setFont(UIConstants.FONT_BODY);
+        miView.addActionListener(e -> showDetail());
+        
+        menu.add(miView);
+        return menu;
+    }
+
+    private NhatKyHeThong getSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) return null;
+        int modelRow = table.convertRowIndexToModel(row);
+        int id = (int) model.getValueAt(modelRow, 0);
+        return allLogs.stream().filter(l -> l.getMaLog() == id).findFirst().orElse(null);
+    }
+
+    private void showDetail() {
+        NhatKyHeThong log = getSelected();
+        if (log == null) return;
+        new LogDialog((Frame) SwingUtilities.getWindowAncestor(this), log).setVisible(true);
+    }
+
 
     // --- Custom Renderer for Action Badge ---
     private static class LogActionRenderer extends DefaultTableCellRenderer {

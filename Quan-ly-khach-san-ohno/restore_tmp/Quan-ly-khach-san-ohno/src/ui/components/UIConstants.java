@@ -1,0 +1,179 @@
+package ui.components;
+
+import entity.enums.*;
+import java.awt.*;
+
+/**
+ * Hằng số màu sắc, font và kích thước dùng chung toàn bộ UI.
+ */
+public class UIConstants {
+
+    // ---- Màu chính ----
+    public static final Color PRIMARY       = new Color(0x2563EB);   // Xanh dương chính
+    public static final Color PRIMARY_LIGHT = new Color(0xEFF6FF);   // Xanh nhạt
+    public static final Color PRIMARY_DARK  = new Color(0x1D4ED8);   // Xanh đậm (hover)
+
+    // ---- Màu nền ----
+    public static final Color BG_MAIN       = new Color(0xF8FAFC);   // Nền tổng
+    public static final Color BG_SIDEBAR    = new Color(0xFFFFFF);   // Sidebar trắng
+    public static final Color BG_CARD       = new Color(0xFFFFFF);   // Card trắng
+    public static final Color BG_TABLE_HEADER = new Color(0xF1F5F9); // Header bảng
+
+    // ---- Màu chữ ----
+    public static final Color TEXT_PRIMARY   = new Color(0x0F172A);  // Đen đậm
+    public static final Color TEXT_SECONDARY = new Color(0x64748B);  // Xám
+    public static final Color TEXT_MUTED     = new Color(0x94A3B8);  // Xám nhạt
+
+    // ---- Màu trạng thái ----
+    public static final Color SUCCESS        = new Color(0x10B981);
+    public static final Color SUCCESS_LIGHT  = new Color(0xD1FAE5);
+    public static final Color WARNING        = new Color(0xF59E0B);
+    public static final Color WARNING_LIGHT  = new Color(0xFEF3C7);
+    public static final Color DANGER         = new Color(0xEF4444);
+    public static final Color DANGER_LIGHT   = new Color(0xFEE2E2);
+    public static final Color INFO           = new Color(0x8B5CF6);
+    public static final Color INFO_LIGHT     = new Color(0xEDE9FE);
+    public static final Color ORANGE         = new Color(0xF97316);
+    public static final Color ORANGE_LIGHT   = new Color(0xFED7AA);
+
+    // ---- Border ----
+    public static final Color BORDER         = new Color(0xE2E8F0);
+    public static final Color BORDER_FOCUS   = new Color(0x2563EB);
+
+    // ---- Sidebar ----
+    public static final Color SIDEBAR_ACTIVE = new Color(0xEFF6FF);
+    public static final Color SIDEBAR_HOVER  = new Color(0xF8FAFC);
+    public static final int   SIDEBAR_WIDTH  = 220;
+
+    // ---- Dimensions ----
+    public static final int HEADER_HEIGHT     = 60;
+    public static final int CARD_RADIUS       = 10;
+    public static final int BTN_RADIUS        = 8;
+
+    // ---- Fonts ----
+    public static final Font FONT_TITLE       = new Font("Segoe UI", Font.BOLD, 22);
+    public static final Font FONT_SUBTITLE    = new Font("Segoe UI", Font.PLAIN, 13);
+    public static final Font FONT_HEADER      = new Font("Segoe UI", Font.BOLD, 15);
+    public static final Font FONT_BODY        = new Font("Segoe UI", Font.PLAIN, 13);
+    public static final Font FONT_BODY_BOLD   = new Font("Segoe UI", Font.BOLD, 13);
+    public static final Font FONT_SMALL       = new Font("Segoe UI", Font.PLAIN, 11);
+    public static final Font FONT_SMALL_BOLD  = new Font("Segoe UI", Font.BOLD, 11);
+    public static final Font FONT_TINY        = new Font("Segoe UI", Font.PLAIN, 10);
+    public static final Font FONT_CARD_NUM    = new Font("Segoe UI", Font.BOLD, 28);
+
+    // ---- Trạng thái phòng -> màu ----
+    public static String getTrangThaiPhongLabel(TrangThaiPhong tt) {
+        if (tt == null) return "Không xác định";
+        switch (tt) {
+            case AVAILABLE:   return "Có sẵn";
+            case OCCUPIED:    return "Đang thuê";
+            case MAINTENANCE: return "Bảo trì";
+            case CLEANING:    return "Vệ sinh";
+            default:          return tt.toString();
+        }
+    }
+
+    public static Color getTrangThaiPhongColor(TrangThaiPhong tt) {
+        if (tt == null) return TEXT_MUTED;
+        switch (tt) {
+            case AVAILABLE:   return SUCCESS;
+            case OCCUPIED:    return PRIMARY;
+            case MAINTENANCE: return DANGER;
+            case CLEANING:    return new Color(0x06B6D4);
+            default:          return TEXT_MUTED;
+        }
+    }
+
+    public static Color getTrangThaiPhongBg(TrangThaiPhong tt) {
+        if (tt == null) return BG_CARD;
+        switch (tt) {
+            case AVAILABLE:   return SUCCESS_LIGHT;
+            case OCCUPIED:    return PRIMARY_LIGHT;
+            case MAINTENANCE: return DANGER_LIGHT;
+            case CLEANING:    return new Color(0xCFFAFE);
+            default:          return BG_CARD;
+        }
+    }
+
+    // ---- Trạng thái đặt phòng ----
+    public static String getTrangThaiDatPhongLabel(TrangThaiDatPhong tt) {
+        if (tt == null) return "—";
+        switch (tt) {
+            case PENDING:     return "Chờ xác nhận";
+            case CONFIRMED:   return "Đã xác nhận";
+            case PARTIALLY_CHECKED_IN: return "Đang check-in";
+            case CHECKED_IN:  return "Đã check-in";
+            case CHECKED_OUT: return "Đã trả phòng";
+            case CANCELLED:   return "Đã hủy";
+            default:          return tt.toString();
+        }
+    }
+
+    public static Color getTrangThaiDatPhongColor(TrangThaiDatPhong tt) {
+        if (tt == null) return TEXT_MUTED;
+        switch (tt) {
+            case PENDING:     return WARNING;
+            case CONFIRMED:   return SUCCESS;
+            case PARTIALLY_CHECKED_IN: return INFO;
+            case CHECKED_IN:  return PRIMARY;
+            case CHECKED_OUT: return TEXT_SECONDARY;
+            case CANCELLED:   return DANGER;
+            default:          return TEXT_MUTED;
+        }
+    }
+
+    // ---- Vai trò ----
+    public static String getVaiTroLabel(VaiTro v) {
+        if (v == null) return "—";
+        switch (v) {
+            case ADMIN:        return "Quản trị viên";
+            case MANAGER:      return "Quản lý";
+            case RECEPTIONIST: return "Lễ tân";
+            default:           return v.toString();
+        }
+    }
+
+    // ---- Trạng thái thanh toán ----
+    public static String getTrangThaiThanhToanLabel(TrangThaiThanhToan tt) {
+        if (tt == null) return "Chưa thanh toán";
+        switch (tt) {
+            case PAID:           return "Đã thanh toán";
+            case PARTIALLY_PAID: return "Thanh toán một phần";
+            case UNPAID:         return "Chưa thanh toán";
+            case REFUNDED:       return "Đã hoàn tiền";
+            default:             return tt.toString();
+        }
+    }
+
+    // Legacy support (to be removed gradually)
+    public static Color getTrangThaiPhongColor(String tt) {
+        try { return getTrangThaiPhongColor(TrangThaiPhong.valueOf(tt)); } catch(Exception e) {
+            if ("Có sẵn".equals(tt))    return SUCCESS;
+            if ("Đang thuê".equals(tt)) return PRIMARY;
+            if ("Đã đặt".equals(tt))    return WARNING;
+            if ("Vệ sinh".equals(tt))   return new Color(0x06B6D4);
+            if ("Bảo trì".equals(tt))   return DANGER;
+            return TEXT_MUTED;
+        }
+    }
+
+    public static Color getTrangThaiPhongBg(String tt) {
+        try { return getTrangThaiPhongBg(TrangThaiPhong.valueOf(tt)); } catch(Exception e) {
+            if ("Có sẵn".equals(tt))    return SUCCESS_LIGHT;
+            if ("Đang thuê".equals(tt)) return PRIMARY_LIGHT;
+            if ("Đã đặt".equals(tt))    return WARNING_LIGHT;
+            if ("Vệ sinh".equals(tt))   return new Color(0xCFFAFE);
+            if ("Bảo trì".equals(tt))   return DANGER_LIGHT;
+            return BG_CARD;
+        }
+    }
+
+    public static Color getHangKhachColor(String hang) {
+        if (hang == null)          return TEXT_MUTED;
+        if ("VIP".equals(hang))    return new Color(0x7C3AED);
+        if ("Gold".equals(hang))   return new Color(0xD97706);
+        if ("Silver".equals(hang)) return new Color(0x475569);
+        return TEXT_MUTED;
+    }
+}
+
