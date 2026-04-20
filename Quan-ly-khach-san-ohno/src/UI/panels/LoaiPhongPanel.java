@@ -64,12 +64,8 @@ public class LoaiPhongPanel extends JPanel {
         RoundedButton btnAdd = new RoundedButton("+ Thêm loại phòng", UIConstants.PRIMARY, Color.WHITE);
         btnAdd.addActionListener(e -> showDialog(null, false));
 
-        RoundedButton btnDup = new RoundedButton("⧉ Nhân bản", new Color(0xF1F5F9), UIConstants.TEXT_SECONDARY);
-        btnDup.addActionListener(e -> duplicateSelected());
-
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         btns.setOpaque(false);
-        btns.add(btnDup);
         btns.add(btnAdd);
 
         p.add(left, BorderLayout.WEST);
@@ -156,20 +152,16 @@ public class LoaiPhongPanel extends JPanel {
     private JPopupMenu buildContextMenu() {
         JPopupMenu menu = new JPopupMenu();
         JMenuItem miEdit = new JMenuItem("Xem / Sửa");
-        JMenuItem miDup = new JMenuItem("Nhân bản (Clone)");
         JMenuItem miAdd = new JMenuItem("Thêm mới");
         JMenuItem miDel = new JMenuItem("Xóa loại phòng");
         miEdit.setFont(UIConstants.FONT_BODY);
-        miDup.setFont(UIConstants.FONT_BODY);
         miAdd.setFont(UIConstants.FONT_BODY);
         miDel.setFont(UIConstants.FONT_BODY);
         miDel.setForeground(UIConstants.DANGER);
         miEdit.addActionListener(e -> editSelected());
-        miDup.addActionListener(e -> duplicateSelected());
         miAdd.addActionListener(e -> showDialog(null, false));
         miDel.addActionListener(e -> deleteSelected());
         menu.add(miEdit);
-        menu.add(miDup);
         menu.add(miAdd);
         menu.addSeparator();
         menu.add(miDel);
@@ -291,14 +283,6 @@ public class LoaiPhongPanel extends JPanel {
         showDialog(lp, false);
     }
 
-    private void duplicateSelected() {
-        LoaiPhong lp = getSelected();
-        if (lp == null) {
-            JOptionPane.showMessageDialog(this, "Chọn một loại phòng để nhân bản!");
-            return;
-        }
-        showDialog(lp, true);
-    }
 
     private void deleteSelected() {
         int row = table.getSelectedRow();

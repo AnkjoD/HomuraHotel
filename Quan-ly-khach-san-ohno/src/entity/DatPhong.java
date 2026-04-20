@@ -131,7 +131,7 @@ public class DatPhong {
         this.trangThai = TrangThaiDatPhong.NO_SHOW;
         this.phiNoShow = phiPhat;
         this.ghiChu = (this.ghiChu != null ? this.ghiChu + " | " : "") 
-                    + "No-show: Khách không đến. Phí phạt: " + String.format("%,.0f đ", phiPhat);
+                    + "Khách không đến (No-show). Phí phạt: " + String.format("%,.0f đ", phiPhat);
     }
 
     // === Waitlist ===

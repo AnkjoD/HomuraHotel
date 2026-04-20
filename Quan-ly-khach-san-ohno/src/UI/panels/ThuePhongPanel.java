@@ -1,11 +1,10 @@
 package ui.panels;
 
 import ui.MainFrame;
+import ui.components.UIConstants;
+import ui.components.RoundedComponents;
+import static ui.components.RoundedComponents.*;
 import ui.components.*;
-import ui.components.RoundedComponents.*;
-import ui.components.RoundedComponents.RoundedBorder;
-import ui.components.RoundedComponents.RoundedButton;
-import ui.components.RoundedComponents.RoundedPanel;
 import ui.dialogs.*;
 import dao.*;
 import entity.*;
@@ -57,6 +56,16 @@ public class ThuePhongPanel extends JPanel {
     public void removeNotify() {
         super.removeNotify();
         if (countdownTimer != null) countdownTimer.stop();
+    }
+
+    public void resetFilters() {
+        currentFilter = "ALL";
+        currentFloor = 0;
+        currentType = "ALL";
+        currentView = "ALL";
+        searchRoom = "";
+        rebuildFilter();
+        refreshGrid();
     }
 
     private void buildUI() {
@@ -165,7 +174,15 @@ public class ThuePhongPanel extends JPanel {
         g.gridx = 0; g.weightx = 1.0; g.gridwidth = 2;
         filterTabsPanel.add(statusPanel, g);
 
-        // Search
+        // Search & Clear
+        JPanel rightTools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightTools.setOpaque(false);
+
+        RoundedButton btnClear = new RoundedButton("Xóa lọc", new Color(0xF1F5F9), UIConstants.TEXT_PRIMARY);
+        btnClear.setPreferredSize(new Dimension(90, 36));
+        btnClear.setFont(UIConstants.FONT_SMALL_BOLD);
+        btnClear.addActionListener(e -> resetFilters());
+
         ModernTextField txtSearch = new ModernTextField("Tìm số phòng...");
         txtSearch.setPreferredSize(new Dimension(160, 36));
         txtSearch.setText(searchRoom);
@@ -176,10 +193,13 @@ public class ThuePhongPanel extends JPanel {
             }
         });
 
+        rightTools.add(btnClear);
+        rightTools.add(txtSearch);
+
         g.gridx = 2; g.weightx = 0; g.gridwidth = 1;
         g.fill = GridBagConstraints.VERTICAL;
         g.anchor = GridBagConstraints.EAST;
-        filterTabsPanel.add(txtSearch, g);
+        filterTabsPanel.add(rightTools, g);
 
         // --- ROW 2: Floors + Dropdowns (Consolidated) ---
         g.fill = GridBagConstraints.BOTH;
@@ -351,7 +371,7 @@ public class ThuePhongPanel extends JPanel {
         return lbl;
     }
 
-    private void rebuildFilter() {
+    public void rebuildFilter() {
         if (filterTabsPanel != null && filterTabsPanel.getParent() != null) {
             java.awt.Container parent = filterTabsPanel.getParent();
             parent.remove(filterTabsPanel);
@@ -369,7 +389,7 @@ public class ThuePhongPanel extends JPanel {
     private static final int CARD_HGAP = 10;
     private static final int CARD_VGAP = 10;
 
-    private void refreshGrid() {
+    public void refreshGrid() {
         roomGrid.removeAll();
         roomGrid.setLayout(new BoxLayout(roomGrid, BoxLayout.Y_AXIS));
 
@@ -710,7 +730,8 @@ public class ThuePhongPanel extends JPanel {
         btnConfirm.addActionListener(e -> {
             phongService.updateTrangThai(p.getSoPhong(), TrangThaiPhong.AVAILABLE);
             NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhong() + " đã sẵn sàng đón khách");
-            refresh();
+            rebuildFilter();
+            refreshGrid();
             dlg.dispose();
         });
 
@@ -726,8 +747,10 @@ public class ThuePhongPanel extends JPanel {
         CheckinDialog dlg = new CheckinDialog(
                 (java.awt.Frame) SwingUtilities.getWindowAncestor(this), p);
         dlg.setVisible(true);
-        if (dlg.isConfirmed())
-            refresh();
+        if (dlg.isConfirmed()) {
+            rebuildFilter();
+            refreshGrid();
+        }
     }
 
     private void showCheckoutDialog(Phong p) {
@@ -904,7 +927,8 @@ public class ThuePhongPanel extends JPanel {
                             successDlg.setContentPane(rootS);
                             successDlg.setVisible(true);
 
-                            refresh();
+                            rebuildFilter();
+                            refreshGrid();
                             mainFrame.refreshThongKe();
                         } else {
                             JOptionPane.showMessageDialog(mainFrame, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -918,60 +942,85 @@ public class ThuePhongPanel extends JPanel {
             // If choice == 0 -> Continue below to normal HoaDonDialog
         } else if (isGroup && activeRoomsInGroup == 1) {
             // Phòng CUỐI CÙNG của đoàn → Hỏi Gom Bill hay Thanh toán riêng
-            // Kiểm tra có phòng nào đã treo nợ chưa
             long unpaidCount = allGroupRooms.stream().filter(r -> r.getNgayTraThucTe() != null && !r.isDaThanhToan())
                     .count();
 
+            final int[] result = {-1}; // -1: cancel, 0: gom bill, 1: pay solo
+            JDialog dlg = new JDialog(mainFrame, "", true);
+            dlg.setUndecorated(true);
+            dlg.setSize(520, unpaidCount > 0 ? 280 : 250);
+            dlg.setLocationRelativeTo(mainFrame);
+
+            JPanel root = new JPanel(new BorderLayout());
+            root.setBackground(Color.WHITE);
+            root.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(0, 0, 0, 40), 1),
+                    BorderFactory.createEmptyBorder(25, 30, 20, 30)));
+
+            JPanel centerPanel = new JPanel(new BorderLayout(20, 0));
+            centerPanel.setOpaque(false);
+
+            // Icon
+            JLabel lblIcon = new JLabel(unpaidCount > 0 ? "⚠️" : "📋");
+            lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
+            centerPanel.add(lblIcon, BorderLayout.WEST);
+
+            // Text
+            StringBuilder msg = new StringBuilder("<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>");
             if (unpaidCount > 0) {
-                // Có phòng đã treo nợ → BẮT BUỘC gom bill (không cho thanh toán riêng vì sẽ làm
-                // mất bill treo)
-                Object[] options = { "📋 Gom Bill toàn đoàn", "Hủy" };
-                int choice = JOptionPane.showOptionDialog(mainFrame,
-                        "Đây là phòng CUỐI CÙNG của đoàn.\n"
-                                + "Trực hệ có " + unpaidCount
-                                + " phòng đã trả nhưng đang Treo nợ (Chưa thanh toán).\n\n"
-                                + "BẮT BUỘC tiến hành GOM BILL toàn đoàn vào 1 Hóa đơn duy nhất để tất toán cho các phòng đã treo nợ.",
-                        "Tiến hành Gom Bill Đoàn",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE,
-                        null,
-                        options,
-                        options[0]);
-
-                if (choice == 0) {
-                    // Gom Bill → mở MasterBillDialog
-                    showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
-                    return;
-                } else {
-                    return;
-                }
+                msg.append("<h3 style='margin: 0 0 10px 0; color: #DC2626; font-size: 18px;'>Tiến hành Gom Bill Đoàn</h3>")
+                   .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn.<br>")
+                   .append("Hiện có <b style='color: #DC2626;'>").append(unpaidCount).append(" phòng</b> đã trả nhưng đang Treo nợ.<br><br>")
+                   .append("<b>BẮT BUỘC</b> tiến hành GOM BILL toàn đoàn vào 1 Hóa đơn duy nhất để tất toán cho các phòng đã treo nợ.");
             } else {
-                // Không có phòng treo nợ, nhưng vẫn là đoàn → cho chọn
-                Object[] options = { "Gom Bill toàn đoàn", "Thanh toán riêng phòng này", "Hủy" };
-                int choice = JOptionPane.showOptionDialog(mainFrame,
-                        "Đây là phòng CUỐI CÙNG của đoàn (" + allGroupRooms.size() + " phòng).\n"
-                                + "Bạn muốn GOM BILL toàn bộ đoàn vào 1 hóa đơn duy nhất?",
-                        "Gom Bill Đoàn",
-                        JOptionPane.YES_NO_CANCEL_OPTION,
-                        JOptionPane.QUESTION_MESSAGE,
-                        null,
-                        options,
-                        options[0]);
-
-                if (choice == 0) {
-                    showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
-                    return;
-                } else if (choice == 2 || choice == JOptionPane.CLOSED_OPTION) {
-                    return;
-                }
+                msg.append("<h3 style='margin: 0 0 10px 0; color: #0F172A; font-size: 18px;'>Gom Bill Đoàn</h3>")
+                   .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn (").append(allGroupRooms.size()).append(" phòng).<br><br>")
+                   .append("Bạn muốn GOM BILL toàn đoàn vào 1 hóa đơn tổng hay thanh toán riêng lẻ phòng này?");
             }
+            msg.append("</body></html>");
+            
+            JLabel lblMessage = new JLabel(msg.toString());
+            centerPanel.add(lblMessage, BorderLayout.CENTER);
+            root.add(centerPanel, BorderLayout.CENTER);
+
+            // Buttons
+            JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+            buttons.setOpaque(false);
+            buttons.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+
+            RoundedButton btnCancel = grayButton("Hủy bỏ");
+            RoundedButton btnSolo = unpaidCount > 0 ? null : RoundedButton.outline("Thanh toán riêng", UIConstants.PRIMARY);
+            RoundedButton btnGroup = primaryButton("Gom Bill toàn đoàn");
+
+            btnCancel.addActionListener(e -> { result[0] = -1; dlg.dispose(); });
+            btnGroup.addActionListener(e -> { result[0] = 0; dlg.dispose(); });
+            if (btnSolo != null) {
+                btnSolo.addActionListener(e -> { result[0] = 1; dlg.dispose(); });
+                buttons.add(btnSolo);
+            }
+            
+            buttons.add(btnCancel);
+            buttons.add(btnGroup);
+            root.add(buttons, BorderLayout.SOUTH);
+
+            dlg.setContentPane(root);
+            dlg.setVisible(true);
+
+            if (result[0] == 0) {
+                showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
+                return;
+            } else if (result[0] == -1) {
+                return;
+            }
+            // If result[0] == 1 -> Continue below to normal HoaDonDialog
         }
 
         HoaDonDialog dlg = new HoaDonDialog(
                 (java.awt.Frame) SwingUtilities.getWindowAncestor(this), tp);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            refresh();
+            rebuildFilter();
+            refreshGrid();
             mainFrame.refreshThongKe(); // Also refresh statistics after checkout
         }
     }
@@ -990,7 +1039,8 @@ public class ThuePhongPanel extends JPanel {
                 fullDp, rooms);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            refresh();
+            rebuildFilter();
+            refreshGrid();
             mainFrame.refreshThongKe();
         }
     }
@@ -1182,7 +1232,8 @@ public class ThuePhongPanel extends JPanel {
         ui.dialogs.ChangeRepresentativeDialog dlg = new ui.dialogs.ChangeRepresentativeDialog(mainFrame, tp.getDatPhong(), p.getSoPhong());
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            refresh();
+            rebuildFilter();
+            refreshGrid();
         }
     }
 
@@ -1207,7 +1258,8 @@ public class ThuePhongPanel extends JPanel {
             if (error == null) {
                 NotificationManager.showSuccess("Đổi phòng thành công", 
                         "Từ P." + currentPhong.getSoPhong() + " sang P." + newRoom.getMaPhong());
-                refresh();
+                rebuildFilter();
+                refreshGrid();
             } else {
                 JOptionPane.showMessageDialog(mainFrame, "Lỗi khi đổi phòng: " + error, "Lỗi",
                         JOptionPane.ERROR_MESSAGE);
@@ -1227,7 +1279,8 @@ public class ThuePhongPanel extends JPanel {
         ui.dialogs.ServiceOrderDialog dlg = new ui.dialogs.ServiceOrderDialog(mainFrame, tp);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            refresh();
+            rebuildFilter();
+            refreshGrid();
         }
     }
 
@@ -1248,18 +1301,12 @@ public class ThuePhongPanel extends JPanel {
             String err = thuePhongService.extendStay(tp.getMaChiTiet(), newTime);
             if (err == null) {
                 NotificationManager.showSuccess("Gia hạn thành công", "Đã cập nhật ngày trả cho phòng " + p.getSoPhong());
-                refresh();
+                rebuildFilter();
+                refreshGrid();
             } else {
                 JOptionPane.showMessageDialog(mainFrame, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
-    }
-
-    public void refresh() {
-        removeAll();
-        buildUI();
-        revalidate();
-        repaint();
     }
 
     /**

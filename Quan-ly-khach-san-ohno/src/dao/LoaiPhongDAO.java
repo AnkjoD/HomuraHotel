@@ -74,7 +74,7 @@ public class LoaiPhongDAO {
 
     /** Check if any phong references this loaiPhong */
     public int countPhongByLoai(String maLoaiPhong) {
-        String sql = "SELECT COUNT(*) FROM Phong WHERE maLoaiPhong=?";
+        String sql = "SELECT COUNT(*) FROM Phong WHERE maLoaiPhong=? AND trangThai <> 'DELETED'";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maLoaiPhong);
             ResultSet rs = ps.executeQuery();

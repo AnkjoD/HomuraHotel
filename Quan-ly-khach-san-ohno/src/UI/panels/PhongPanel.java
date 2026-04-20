@@ -291,7 +291,7 @@ public class PhongPanel extends JPanel {
                     "Tầng " + p.getTang(),
                     p.getSucChua() + " người",
                     String.format("%,.0fđ", giaHienHanh),
-                    p.getTenKhachHienTai() != null ? p.getTenKhachHienTai() : "—",
+                    (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED && p.getTenKhachHienTai() != null) ? p.getTenKhachHienTai() : "—",
                     ttLabel
             });
         }

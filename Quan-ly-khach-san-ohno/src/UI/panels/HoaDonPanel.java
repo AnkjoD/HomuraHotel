@@ -137,7 +137,7 @@ public class HoaDonPanel extends JPanel {
 
         // Search
         txtSearch = new ModernTextField("Tìm Mã HĐ, Tên KH, SĐT...");
-        txtSearch.setPreferredSize(new Dimension(220, 40));
+        txtSearch.setPreferredSize(new Dimension(170, 40));
         g.gridx = 0; g.weightx = 1.0; g.fill = GridBagConstraints.BOTH;
         card.add(txtSearch, g);
 
@@ -172,8 +172,23 @@ public class HoaDonPanel extends JPanel {
         cboTrangThai.addItem("Tất cả trạng thái");
         cboTrangThai.addItem("Đã thanh toán");
         cboTrangThai.addItem("Chưa thanh toán");
-        g.gridx = 4; g.insets = new Insets(0, 0, 0, 0);
+        g.gridx = 4;
         card.add(cboTrangThai, g);
+
+        // Clear Filter Button
+        RoundedButton btnClear = new RoundedButton("Xóa lọc", new Color(0xF1F5F9), UIConstants.TEXT_PRIMARY);
+        btnClear.setPreferredSize(new Dimension(90, 40));
+        btnClear.setFont(UIConstants.FONT_SMALL_BOLD);
+        btnClear.addActionListener(e -> {
+            txtSearch.setText("");
+            cboThoiGian.setSelectedIndex(0);
+            dpTuNgay.setDate(null);
+            dpDenNgay.setDate(null);
+            cboTrangThai.setSelectedIndex(0);
+            runFilter();
+        });
+        g.gridx = 5; g.insets = new Insets(0, 0, 0, 0);
+        card.add(btnClear, g);
 
         // Logic Auto-Fill... (keeping existing logic)
         cboThoiGian.addActionListener(e -> {

@@ -15,12 +15,18 @@ public class DichVuService {
 
     public int countAll() { return dao.countAll(); }
     public int countActive() { return dao.countActive(); }
+    public int countSuspended() { return dao.countSuspended(); }
     public double getGiaTrungBinh() { return dao.getGiaTrungBinh(); }
 
     public String them(DichVu dv) {
         if (dv.getTenDichVu() == null || dv.getTenDichVu().isBlank()) return "Tên dịch vụ không được trống!";
         if (dv.getDonGia() <= 0) return "Giá phải lớn hơn 0!";
-        if (dv.getMaDichVu() == null || dv.getMaDichVu().isBlank()) return "Mã dịch vụ không được trống!";
+        
+        // Auto-generate ID if not provided
+        if (dv.getMaDichVu() == null || dv.getMaDichVu().isBlank()) {
+            dv.setMaDichVu(dao.generateMa());
+        }
+        
         return dao.insert(dv) ? null : "Lỗi thêm dịch vụ!";
     }
 

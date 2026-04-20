@@ -63,7 +63,7 @@ public class DatPhongDetailDialog extends JDialog {
         content.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
 
         // === KÊNH ĐẶT PHÒNG ===
-        content.add(createSectionTitle("🌐 KÊNH ĐẶT PHÒNG"));
+        content.add(createSectionTitle("KÊNH ĐẶT PHÒNG"));
         content.add(createDetailRow("Nguồn đặt:", datPhong.getTenKenh()));
         if (datPhong.getMaXacNhanKenh() != null && !datPhong.getMaXacNhanKenh().isEmpty()) {
             content.add(createDetailRow("Mã xác nhận OTA:", datPhong.getMaXacNhanKenh()));
@@ -71,7 +71,7 @@ public class DatPhongDetailDialog extends JDialog {
         content.add(Box.createVerticalStrut(15));
 
         // === THÔNG TIN KHÁCH HÀNG ===
-        content.add(createSectionTitle("👤 THÔNG TIN KHÁCH HÀNG"));
+        content.add(createSectionTitle("THÔNG TIN KHÁCH HÀNG"));
         content.add(createDetailRow("Họ và tên:", datPhong.getTenKhachHang()));
         content.add(createDetailRow("Số điện thoại:", datPhong.getKhachHang() != null ? datPhong.getKhachHang().getSoDienThoai() : "—"));
         content.add(createDetailRow("Số lượng khách:", datPhong.getSoLuongKhach() + " người"));
@@ -84,12 +84,12 @@ public class DatPhongDetailDialog extends JDialog {
         KhachHang kh = datPhong.getKhachHang();
         if (kh != null && kh.isNuocNgoai()) {
             content.add(createDetailRow("Quốc tịch:", kh.getQuocTich()));
-            content.add(createDetailRow("Hộ chiếu:", kh.getSoHoChieu() != null ? kh.getSoHoChieu() : "⚠️ Chưa có"));
+            content.add(createDetailRow("Hộ chiếu:", kh.getSoHoChieu() != null ? kh.getSoHoChieu() : "Chưa có"));
             if (kh.getSoVisa() != null && !kh.getSoVisa().isEmpty()) {
                 content.add(createDetailRow("Visa:", kh.getSoVisa()));
                 if (kh.getNgayHetHanVisa() != null) {
                     boolean expired = kh.getNgayHetHanVisa().isBefore(java.time.LocalDate.now());
-                    String visaDate = kh.getNgayHetHanVisa().toString() + (expired ? " ⚠️ ĐÃ HẾT HẠN" : "");
+                    String visaDate = kh.getNgayHetHanVisa().toString() + (expired ? " [ĐÃ HẾT HẠN]" : "");
                     content.add(createDetailRow("Hạn visa:", visaDate));
                 }
             }
@@ -98,7 +98,7 @@ public class DatPhongDetailDialog extends JDialog {
         
         List<ChiTietDatPhong> chiTietList = datPhong.getDsChiTiet();
 
-        content.add(createSectionTitle("🏨 THÔNG TIN PHÒNG"));
+        content.add(createSectionTitle("THÔNG TIN PHÒNG"));
         if (chiTietList != null && !chiTietList.isEmpty()) {
             boolean first = true;
             for (ChiTietDatPhong ct : chiTietList) {
@@ -130,21 +130,21 @@ public class DatPhongDetailDialog extends JDialog {
         if (datPhong.getHanCheckIn() != null) {
             String hanCI = sdf.format(java.sql.Timestamp.valueOf(datPhong.getHanCheckIn()));
             boolean quaHan = datPhong.isQuaHanCheckIn();
-            content.add(createDetailRow("Hạn check-in:", hanCI + (quaHan ? " ⚠️ ĐÃ QUÁ HẠN" : "")));
+            content.add(createDetailRow("Hạn check-in:", hanCI + (quaHan ? " [ĐÃ QUÁ HẠN]" : "")));
         }
         content.add(Box.createVerticalStrut(15));
 
         // === NO-SHOW / WAITLIST ===
         if (datPhong.getTrangThai() == TrangThaiDatPhong.NO_SHOW) {
-            content.add(createSectionTitle("❌ NO-SHOW"));
-            content.add(createDetailRow("Phí no-show:", String.format("%,.0f đ", datPhong.getPhiNoShow())));
+            content.add(createSectionTitle("KHÁCH KHÔNG ĐẾN"));
+            content.add(createDetailRow("Phí phạt vắng mặt:", String.format("%,.0f đ", datPhong.getPhiNoShow())));
         }
         if (datPhong.getTrangThai() == TrangThaiDatPhong.WAITLIST) {
-            content.add(createSectionTitle("⏳ WAITLIST"));
+            content.add(createSectionTitle("WAITLIST"));
             content.add(createDetailRow("Thứ tự chờ:", "#" + datPhong.getThuTuWaitlist()));
         }
 
-        content.add(createSectionTitle("💰 THANH TOÁN"));
+        content.add(createSectionTitle("THANH TOÁN"));
         if (chiTietList != null && !chiTietList.isEmpty()) {
             boolean first = true;
             for (ChiTietDatPhong ct : chiTietList) {
@@ -162,7 +162,7 @@ public class DatPhongDetailDialog extends JDialog {
         content.add(createDetailRow("Tiền cọc:", datPhong.getTienDatCoc() > 0 ? String.format("%,.0f đ", datPhong.getTienDatCoc()) : "Không cọc"));
         content.add(Box.createVerticalStrut(15));
 
-        content.add(createSectionTitle("📝 GHI CHÚ"));
+        content.add(createSectionTitle("GHI CHÚ"));
         JTextArea txtGhiChu = new JTextArea(datPhong.getGhiChu() != null && !datPhong.getGhiChu().trim().isEmpty() ? datPhong.getGhiChu() : "Không có ghi chú");
         txtGhiChu.setFont(UIConstants.FONT_BODY);
         txtGhiChu.setLineWrap(true);

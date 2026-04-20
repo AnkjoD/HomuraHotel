@@ -8,6 +8,7 @@ import entity.Phong;
 import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -171,6 +172,26 @@ public class ChiTietDatPhongDAO {
         String sql = "SELECT TOP 1 * FROM ChiTietDatPhong WHERE maPhong=? AND ngayTraThucTe IS NULL AND ngayNhanThucTe IS NOT NULL ORDER BY ngayNhanThucTe DESC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return mapRow(rs);
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error", e); }
+        return null;
+    }
+
+    /** Tìm một đơn đặt phòng khác đang có lịch trùng với khoảng thời gian dự định */
+    public ChiTietDatPhong getConflictingStay(String maPhong, LocalDateTime start, LocalDateTime end, String excludeMaDatPhong) {
+        String sql = "SELECT TOP 1 ct.* FROM ChiTietDatPhong ct " +
+                     "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                     "WHERE ct.maPhong = ? " +
+                     "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
+                     "AND dp.maDatPhong != ? " +
+                     "AND dp.ngayNhanDuKien < ? " +
+                     "AND dp.ngayTraDuKien > ?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maPhong);
+            ps.setString(2, excludeMaDatPhong != null ? excludeMaDatPhong : "");
+            ps.setTimestamp(3, Timestamp.valueOf(end));
+            ps.setTimestamp(4, Timestamp.valueOf(start));
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return mapRow(rs);
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error", e); }

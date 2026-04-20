@@ -441,10 +441,15 @@ public class DatPhongDAO {
         try {
             Timestamp tsHanCoc = rs.getTimestamp("hanNopCoc");
             if (tsHanCoc != null) dp.setHanNopCoc(tsHanCoc.toLocalDateTime());
+        } catch (SQLException ignored) {}
+        
+        try {
             dp.setPhiHuyPhong(rs.getDouble("phiHuyPhong"));
+        } catch (SQLException ignored) {}
+        
+        try {
             dp.setMaKhuyenMai(rs.getString("maKM"));
-        } catch (SQLException ignored) {
-        }
+        } catch (SQLException ignored) {}
 
         String statusStr = rs.getString("trangThai");
         dp.setTrangThai(parseTrangThai(statusStr));

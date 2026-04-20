@@ -180,11 +180,21 @@ public class ChangeRepresentativeDialog extends JDialog {
         if (kh == null) {
             kh = new KhachHang();
             kh.setHoTen(txtHoTen.getText().trim());
-            kh.setSoDienThoai(sdt);
+            kh.setSdt(sdt);
             kh.setCccd(txtCCCD.getText().trim());
             kh.setQuocTich((String) cboQuocTich.getSelectedItem());
-            khService.them(kh);
+            
+            String khErr = khService.them(kh);
+            if (khErr != null) {
+                NotificationManager.showError("Lỗi khách hàng", "Không thể tạo khách hàng mới: " + khErr);
+                return;
+            }
             kh = khService.getByPhone(sdt);
+        }
+
+        if (kh == null) {
+            NotificationManager.showError("Lỗi", "Không tìm thấy thông tin khách hàng sau khi lưu!");
+            return;
         }
 
         String err = thuePhongService.updateRepresentative(datPhong.getMaDatPhong(), kh, soPhong);

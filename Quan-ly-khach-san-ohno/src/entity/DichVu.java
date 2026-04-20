@@ -8,12 +8,12 @@ public class DichVu {
     private String loai;
     private String moTa;
     private int soLuongMin;
-    private boolean trangThai;
+    private int trangThai; // 1: Hoạt động, 0: Tạm ngừng, -1: Đã xóa
 
     public DichVu() {}
 
     public boolean kiemTraSanSang() {
-        return this.trangThai;
+        return this.trangThai == 1;
     }
 
     // Getters and Setters
@@ -45,10 +45,22 @@ public class DichVu {
     public int getSoLuongMin() { return soLuongMin; }
     public void setSoLuongMin(int soLuongMin) { this.soLuongMin = soLuongMin; }
 
-    public boolean isTrangThai() { return trangThai; }
-    public void setTrangThai(boolean trangThai) { this.trangThai = trangThai; }
-    public String getTrangThai() { return trangThai ? "Hoạt động" : "Tạm ngừng"; }
-    public void setTrangThai(String s) { this.trangThai = "Hoạt động".equalsIgnoreCase(s); }
+    public int getTrangThaiInt() { return trangThai; }
+    public void setTrangThaiInt(int trangThai) { this.trangThai = trangThai; }
+
+    public boolean isTrangThai() { return trangThai == 1; }
+    public void setTrangThai(boolean active) { this.trangThai = active ? 1 : 0; }
+    
+    public String getTrangThai() { 
+        if (trangThai == 1) return "Hoạt động";
+        if (trangThai == 0) return "Tạm ngừng";
+        return "Đã xóa";
+    }
+    public void setTrangThai(String s) { 
+        if ("Hoạt động".equalsIgnoreCase(s)) this.trangThai = 1;
+        else if ("Tạm ngừng".equalsIgnoreCase(s)) this.trangThai = 0;
+        else this.trangThai = -1;
+    }
 
     // Compatibility aliases
     public void setTenDV(String s) { this.tenDichVu = s; }

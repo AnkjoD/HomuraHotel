@@ -83,15 +83,17 @@ public class DichVuPanel extends JPanel {
     }
 
     private JPanel buildStats() {
-        int all = service.countAll(), active = service.countActive();
+        int all = service.countAll();
+        int active = service.countActive();
+        int suspended = service.countSuspended();
         double avg = service.getGiaTrungBinh();
 
         JPanel row = new JPanel(new GridLayout(1, 4, 16, 0));
         row.setOpaque(false);
         row.add(statCard("Tổng dịch vụ", all + " dịch vụ", UIConstants.PRIMARY));
         row.add(statCard("Đang cung cấp", active + " dịch vụ", UIConstants.SUCCESS));
-        row.add(statCard("Tạm ngừng", (all - active) + " dịch vụ", UIConstants.DANGER));
-        row.add(statCard("Giá trung bình", String.format("%,.0fđ", avg), UIConstants.WARNING));
+        row.add(statCard("Tạm ngừng", suspended + " dịch vụ", UIConstants.WARNING));
+        row.add(statCard("Giá trung bình", String.format("%,.0fđ", avg), UIConstants.INFO));
         return row;
     }
 
@@ -262,7 +264,7 @@ public class DichVuPanel extends JPanel {
                     lbl.setForeground(UIConstants.SUCCESS);
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                 } else if (v.equals("Tạm ngừng")) {
-                    lbl.setForeground(UIConstants.DANGER);
+                    lbl.setForeground(UIConstants.WARNING);
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                 }
                 return lbl;

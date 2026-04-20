@@ -6,6 +6,7 @@ import entity.*;
 import entity.enums.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,10 +38,31 @@ public class ThuePhongService {
             return "Phòng " + ct.getPhong().getMaPhong() + " không sẵn sàng (đang: " + phong.getTrangThaiString() + ")!";
 
         if (ctdpDAO.hasActiveStay(phong.getMaPhong())) {
-            return "Phòng " + ct.getPhong().getMaPhong() + " hiện đang có một lượt lưu trú chưa được trả phòng trên hệ thống. Vui lòng kiểm tra và trả phòng cũ trước!";
+            // Trường hợp hy hữu: Trạng thái phòng là AVAILABLE nhưng vẫn còn ChiTietDatPhong chưa kết thúc (Ghost Stay)
+            // Tự động kết thúc lượt cũ để giải phóng phòng
+            ChiTietDatPhong ghostStay = ctdpDAO.getActiveStayByPhong(phong.getMaPhong());
+            if (ghostStay != null) {
+                LOGGER.log(Level.WARNING, "Ghost stay detected for room {0}. Auto-finalizing stay {1} to allow new check-in.", 
+                          new Object[]{phong.getMaPhong(), ghostStay.getMaChiTiet()});
+                ghostStay.setNgayTraThucTe(LocalDateTime.now());
+                ctdpDAO.update(ghostStay);
+            } else {
+                return "Phòng " + ct.getPhong().getMaPhong() + " hiện đang có một lượt lưu trú chưa được trả phòng. Vui lòng kiểm tra lại!";
+            }
         }
 
         if (ct.getDatPhong() != null && phong.getLoaiPhong() != null) {
+            // Kiểm tra xung đột lịch đặt phòng (Double booking protection)
+            LocalDateTime checkStart = ct.getDatPhong().getNgayNhanDuKien() != null ? ct.getDatPhong().getNgayNhanDuKien() : LocalDateTime.now();
+            LocalDateTime checkEnd = ct.getDatPhong().getNgayTraDuKien() != null ? ct.getDatPhong().getNgayTraDuKien() : checkStart.plusDays(1);
+            
+            ChiTietDatPhong conflict = ctdpDAO.getConflictingStay(phong.getMaPhong(), checkStart, checkEnd, ct.getDatPhong().getMaDatPhong());
+            if (conflict != null) {
+                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM");
+                String overlapInfo = conflict.getDatPhong().getNgayNhanDuKien().format(fmt) + " - " + conflict.getDatPhong().getNgayTraDuKien().format(fmt);
+                return "Phòng " + phong.getMaPhong() + " đã có khách đặt trước trong khoảng: " + overlapInfo + ". Không thể cho thuê trùng lịch!";
+            }
+
             int sucChua = phong.getLoaiPhong().getSucChua();
             int maxPax = sucChua + 2;
             if (ct.getDatPhong().getSoLuongKhach() > maxPax && sucChua > 0) {
@@ -133,7 +155,7 @@ public class ThuePhongService {
      * Overload for legacy logic that only passes status (UNPAID/PAID)
      */
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode) {
-        DatabaseConnection dbConn = DatabaseConnection.getInstance();
+        database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
             dbConn.beginTransaction();
 
@@ -193,7 +215,46 @@ public class ThuePhongService {
                 cthdPhong.setThanhTien(tienPhongChang);
                 pendingItems.add(cthdPhong);
 
+                // 2. Tính phụ phí động (Nhận sớm / Trả trễ) bằng StandardRoomCalculator
+                StandardRoomCalculator calc = new StandardRoomCalculator();
                 List<SuDungDichVu> dsDichVu = sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet());
+                boolean earlyAdded = dsDichVu.stream().anyMatch(s -> 
+                    (s.getDichVu() != null && "DV_EXTRA_EARLY".equals(s.getDichVu().getMaDV()))
+                    || (s.getTenDichVu() != null && s.getTenDichVu().toLowerCase().contains("nhận phòng sớm")));
+
+                double dynamicSurcharge = calc.tinhPhuPhi(ct, ngayNhanResolved, ct.getNgayTraThucTe());
+                if (earlyAdded && ngayNhanResolved != null) {
+                    double onlyEarly = calc.tinhPhuPhi(ct, ngayNhanResolved, ngayNhanResolved.withHour(14).withMinute(0).withSecond(0));
+                    dynamicSurcharge = Math.max(0, dynamicSurcharge - onlyEarly);
+                }
+
+                if (dynamicSurcharge > 0) {
+                    ChiTietHoaDon cthdPhuPhi = new ChiTietHoaDon();
+                    cthdPhuPhi.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    cthdPhuPhi.setHoaDon(hd);
+                    cthdPhuPhi.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                    cthdPhuPhi.setSoLuong(1);
+                    cthdPhuPhi.setDonGia(dynamicSurcharge);
+                    cthdPhuPhi.setNoiDung("Phụ phí (Nhận sớm/Trả trễ) - P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?"));
+                    cthdPhuPhi.setThanhTien(dynamicSurcharge);
+                    pendingItems.add(cthdPhuPhi);
+                    tongPhuPhi += dynamicSurcharge;
+                }
+
+                // 3. Phí phát sinh khác (đã lưu trong DB)
+                tongPhuPhi += ct.getPhuPhiPhatSinh();
+                if (ct.getPhuPhiPhatSinh() > 0) {
+                    ChiTietHoaDon cthdKhac = new ChiTietHoaDon();
+                    cthdKhac.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    cthdKhac.setHoaDon(hd);
+                    cthdKhac.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                    cthdKhac.setSoLuong(1);
+                    cthdKhac.setDonGia(ct.getPhuPhiPhatSinh());
+                    cthdKhac.setNoiDung("Phí phát sinh khác - P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?"));
+                    cthdKhac.setThanhTien(ct.getPhuPhiPhatSinh());
+                    pendingItems.add(cthdKhac);
+                }
+                
                 for (SuDungDichVu sddv : dsDichVu) {
                     double itemTotal = sddv.getDonGiaLuu() * sddv.getSoLuong();
                     tongDichVu += itemTotal;
@@ -207,8 +268,6 @@ public class ThuePhongService {
                     cthdDV.setThanhTien(itemTotal);
                     pendingItems.add(cthdDV);
                 }
-                tongPhuPhi += ct.getPhuPhiPhatSinh();
-                
                 ct.setDaThanhToan(true);
                 if (!ctdpDAO.update(ct)) { dbConn.rollbackTransaction(); return "Lỗi cập nhật chặng!"; }
 
@@ -232,19 +291,19 @@ public class ThuePhongService {
                 ? voucherCode.trim() 
                 : (mainCt.getDatPhong() != null ? mainCt.getDatPhong().getMaKhuyenMai() : null);
 
+            LocalDateTime thoiDiemDat = (mainCt.getDatPhong() != null) 
+                ? mainCt.getDatPhong().getNgayDat() 
+                : LocalDateTime.now();
+
             if (selectedVoucher != null && !selectedVoucher.trim().isEmpty()) {
                 chosenKM = khuyenMaiDAO.getByVoucherCode(selectedVoucher.trim());
-                if (chosenKM != null && !chosenKM.kiemTraHopLe(subTotal)) chosenKM = null;
+                if (chosenKM != null && !chosenKM.kiemTraHopLe(subTotal, thoiDiemDat)) chosenKM = null;
             }
-            
-            if (chosenKM == null) chosenKM = getBestPromotion(subTotal);
             
             hd.setKhuyenMai(chosenKM);
             double tienGiam = 0;
             if (chosenKM != null) {
                 tienGiam = chosenKM.tinhSoTienGiam(subTotal);
-                chosenKM.setDaDung(chosenKM.getDaDung() + 1);
-                khuyenMaiDAO.update(chosenKM);
             }
             hd.setTienGiamKhuyenMai(tienGiam);
             
@@ -330,20 +389,25 @@ public class ThuePhongService {
                 }
             }
             Phong phong = phongDAO.getById(ct.getPhong().getMaPhong());
-            if (phong != null) { phong.setTrangThai(TrangThaiPhong.CLEANING); phongDAO.update(phong); }
+            if (phong != null) { 
+                phong.setTrangThai(TrangThaiPhong.CLEANING); 
+                phong.setTenKhachHienTai(null);
+                phongDAO.update(phong); 
+            }
             dbConn.commitTransaction();
             return null;
         } catch (Exception e) { dbConn.rollbackTransaction(); return "Lỗi hệ thống: " + e.getMessage(); }
     }
 
-    public String checkOutMasterBill(String maDatPhong, String maNV) {
-        DatabaseConnection dbConn = DatabaseConnection.getInstance();
+    public String checkOutMasterBill(String maDatPhong, String maNV, String voucherCode) {
+        database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
             dbConn.beginTransaction();
             DatPhong dp = datPhongDAO.getById(maDatPhong);
-            if (dp == null) { dbConn.rollbackTransaction(); return "Không tìm thấy đơn đặt phòng!"; }
-            List<ChiTietDatPhong> allRooms = ctdpDAO.getByDatPhong(maDatPhong);
-            if (allRooms.isEmpty()) { dbConn.rollbackTransaction(); return "Không có phòng nào trong đơn đặt này!"; }
+            if (dp == null) return "Không tìm thấy thông tin đặt phòng!";
+
+            List<ChiTietDatPhong> rooms = ctdpDAO.getByDatPhong(maDatPhong);
+            if (rooms == null || rooms.isEmpty()) return "Không có phòng nào để thanh toán!";
 
             HoaDon hd = new HoaDon();
             hd.setMaHoaDon(hoaDonDAO.generateMaHD());
@@ -352,107 +416,139 @@ public class ThuePhongService {
             hd.setNgayLap(LocalDateTime.now());
 
             double tongTienPhong = 0;
-            double tongTienDichVu = 0;
+            double tongDichVu = 0;
             double tongPhuPhi = 0;
-            BangGia bgActive = null;
-            try { bgActive = new BangGiaDAO().findActiveToday(); } catch (Exception ignored) {}
-            List<ChiTietHoaDon> pendingCTHD = new ArrayList<>();
+            List<ChiTietHoaDon> pendingItems = new ArrayList<>();
 
-            for (ChiTietDatPhong ct : allRooms) {
-                if (ct.getNgayTraThucTe() == null) ct.setNgayTraThucTe(LocalDateTime.now());
-                LocalDateTime ngayNhanResolved = ct.getNgayNhanThucTe();
-                if (ngayNhanResolved == null && dp.getNgayNhanDuKien() != null) ngayNhanResolved = dp.getNgayNhanDuKien();
-                long soNgay = Math.max(1, tinhSoNgay(ngayNhanResolved, ct.getNgayTraThucTe()));
+            StandardRoomCalculator calc = new StandardRoomCalculator();
+
+            for (ChiTietDatPhong ct : rooms) {
+                if (ct.isDaThanhToan()) continue;
+                
+                // 1. Tiền phòng
+                LocalDateTime ngayNhan = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe() : dp.getNgayNhanDuKien();
+                LocalDateTime ngayTra = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe() : LocalDateTime.now();
+                long soNgay = Math.max(1, tinhSoNgay(ngayNhan, ngayTra));
+                
                 double donGia = ct.getGiaThucTeChot() > 0 ? ct.getGiaThucTeChot() : 400000;
                 double tienPhong = donGia * soNgay;
                 tongTienPhong += tienPhong;
 
-                double phuPhiTraTreCuaPhong = 50000;
-                if (bgActive != null && ct.getPhong() != null && ct.getPhong().getLoaiPhong() != null) {
-                    ChiTietBangGia ctbg = new ChiTietBangGiaDAO().findByBangGiaAndLoaiPhong(bgActive.getMaBangGia(), ct.getPhong().getLoaiPhong().getMaLoaiPhong());
-                    if (ctbg != null && ctbg.getPhuPhiTraTre() > 0) phuPhiTraTreCuaPhong = ctbg.getPhuPhiTraTre();
-                }
+                ChiTietHoaDon ctPhong = new ChiTietHoaDon();
+                ctPhong.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                ctPhong.setHoaDon(hd);
+                ctPhong.setLoaiChiTiet(LoaiChiTietHoaDon.PHONG);
+                ctPhong.setNoiDung("Phòng " + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?") + " (" + soNgay + " đêm)");
+                ctPhong.setSoLuong((int)soNgay);
+                ctPhong.setDonGia(donGia);
+                ctPhong.setThanhTien(tienPhong);
+                pendingItems.add(ctPhong);
 
-                double phuPhi = 0;
-                if (ngayNhanResolved != null && ngayNhanResolved.getHour() < 14) phuPhi += phuPhiTraTreCuaPhong;
-                if (ct.getNgayTraThucTe() != null && ct.getNgayTraThucTe().getHour() > 12) phuPhi += phuPhiTraTreCuaPhong;
-                phuPhi += ct.getPhuPhiPhatSinh();
-                tongPhuPhi += phuPhi;
-                
-                String tenPhong = ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?";
-                ChiTietHoaDon cthdPhong = new ChiTietHoaDon();
-                cthdPhong.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
-                cthdPhong.setHoaDon(hd);
-                cthdPhong.setLoaiChiTiet(LoaiChiTietHoaDon.PHONG);
-                cthdPhong.setSoLuong((int) soNgay);
-                cthdPhong.setDonGia(donGia);
-                cthdPhong.setNoiDung("Phòng " + tenPhong + " (" + soNgay + " đêm)");
-                cthdPhong.setThanhTien(tienPhong);
-                pendingCTHD.add(cthdPhong);
-
+                // 2. Phụ phí
+                double phuPhi = calc.tinhPhuPhi(ct, ngayNhan, ngayTra) + ct.getPhuPhiPhatSinh();
                 if (phuPhi > 0) {
-                    ChiTietHoaDon cthdPhuPhi = new ChiTietHoaDon();
-                    cthdPhuPhi.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
-                    cthdPhuPhi.setHoaDon(hd);
-                    cthdPhuPhi.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
-                    cthdPhuPhi.setSoLuong(1);
-                    cthdPhuPhi.setDonGia(phuPhi);
-                    cthdPhuPhi.setNoiDung("Phụ phí phòng " + tenPhong);
-                    cthdPhuPhi.setThanhTien(phuPhi);
-                    pendingCTHD.add(cthdPhuPhi);
+                    tongPhuPhi += phuPhi;
+                    ChiTietHoaDon ctPhu = new ChiTietHoaDon();
+                    ctPhu.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    ctPhu.setHoaDon(hd);
+                    ctPhu.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                    ctPhu.setNoiDung("Phụ phí P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?"));
+                    ctPhu.setSoLuong(1);
+                    ctPhu.setDonGia(phuPhi);
+                    ctPhu.setThanhTien(phuPhi);
+                    pendingItems.add(ctPhu);
                 }
 
-                List<SuDungDichVu> dsDv = sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet());
-                for (SuDungDichVu sddv : dsDv) {
-                    double tienDV = sddv.getDonGiaLuu() * sddv.getSoLuong();
-                    tongTienDichVu += tienDV;
-                    ChiTietHoaDon cthdDV = new ChiTietHoaDon();
-                    cthdDV.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
-                    cthdDV.setHoaDon(hd);
-                    cthdDV.setLoaiChiTiet(LoaiChiTietHoaDon.DICH_VU);
-                    cthdDV.setSoLuong(sddv.getSoLuong());
-                    cthdDV.setDonGia(sddv.getDonGiaLuu());
-                    cthdDV.setNoiDung("[P." + tenPhong + "] " + (sddv.getDichVu() != null ? sddv.getDichVu().getTenDV() : "Dịch vụ"));
-                    cthdDV.setThanhTien(tienDV);
-                    pendingCTHD.add(cthdDV);
+                // 3. Dịch vụ
+                List<SuDungDichVu> dsDV = sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet());
+                for (SuDungDichVu s : dsDV) {
+                    double t = s.getDonGiaLuu() * s.getSoLuong();
+                    tongDichVu += t;
+                    ChiTietHoaDon ctDV = new ChiTietHoaDon();
+                    ctDV.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    ctDV.setHoaDon(hd);
+                    ctDV.setLoaiChiTiet(LoaiChiTietHoaDon.DICH_VU);
+                    ctDV.setNoiDung("[P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?") + "] " + (s.getDichVu() != null ? s.getDichVu().getTenDV() : "Dịch vụ"));
+                    ctDV.setSoLuong(s.getSoLuong());
+                    ctDV.setDonGia(s.getDonGiaLuu());
+                    ctDV.setThanhTien(t);
+                    pendingItems.add(ctDV);
                 }
+
                 ct.setDaThanhToan(true);
-                if (!ctdpDAO.update(ct)) { dbConn.rollbackTransaction(); return "Lỗi cập nhật chặng!"; }
-                Phong phong = phongDAO.getById(ct.getPhong().getMaPhong());
-                if (phong != null) { phong.setTrangThai(TrangThaiPhong.CLEANING); phongDAO.update(phong); }
+                ct.setNgayTraThucTe(ngayTra);
+                ctdpDAO.update(ct);
+
+                Phong p = ct.getPhong();
+                if (p != null) {
+                    p.setTrangThai(TrangThaiPhong.CLEANING);
+                    p.setTenKhachHienTai(null);
+                    phongDAO.update(p);
+                }
             }
 
             hd.setTongTienPhong(tongTienPhong);
-            hd.setTongTienDichVu(tongTienDichVu + tongPhuPhi);
-            hd.setTienGiamKhuyenMai(0);
-            double tienCocDoan = dp.getTienDatCoc();
-            if (tienCocDoan > 0) {
+            hd.setTongTienDichVu(tongDichVu + tongPhuPhi);
+            
+            double subTotal = tongTienPhong + hd.getTongTienDichVu();
+            
+            KhuyenMai chosenKM = null;
+            String vc = (voucherCode != null && !voucherCode.trim().isEmpty()) 
+                ? voucherCode.trim() 
+                : dp.getMaKhuyenMai();
+
+            LocalDateTime thoiDiemDat = (dp.getNgayDat() != null) ? dp.getNgayDat() : LocalDateTime.now();
+
+            if (vc != null && !vc.trim().isEmpty()) {
+                chosenKM = khuyenMaiDAO.getByVoucherCode(vc.trim());
+                if (chosenKM != null && !chosenKM.kiemTraHopLe(subTotal, thoiDiemDat)) chosenKM = null;
+            }
+
+            double tienGiam = 0;
+            if (chosenKM != null) {
+                hd.setKhuyenMai(chosenKM);
+                tienGiam = chosenKM.tinhSoTienGiam(subTotal);
+            }
+            hd.setTienGiamKhuyenMai(tienGiam);
+
+            double tienCoc = dp.getTienDatCoc();
+            if (tienCoc > 0) {
                 ChiTietHoaDon cthdCoc = new ChiTietHoaDon();
                 cthdCoc.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
                 cthdCoc.setHoaDon(hd);
                 cthdCoc.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                cthdCoc.setNoiDung("Khấu trừ tiền cọc");
                 cthdCoc.setSoLuong(1);
-                cthdCoc.setDonGia(-tienCocDoan);
-                cthdCoc.setNoiDung("Khấu trừ tiền cọc (Đoàn)");
-                cthdCoc.setThanhTien(-tienCocDoan);
-                pendingCTHD.add(cthdCoc);
+                cthdCoc.setDonGia(-tienCoc);
+                cthdCoc.setThanhTien(-tienCoc);
+                pendingItems.add(cthdCoc);
             }
-            hd.setTongThanhToan(tongTienPhong + tongTienDichVu + tongPhuPhi - tienCocDoan);
+
+            hd.setTongThanhToan(subTotal - tienGiam - tienCoc);
             hd.setTrangThai(TrangThaiThanhToan.PAID);
+            hd.setPhuongThucThanhToan("CASH");
 
             if (!hoaDonDAO.insert(hd)) { dbConn.rollbackTransaction(); return "Lỗi tạo hóa đơn!"; }
-            for (ChiTietHoaDon p : pendingCTHD) { if (!cthdDAO.insert(p)) { dbConn.rollbackTransaction(); return "Lỗi lưu chi tiết hóa đơn!"; } }
-            
-            // --- Cập nhật thống kê CRM (Mới bổ sung) ---
+            for (ChiTietHoaDon c : pendingItems) {
+                if (!cthdDAO.insert(c)) { dbConn.rollbackTransaction(); return "Lỗi lưu chi tiết hóa đơn!"; }
+            }
+
+            // CRM Stats update for group representative
             if (dp.getKhachHang() != null) {
                 khachHangDAO.updateCRMStats(dp.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true);
             }
 
             dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
             datPhongDAO.update(dp);
+
             dbConn.commitTransaction();
+            LogService.addLog("Thanh toán đoàn", "Giao dịch", "Mã HD: " + hd.getMaHoaDon() + ", Tổng: " + hd.getTongThanhToan());
             return null;
-        } catch (Exception e) { dbConn.rollbackTransaction(); return "Lỗi hệ thống: " + e.getMessage(); }
+        } catch (Exception e) {
+            dbConn.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi check-out đoàn", e);
+            return "Lỗi hệ thống: " + e.getMessage();
+        }
     }
 
     public List<ChiTietDatPhong> getUnpaidByDatPhong(String ma) { return ctdpDAO.getByDatPhong(ma).stream().filter(c -> !c.isDaThanhToan()).collect(java.util.stream.Collectors.toList()); }
@@ -462,14 +558,36 @@ public class ThuePhongService {
     public ChiTietDatPhong getActiveByPhong(String p) { return ctdpDAO.getActiveStayByPhong(p); }
 
     public String updateRepresentative(String maDP, KhachHang newKh, String room) {
+        if (newKh == null) return "Dữ liệu khách hàng không hợp lệ!";
         try {
             DatPhong dp = datPhongDAO.getById(maDP);
-            if (dp == null) return "Không tìm thấy!";
+            if (dp == null) return "Không tìm thấy thông tin đặt phòng!";
+            
+            // 1. Cập nhật người đại diện chính của đơn đặt phòng (Cả đoàn)
             dp.setKhachHang(newKh);
             datPhongDAO.update(dp);
-            if (room != null) { Phong p = phongDAO.getById(room); if (p != null) { p.setTenKhachHienTai(newKh.getHoTen()); phongDAO.update(p); } }
+            
+            // 2. Nếu có chỉ định phòng, cập nhật người lưu trú thực tế của chặng đó
+            if (room != null) { 
+                // Cập nhật tên hiển thị trên sơ đồ phòng
+                Phong p = phongDAO.getById(room); 
+                if (p != null) { 
+                    p.setTenKhachHienTai(newKh.getHoTen()); 
+                    phongDAO.update(p); 
+                } 
+                
+                // Cập nhật quan trọng: Đồng bộ vào bản ghi lưu trú để Hóa đơn nhận diện đúng người mới
+                ChiTietDatPhong ct = ctdpDAO.getActiveStayByPhong(room);
+                if (ct != null && ct.getDatPhong() != null && ct.getDatPhong().getMaDatPhong().equals(maDP)) {
+                    ct.setKhachHang(newKh);
+                    ctdpDAO.update(ct);
+                }
+            }
             return null;
-        } catch (Exception e) { return e.getMessage(); }
+        } catch (Exception e) { 
+            LOGGER.log(Level.SEVERE, "Lỗi cập nhật người đại diện", e);
+            return "Lỗi hệ thống: " + e.getMessage(); 
+        }
     }
 
     public String transferRoom(String maCT, String maP, boolean keepPrice) {

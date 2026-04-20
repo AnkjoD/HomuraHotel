@@ -913,8 +913,9 @@ public class MainFrame extends JFrame {
                 if (pThuePhong == null) {
                     pThuePhong = new ThuePhongPanel(this);
                     contentArea.add(pThuePhong, key);
-                } else if (refreshData)
-                    pThuePhong.refresh();
+                } else if (refreshData) {
+                    pThuePhong.resetFilters(); 
+                }
                 break;
             case "khachhang":
                 if (pKhachHang == null) {
@@ -1014,7 +1015,10 @@ public class MainFrame extends JFrame {
         // Nếu đang ở màn hình chính, refresh ngay lập tức
         if ("tongquan".equals(activeMenu) && pTongQuan != null) pTongQuan.refresh();
         if ("thongke".equals(activeMenu) && pThongKe != null) pThongKe.refresh();
-        if ("thuephong".equals(activeMenu) && pThuePhong != null) pThuePhong.refresh();
+        if ("thuephong".equals(activeMenu) && pThuePhong != null) {
+            pThuePhong.rebuildFilter();
+            pThuePhong.refreshGrid();
+        }
     }
 
     private void startClock() {

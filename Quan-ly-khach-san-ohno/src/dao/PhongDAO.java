@@ -29,8 +29,8 @@ public class PhongDAO {
             "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
             "(SELECT TOP 1 kh.hoTen " +
             " FROM ChiTietDatPhong ct " +
-            " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
             " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+            " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
             " WHERE ct.maPhong = p.maPhong " +
             "   AND ct.ngayNhanThucTe IS NOT NULL " +
             "   AND ct.ngayTraThucTe IS NULL " +
@@ -47,7 +47,12 @@ public class PhongDAO {
             while (rs.next()) {
                 Phong p = mapRow(rs);
                 try { 
-                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                    String guest = rs.getString("tenKhachHienTai");
+                    if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
+                        p.setTenKhachHienTai(guest);
+                    } else {
+                        p.setTenKhachHienTai(null);
+                    }
                     Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
                     if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
                     Timestamp tsOut = rs.getTimestamp("thoiGianTraDuKien");
@@ -64,8 +69,8 @@ public class PhongDAO {
                      "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
                      "(SELECT TOP 1 kh.hoTen " +
                      " FROM ChiTietDatPhong ct " +
-                     " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
                      " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                     " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
                      " WHERE ct.maPhong = p.maPhong " +
                      "   AND ct.ngayNhanThucTe IS NOT NULL " +
                      "   AND ct.ngayTraThucTe IS NULL " +
@@ -83,7 +88,12 @@ public class PhongDAO {
             if (rs.next()) {
                 Phong p = mapRow(rs);
                 try { 
-                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                    String guest = rs.getString("tenKhachHienTai");
+                    if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
+                        p.setTenKhachHienTai(guest);
+                    } else {
+                        p.setTenKhachHienTai(null);
+                    }
                     Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
                     if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
                     Timestamp tsOut = rs.getTimestamp("thoiGianTraDuKien");
@@ -134,7 +144,8 @@ public class PhongDAO {
             "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
             "(SELECT TOP 1 kh.hoTen " +
             " FROM ChiTietDatPhong ct " +
-            " JOIN KhachHang kh ON ct.maKhachHang = kh.maKhachHang " +
+            " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+            " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
             " WHERE ct.maPhong = p.maPhong " +
             "   AND ct.ngayNhanThucTe IS NOT NULL " +
             "   AND ct.ngayTraThucTe IS NULL " +
@@ -143,7 +154,7 @@ public class PhongDAO {
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
             "WHERE lp.soNguoiToiDa >= ? " +
-            "AND p.trangThai = 'AVAILABLE' " +
+            "AND p.trangThai NOT IN ('DELETED', 'MAINTENANCE') " +
             "AND p.maPhong NOT IN (" +
             "  SELECT ctdp.maPhong FROM ChiTietDatPhong ctdp " +
             "  JOIN DatPhong dp ON ctdp.maDatPhong = dp.maDatPhong " +

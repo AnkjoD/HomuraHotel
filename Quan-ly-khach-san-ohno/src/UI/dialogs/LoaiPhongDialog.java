@@ -172,7 +172,7 @@ public class LoaiPhongDialog extends JDialog {
         section.setBorder(BorderFactory.createEmptyBorder(4, 24, 8, 24));
 
         // Section title
-        JLabel sectionTitle = new JLabel("🏷️ Tiện nghi phòng");
+        JLabel sectionTitle = new JLabel("Tiện nghi phòng");
         sectionTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
         sectionTitle.setForeground(UIConstants.TEXT_PRIMARY);
         sectionTitle.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));

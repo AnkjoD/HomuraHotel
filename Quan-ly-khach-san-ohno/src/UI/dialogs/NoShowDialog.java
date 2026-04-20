@@ -21,7 +21,7 @@ public class NoShowDialog extends JDialog {
     private ModernTextField txtPhiPhat;
 
     public NoShowDialog(Frame parent, String maDatPhong, String tenKhach) {
-        super(parent, "Xác nhận No-show", true);
+        super(parent, "Xác nhận Khách không đến", true);
         this.maDatPhong = maDatPhong;
         this.tenKhach = tenKhach;
 
@@ -41,7 +41,7 @@ public class NoShowDialog extends JDialog {
         header.setPreferredSize(new Dimension(0, 65));
         header.setBorder(new EmptyBorder(0, 25, 0, 25));
 
-        JLabel lblTitle = new JLabel("XÁC NHẬN NO-SHOW");
+        JLabel lblTitle = new JLabel("XÁC NHẬN KHÁCH KHÔNG ĐẾN");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(Color.WHITE);
         header.add(lblTitle, BorderLayout.CENTER);
@@ -81,7 +81,7 @@ public class NoShowDialog extends JDialog {
         main.add(Box.createVerticalStrut(15)); // Giảm bớt khoảng cách
 
         // Input Field
-        JLabel lblInput = new JLabel("Nhập phí phạt no-show (VNĐ):");
+        JLabel lblInput = new JLabel("Nhập phí phạt khách không đến (VNĐ):");
         lblInput.setFont(UIConstants.FONT_BODY);
         lblInput.setForeground(UIConstants.TEXT_SECONDARY);
         main.add(lblInput);
@@ -112,7 +112,7 @@ public class NoShowDialog extends JDialog {
         footer.setBackground(new Color(0xF1F5F9));
         
         RoundedButton btnCancel = new RoundedButton("Hủy bỏ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        RoundedButton btnConfirm = new RoundedButton("Xác nhận No-show", UIConstants.PRIMARY, Color.WHITE);
+        RoundedButton btnConfirm = new RoundedButton("Xác nhận vắng mặt", UIConstants.PRIMARY, Color.WHITE);
         
         btnCancel.addActionListener(e -> dispose());
         btnConfirm.addActionListener(e -> handleConfirm());

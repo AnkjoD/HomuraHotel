@@ -41,7 +41,7 @@ public class ServiceOrderDialog extends JDialog {
         super(parent, "Dịch vụ phòng " + (ctdp.getPhong() != null ? ctdp.getPhong().getSoPhong() : ""), true);
         this.chiTietDatPhong = ctdp;
 
-        setSize(1000, 700);
+        setSize(880, 640);
         setLocationRelativeTo(parent);
         setResizable(false);
         setLayout(new BorderLayout());
@@ -52,22 +52,21 @@ public class ServiceOrderDialog extends JDialog {
     }
 
     private void buildUI() {
-        // --- Top Bar (Search & Title) ---
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(Color.WHITE);
-        topBar.setPreferredSize(new Dimension(0, 70));
+        topBar.setPreferredSize(new Dimension(0, UIConstants.HEADER_HEIGHT));
         topBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
-        topBar.setBorder(BorderFactory.createCompoundBorder(topBar.getBorder(), new EmptyBorder(0, 30, 0, 30)));
+        topBar.setBorder(BorderFactory.createCompoundBorder(topBar.getBorder(), new EmptyBorder(0, 20, 0, 20)));
 
         JLabel lblTitle = new JLabel("Thực đơn Dịch vụ");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitle.setForeground(UIConstants.TEXT_PRIMARY);
         topBar.add(lblTitle, BorderLayout.WEST);
 
-        JPanel searchBox = new JPanel(new BorderLayout(10, 0));
+        JPanel searchBox = new JPanel(new BorderLayout(8, 0));
         searchBox.setOpaque(false);
         txtSearch = new JTextField();
-        txtSearch.setPreferredSize(new Dimension(300, 38));
+        txtSearch.setPreferredSize(new Dimension(220, 36));
         txtSearch.setFont(UIConstants.FONT_BODY);
         txtSearch.putClientProperty("JTextField.placeholderText", "Tìm tên dịch vụ...");
         txtSearch.addKeyListener(new java.awt.event.KeyAdapter() {
@@ -76,7 +75,7 @@ public class ServiceOrderDialog extends JDialog {
         searchBox.add(new JLabel("🔍"), BorderLayout.WEST);
         searchBox.add(txtSearch, BorderLayout.CENTER);
         
-        JPanel searchWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 16));
+        JPanel searchWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 12));
         searchWrapper.setOpaque(false);
         searchWrapper.add(searchBox);
         topBar.add(searchWrapper, BorderLayout.EAST);
@@ -90,7 +89,7 @@ public class ServiceOrderDialog extends JDialog {
         // Left: Service Grid
         JPanel leftPanel = new JPanel(new BorderLayout());
         leftPanel.setOpaque(false);
-        leftPanel.setBorder(new EmptyBorder(25, 30, 25, 20));
+        leftPanel.setBorder(new EmptyBorder(15, 20, 15, 10));
 
         // Category Filter
         categoryContainer = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 10));
@@ -112,13 +111,12 @@ public class ServiceOrderDialog extends JDialog {
         // Right: Modern Sidebar Cart
         JPanel cartPanel = new JPanel(new BorderLayout());
         cartPanel.setBackground(Color.WHITE);
-        cartPanel.setPreferredSize(new Dimension(300, 0));
+        cartPanel.setPreferredSize(new Dimension(260, 0));
         cartPanel.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, UIConstants.BORDER));
 
-        // -- Section: Cart --
         JPanel cartHeader = new JPanel(new BorderLayout());
         cartHeader.setOpaque(false);
-        cartHeader.setBorder(new EmptyBorder(15, 25, 10, 25));
+        cartHeader.setBorder(new EmptyBorder(10, 20, 5, 20));
         JLabel lblCart = new JLabel("Giỏ hàng mới");
         lblCart.setFont(new Font("Segoe UI", Font.BOLD, 15));
         cartHeader.add(lblCart, BorderLayout.WEST);
@@ -135,10 +133,9 @@ public class ServiceOrderDialog extends JDialog {
         cartPanel.add(cartHeader, BorderLayout.NORTH);
         cartPanel.add(scrollSidebar, BorderLayout.CENTER);
 
-        // Cart Footer
-        JPanel cartFooter = new JPanel(new BorderLayout(0, 15));
+        JPanel cartFooter = new JPanel(new BorderLayout(0, 12));
         cartFooter.setBackground(Color.WHITE);
-        cartFooter.setBorder(new EmptyBorder(20, 25, 25, 25));
+        cartFooter.setBorder(new EmptyBorder(10, 20, 15, 20));
         
         JPanel totalBox = new JPanel(new BorderLayout());
         totalBox.setOpaque(false);
@@ -153,7 +150,7 @@ public class ServiceOrderDialog extends JDialog {
         
         RoundedButton btnCheckout = new RoundedButton("XÁC NHẬN GHI DỊCH VỤ", UIConstants.PRIMARY, Color.WHITE);
         btnCheckout.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnCheckout.setPreferredSize(new Dimension(0, 52));
+        btnCheckout.setPreferredSize(new Dimension(0, 48));
         btnCheckout.addActionListener(e -> saveAll());
 
         cartFooter.add(totalBox, BorderLayout.NORTH);
@@ -334,8 +331,8 @@ public class ServiceOrderDialog extends JDialog {
         private final DichVu dv;
         public ServiceCard(DichVu dv) {
             this.dv = dv;
-            setLayout(new BorderLayout(0, 8));
-            setPreferredSize(new Dimension(210, 150));
+            setLayout(new BorderLayout(0, 6));
+            setPreferredSize(new Dimension(185, 135));
             setBackground(Color.WHITE);
             setBorder(new EmptyBorder(12, 12, 12, 12));
             
@@ -345,7 +342,7 @@ public class ServiceOrderDialog extends JDialog {
             icon.setOpaque(true);
             icon.setBackground(new Color(0xEFF6FF));
             icon.setForeground(UIConstants.PRIMARY);
-            icon.setPreferredSize(new Dimension(38, 38));
+            icon.setPreferredSize(new Dimension(34, 34));
             icon.setBorder(BorderFactory.createLineBorder(new Color(0xDBEAFE)));
             
             JPanel top = new JPanel(new BorderLayout());
@@ -392,9 +389,9 @@ public class ServiceOrderDialog extends JDialog {
     // --- Inner Component: Cart Item Row ---
     class CartItemRow extends JPanel {
         public CartItemRow(SuDungDichVu s) {
-            setLayout(new BorderLayout(10, 0));
+            setLayout(new BorderLayout(8, 0));
             setBackground(Color.WHITE);
-            setBorder(new EmptyBorder(8, 25, 8, 15));
+            setBorder(new EmptyBorder(6, 20, 6, 12));
             setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
 
             JPanel leftContent = new JPanel(new BorderLayout());

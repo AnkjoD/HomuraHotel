@@ -16,6 +16,7 @@ public class KhuyenMai {
     private int soLuong = 999;
     private int daDung = 0;
     private double dieuKienToiThieu = 0;
+    private double giaTriGiamToiDa = 0; // Cap for PERCENT discount type
 
     public KhuyenMai() {}
 
@@ -28,26 +29,37 @@ public class KhuyenMai {
         this.ngayKetThuc = ngayKetThuc;
     }
 
-    /**
-     * Kiểm tra khuyến mãi có thể áp dụng cho hóa đơn này không.
-     * @param tongBill Tổng tiền hóa đơn (trước giảm giá)
-     * @return true nếu hợp lệ
-     */
     public boolean kiemTraHopLe(double tongBill) {
-        LocalDateTime now = LocalDateTime.now();
+        return kiemTraHopLe(tongBill, LocalDateTime.now());
+    }
+
+    /**
+     * Overload dùng thời điểm đặt phòng để validate (Trường phái 1).
+     * @param tongBill Tổng tiền bill
+     * @param thoiDiemDat Thời điểm ghi nhận booking
+     * @return true nếu hợp lệ tại thời điểm đó
+     */
+    public boolean kiemTraHopLe(double tongBill, LocalDateTime thoiDiemDat) {
         if (!trangThai) return false;
-        if (now.isBefore(ngayBatDau) || now.isAfter(ngayKetThuc)) return false;
+        if (thoiDiemDat == null) thoiDiemDat = LocalDateTime.now();
+        
+        if (thoiDiemDat.isBefore(ngayBatDau) || thoiDiemDat.isAfter(ngayKetThuc)) return false;
         if (daDung >= soLuong) return false;
         if (tongBill < dieuKienToiThieu) return false;
         return true;
     }
 
     public double tinhSoTienGiam(double tongTien) {
+        double soTienGiam = 0;
         if (loaiGiam == LoaiGiam.PERCENT) {
-            return tongTien * (giaTriGiam / 100.0);
+            soTienGiam = tongTien * (giaTriGiam / 100.0);
+            if (giaTriGiamToiDa > 0) {
+                soTienGiam = Math.min(soTienGiam, giaTriGiamToiDa);
+            }
         } else {
-            return Math.min(tongTien, giaTriGiam);
+            soTienGiam = Math.min(tongTien, giaTriGiam);
         }
+        return soTienGiam;
     }
 
     // Getters and Setters
@@ -84,4 +96,7 @@ public class KhuyenMai {
 
     public double getDieuKienToiThieu() { return dieuKienToiThieu; }
     public void setDieuKienToiThieu(double dieuKienToiThieu) { this.dieuKienToiThieu = dieuKienToiThieu; }
+
+    public double getGiaTriGiamToiDa() { return giaTriGiamToiDa; }
+    public void setGiaTriGiamToiDa(double giaTriGiamToiDa) { this.giaTriGiamToiDa = giaTriGiamToiDa; }
 }

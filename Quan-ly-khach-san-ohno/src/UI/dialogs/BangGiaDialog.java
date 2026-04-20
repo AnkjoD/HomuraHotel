@@ -62,11 +62,11 @@ public class BangGiaDialog extends JDialog {
                 g2.dispose();
             }
         };
-        header.setPreferredSize(new Dimension(0, 70));
-        header.setBorder(BorderFactory.createEmptyBorder(16, 24, 16, 24));
+        header.setPreferredSize(new Dimension(0, 90));
+        header.setBorder(BorderFactory.createEmptyBorder(18, 24, 18, 24));
 
-        JLabel title = new JLabel(entity == null ? "✨ Thêm Rate Plan mới" : "📝 Chỉnh sửa Rate Plan");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        JLabel title = new JLabel(entity == null ? "Thêm Rate Plan mới" : "Chỉnh sửa Rate Plan");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(Color.WHITE);
 
         JLabel subtitle = new JLabel(entity == null
@@ -105,11 +105,11 @@ public class BangGiaDialog extends JDialog {
                 super.getListCellRendererComponent(list, value, index, sel, focus);
                 if (value != null) {
                     switch (value.toString()) {
-                        case "RACK": setText("📋 Rack Rate (Giá gốc)"); break;
-                        case "SEASONAL": setText("🌴 Giá theo mùa"); break;
-                        case "CORPORATE": setText("🏢 Giá doanh nghiệp"); break;
-                        case "OTA": setText("🌐 Giá OTA"); break;
-                        case "PROMOTION": setText("🎉 Khuyến mãi"); break;
+                        case "RACK": setText("Rack Rate (Giá gốc)"); break;
+                        case "SEASONAL": setText("Giá theo mùa"); break;
+                        case "CORPORATE": setText("Giá doanh nghiệp"); break;
+                        case "OTA": setText("Giá OTA"); break;
+                        case "PROMOTION": setText("Khuyến mãi"); break;
                     }
                 }
                 return this;
@@ -232,7 +232,7 @@ public class BangGiaDialog extends JDialog {
         scrollTable.setPreferredSize(new Dimension(0, 200));
 
         JLabel hintLbl = new JLabel(
-                "<html>💡 <b>Giá cơ sở</b> từ Loại phòng. <b>Giá cuối tuần</b> áp dụng T7-CN. Để trống = dùng giá cơ sở. <b>Mức ưu tiên</b>: số nhỏ = ưu tiên cao hơn.</html>");
+                "<html><b>Giá cơ sở</b> từ Loại phòng. <b>Giá cuối tuần</b> áp dụng T7-CN. Để trống = dùng giá cơ sở. <b>Mức ưu tiên</b>: số nhỏ = ưu tiên cao hơn.</html>");
         hintLbl.setFont(UIConstants.FONT_SMALL);
         hintLbl.setForeground(UIConstants.TEXT_SECONDARY);
 

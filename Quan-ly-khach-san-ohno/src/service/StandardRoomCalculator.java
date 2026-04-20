@@ -52,30 +52,33 @@ public class StandardRoomCalculator implements ITinhTienPhong {
         
         BangGiaService bangGiaService = new BangGiaService();
         String maLoaiPhong = ctdp.getPhong().getLoaiPhong() != null ? ctdp.getPhong().getLoaiPhong().getMaLoaiPhong() : "";
-        double defaultPhuPhi = bangGiaService.layPhuPhiTraTre(maLoaiPhong);
-        
-        if (defaultPhuPhi <= 0) defaultPhuPhi = 50000; // Fallback an toàn nếu chưa cấu hình
+        double donGia = bangGiaService.layGiaHienHanh(maLoaiPhong);
+        if (donGia <= 0) donGia = ctdp.getGiaThucTeChot() > 0 ? ctdp.getGiaThucTeChot() : ctdp.getPhong().getGiaTheoNgay();
 
         BigDecimal phuPhi = BigDecimal.ZERO;
-        BigDecimal bdPhuPhiDefault = BigDecimal.valueOf(defaultPhuPhi);
+        BigDecimal bdDonGia = BigDecimal.valueOf(donGia);
         
-        // Phụ phí nhận phòng sớm (trước 14:00)
+        // --- PHỤ PHÍ NHẬN PHÒNG SỚM (EARLY CHECK-IN) ---
+        // Chính sách: <05h (100%), <09h (50%), <12h (30%)
         if (gioNhan.getHour() < 14) {
-            if (gioNhan.getHour() < 6) {
-                phuPhi = phuPhi.add(bdPhuPhiDefault.multiply(BigDecimal.valueOf(2))); // Nhận quá sớm (trước 6h)
+            if (gioNhan.getHour() < 5) {
+                phuPhi = phuPhi.add(bdDonGia); // 100%
+            } else if (gioNhan.getHour() < 9) {
+                phuPhi = phuPhi.add(bdDonGia.multiply(BigDecimal.valueOf(0.5))); // 50%
             } else if (gioNhan.getHour() < 12) {
-                phuPhi = phuPhi.add(bdPhuPhiDefault);  // Nhận sớm (6h-12h)
+                phuPhi = phuPhi.add(bdDonGia.multiply(BigDecimal.valueOf(0.3))); // 30%
             }
         }
         
-        // Phụ phí trả phòng trễ (sau 12:00)
+        // --- PHỤ PHÍ TRẢ PHÒNG TRỄ (LATE CHECK-OUT) ---
+        // Chính sách: >13h (30%), >15h (50%), >18h (100%)
         if (gioTra.getHour() > 12) {
-            if (gioTra.getHour() > 18) {
-                phuPhi = phuPhi.add(bdPhuPhiDefault.multiply(BigDecimal.valueOf(3))); // Trả rất trễ (sau 18h)
-            } else if (gioTra.getHour() > 15) {
-                phuPhi = phuPhi.add(bdPhuPhiDefault.multiply(BigDecimal.valueOf(2))); // Trả trễ (15h-18h)
-            } else if (gioTra.getHour() > 13) {
-                phuPhi = phuPhi.add(bdPhuPhiDefault);  // Trả hơi trễ (13h-15h)
+            if (gioTra.getHour() >= 18) {
+                phuPhi = phuPhi.add(bdDonGia); // 100%
+            } else if (gioTra.getHour() >= 15) {
+                phuPhi = phuPhi.add(bdDonGia.multiply(BigDecimal.valueOf(0.5))); // 50%
+            } else if (gioTra.getHour() >= 13) {
+                phuPhi = phuPhi.add(bdDonGia.multiply(BigDecimal.valueOf(0.3))); // 30%
             }
         }
         

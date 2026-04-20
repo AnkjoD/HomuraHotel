@@ -128,7 +128,7 @@ public class KhachHangDAO {
     }
 
     private boolean insertLegacy(KhachHang kh) {
-        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, isKichHoat) VALUES(?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, trangThai) VALUES(?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getMaKhachHang());
             ps.setString(2, kh.getHoTen());

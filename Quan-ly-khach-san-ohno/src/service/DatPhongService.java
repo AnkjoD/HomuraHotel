@@ -20,6 +20,7 @@ public class DatPhongService {
     private final ChiTietHoaDonDAO   cthdDAO     = new ChiTietHoaDonDAO();
     private final NhanVienDAO        nhanVienDAO = new NhanVienDAO();
     private final SuDungDichVuDAO    sddvDAO     = new SuDungDichVuDAO();
+    private final KhuyenMaiDAO       khuyenMaiDAO = new KhuyenMaiDAO();
 
     public List<DatPhong> getAll()               { return datPhongDAO.getAll(); }
     public DatPhong getById(String id)           { return datPhongDAO.getById(id); }
@@ -66,6 +67,16 @@ public class DatPhongService {
         
         boolean ok = datPhongDAO.insert(dp);
         if (!ok) return "Lỗi đặt phòng!";
+        
+        // Update Voucher Quota if present
+        if (dp.getMaKhuyenMai() != null && !dp.getMaKhuyenMai().isEmpty()) {
+            KhuyenMai km = khuyenMaiDAO.getByVoucherCode(dp.getMaKhuyenMai());
+            if (km != null) {
+                km.setDaDung(km.getDaDung() + 1);
+                khuyenMaiDAO.update(km);
+                LogService.addLog("Áp dụng Voucher", "Khuyến mãi", "Voucher " + km.getMaKhuyenMai() + " được dành cho ĐP " + dp.getMaDatPhong());
+            }
+        }
         
         // Insert ChiTietDatPhong for each room in the booking
         if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
@@ -177,6 +188,15 @@ public class DatPhongService {
             dp.setGhiChu((dp.getGhiChu() != null ? dp.getGhiChu() + " | " : "") + "Hủy: " + lyDo + " (Phạt: " + String.format("%,.0fđ", phiPhat) + ")");
             
             if (datPhongDAO.update(dp)) {
+                // Release Voucher Quota if present
+                if (dp.getMaKhuyenMai() != null && !dp.getMaKhuyenMai().isEmpty()) {
+                    KhuyenMai km = khuyenMaiDAO.getByVoucherCode(dp.getMaKhuyenMai());
+                    if (km != null && km.getDaDung() > 0) {
+                        km.setDaDung(km.getDaDung() - 1);
+                        khuyenMaiDAO.update(km);
+                        LogService.addLog("Hoàn voucher", "Khuyến mãi", "Hoàn lại 1 lượt dùng mã " + km.getMaKhuyenMai() + " do hủy đơn " + maDatPhong);
+                    }
+                }
                 db.commitTransaction();
                 LogService.addLog("Hủy đặt phòng", "Nghiệp vụ", "Hủy đơn " + maDatPhong + " kèm phạt " + phiPhat);
                 return null;
@@ -306,7 +326,7 @@ public class DatPhongService {
                 ChiTietHoaDon cthd = new ChiTietHoaDon();
                 cthd.setHoaDon(hd);
                 cthd.setLoaiChiTiet(entity.enums.LoaiChiTietHoaDon.DICH_VU);
-                cthd.setNoiDung("Phí phạt No-show (Khấu trừ toàn bộ tiền cọc)");
+                cthd.setNoiDung("Phí phạt Khách không đến (Khấu trừ từ tiền cọc)");
                 cthd.setSoLuong(1);
                 cthd.setDonGia(penalty);
                 cthd.setThanhTien(penalty);
@@ -321,7 +341,7 @@ public class DatPhongService {
             dp.setTrangThai(entity.enums.TrangThaiDatPhong.NO_SHOW);
             dp.setPhiNoShow(penalty);
             dp.setGhiChu((dp.getGhiChu() != null ? dp.getGhiChu() + " | " : "") + 
-                         "No-show: KH không đến. Phạt: " + String.format("%,.0fđ", penalty));
+                         "Khách không đến (No-show). Phạt: " + String.format("%,.0f đ", penalty));
             
             if (!datPhongDAO.update(dp)) {
                 db.rollbackTransaction();

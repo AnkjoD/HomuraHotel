@@ -70,7 +70,7 @@ public class KhuyenMaiDAO {
     }
 
     public boolean insert(KhuyenMai km) {
-        String sql = "INSERT INTO KhuyenMai(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu) VALUES(?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhuyenMai(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu, giaTriGiamToiDa) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getMaKhuyenMai());
             ps.setString(2, km.getTenKhuyenMai());
@@ -82,12 +82,13 @@ public class KhuyenMaiDAO {
             ps.setInt(8, km.getSoLuong());
             ps.setInt(9, km.getDaDung());
             ps.setDouble(10, km.getDieuKienToiThieu());
+            ps.setDouble(11, km.getGiaTriGiamToiDa());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Insert error", e); return false; }
     }
 
     public boolean update(KhuyenMai km) {
-        String sql = "UPDATE KhuyenMai SET tenKM=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=? WHERE maKM=?";
+        String sql = "UPDATE KhuyenMai SET tenKM=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=?, giaTriGiamToiDa=? WHERE maKM=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getTenKhuyenMai());
             ps.setString(2, km.getLoaiGiam().name());
@@ -98,7 +99,8 @@ public class KhuyenMaiDAO {
             ps.setInt(7, km.getSoLuong());
             ps.setInt(8, km.getDaDung());
             ps.setDouble(9, km.getDieuKienToiThieu());
-            ps.setString(10, km.getMaKhuyenMai());
+            ps.setDouble(10, km.getGiaTriGiamToiDa());
+            ps.setString(11, km.getMaKhuyenMai());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Update error", e); return false; }
     }
@@ -132,6 +134,11 @@ public class KhuyenMaiDAO {
         km.setSoLuong(rs.getInt("soLuong"));
         km.setDaDung(rs.getInt("daDung"));
         km.setDieuKienToiThieu(rs.getDouble("dieuKienToiThieu"));
+        try {
+            km.setGiaTriGiamToiDa(rs.getDouble("giaTriGiamToiDa"));
+        } catch (SQLException ignored) {
+            km.setGiaTriGiamToiDa(0);
+        }
         
         return km;
     }

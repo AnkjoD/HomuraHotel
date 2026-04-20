@@ -63,6 +63,7 @@ public class CheckinDialog extends JDialog {
     private ModernTextField txtVoucher;
     private double discountAmount = 0;
     private String voucherDescription = "";
+    private String inheritedVoucherCode = null;
 
     private String truncate(String text, int max) {
         if (text == null)
@@ -74,34 +75,41 @@ public class CheckinDialog extends JDialog {
     private RoundedButton btnBack, btnNext;
 
     public CheckinDialog(Frame parent, Phong phong) {
-        super(parent,
-                "Nhan phong (Check-in)" + (phong != null ? " - P." + phong.getSoPhong() : ""),
-                true);
-        this.selectedPhong = phong;
-        setSize(660, 620);
-        setLocationRelativeTo(parent);
-        setResizable(false);
-        getContentPane().setBackground(Color.WHITE);
-        buildUI();
+        this(parent, phong, null, null);
     }
 
     public CheckinDialog(Frame parent, Phong phong, KhachHang kh, DatPhong dp) {
-        this(parent, phong);
+        super(parent,
+                "Nhận phòng (Check-in)" + (phong != null ? " - P." + phong.getSoPhong() : ""),
+                true);
+        this.selectedPhong = phong;
         this.selectedKhach = kh;
         this.selectedDatPhong = dp;
 
+        setSize(640, 700);
+        setLocationRelativeTo(parent);
+        setResizable(false);
+        getContentPane().setBackground(Color.WHITE);
+
+        // Pre-fill data if available
         if (kh != null) {
-            if (txtTenKH != null)
-                txtTenKH.setText(kh.getHoTen());
-            if (txtSDT != null)
-                txtSDT.setText(kh.getSoDienThoai());
-            if (txtCCCD != null)
-                txtCCCD.setText(kh.getCccd());
-            if (kh.getEmail() != null)
-                txtEmail.setText(kh.getEmail());
-            if (kh.getQuocTich() != null && cboQuocTich != null)
-                cboQuocTich.setSelectedItem(kh.getQuocTich());
+            this.selectedKhach = kh;
         }
+        
+        if (dp != null) {
+            if (this.selectedKhach == null && dp.getKhachHang() != null) {
+                this.selectedKhach = dp.getKhachHang();
+            }
+            // Inherit voucher code EARLY so buildUI can use it
+            if (dp.getMaKhuyenMai() != null && !dp.getMaKhuyenMai().isBlank()) {
+                this.inheritedVoucherCode = dp.getMaKhuyenMai();
+            }
+        }
+
+        // NOW build the UI with full data knowledge
+        buildUI();
+
+        // Final UI updates (like date pickers) that need components to exist
         if (dp != null) {
             if (pickerNgayNhan != null)
                 pickerNgayNhan.setDate(dp.getNgayNhanDK_Date() != null ? dp.getNgayNhanDK_Date() : new Date());
@@ -110,6 +118,15 @@ public class CheckinDialog extends JDialog {
                         : new Date(System.currentTimeMillis() + 86_400_000L));
             if (spnSoKhach != null)
                 spnSoKhach.setValue(dp.getSoLuongKhach() > 0 ? dp.getSoLuongKhach() : 1);
+            
+            // Sync text fields if they were created during buildUI
+            if (selectedKhach != null) {
+                if (txtTenKH != null) txtTenKH.setText(selectedKhach.getHoTen());
+                if (txtSDT != null) txtSDT.setText(selectedKhach.getSoDienThoai());
+                if (txtCCCD != null) txtCCCD.setText(selectedKhach.getCccd());
+                if (txtEmail != null && selectedKhach.getEmail() != null) txtEmail.setText(selectedKhach.getEmail());
+                if (cboQuocTich != null && selectedKhach.getQuocTich() != null) cboQuocTich.setSelectedItem(selectedKhach.getQuocTich());
+            }
         }
     }
 
@@ -141,16 +158,16 @@ public class CheckinDialog extends JDialog {
         JPanel titlePanel = new JPanel();
         titlePanel.setOpaque(false);
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        JLabel lblTitle = new JLabel("Nhan phong - Check-in");
+        JLabel lblTitle = new JLabel("Nhận phòng - Check-in");
         lblTitle.setFont(UIConstants.FONT_TITLE);
         String info = selectedPhong != null
                 ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
                         + " - "
-                        + String.format("%,.0fd/dem",
+                        + String.format("%,.0fđ/đêm",
                                 (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null
                                         ? selectedPhong.getLoaiPhong().getMaLoaiPhong()
                                         : ""))
-                : "Chon phong de bat dau";
+                : "Chọn phòng để bắt đầu";
         lblInfo = new JLabel(info);
         lblInfo.setFont(UIConstants.FONT_BODY);
         lblInfo.setForeground(UIConstants.TEXT_SECONDARY);
@@ -164,7 +181,7 @@ public class CheckinDialog extends JDialog {
     }
 
     private JPanel buildStepper() {
-        String[] names = { "Phong", "Khach hang", "Ngay & Gio", "Dich vu", "Xac nhan" };
+        String[] names = { "Phòng", "Khách hàng", "Ngày & Giờ", "Dịch vụ", "Xác nhận" };
         JPanel stepper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 8));
         stepper.setOpaque(false);
 
@@ -238,9 +255,9 @@ public class CheckinDialog extends JDialog {
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
 
-        JLabel title = new JLabel("Thong tin phong");
+        JLabel title = new JLabel("Thông tin phòng");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel sub = new JLabel("Xac nhan phong truoc khi tien hanh check-in");
+        JLabel sub = new JLabel("Xác nhận phòng trước khi tiến hành check-in");
         sub.setFont(UIConstants.FONT_SMALL);
         sub.setForeground(UIConstants.TEXT_MUTED);
 
@@ -284,7 +301,7 @@ public class CheckinDialog extends JDialog {
 
             JPanel selectRow = new JPanel(new BorderLayout(6, 0));
             selectRow.setOpaque(false);
-            selectRow.add(new JLabel("Chon phong:"), BorderLayout.WEST);
+            selectRow.add(new JLabel("Chọn phòng:"), BorderLayout.WEST);
             selectRow.add(cboPhong, BorderLayout.CENTER);
             JPanel filling = new JPanel();
             filling.setOpaque(false);
@@ -295,15 +312,15 @@ public class CheckinDialog extends JDialog {
         }
 
         if (selectedPhong != null) {
-            JLabel num = new JLabel("Phong " + selectedPhong.getSoPhong());
+            JLabel num = new JLabel("Phòng " + selectedPhong.getSoPhong());
             num.setFont(new Font("Segoe UI", Font.BOLD, 20));
-            JLabel type = new JLabel(selectedPhong.getTenLoaiPhong() + " - Tang " + selectedPhong.getTang() + " - "
-                    + selectedPhong.getSucChua() + " nguoi");
+            JLabel type = new JLabel(selectedPhong.getTenLoaiPhong() + " - Tầng " + selectedPhong.getTang() + " - "
+                    + selectedPhong.getSucChua() + " người");
             type.setFont(UIConstants.FONT_BODY);
             type.setForeground(UIConstants.TEXT_SECONDARY);
             double giaHH = bangGiaService.layGiaHienHanh(
                     selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
-            JLabel price = new JLabel(String.format("%,.0f d / dem", giaHH));
+            JLabel price = new JLabel(String.format("%,.0fđ / đêm", giaHH));
             price.setFont(new Font("Segoe UI", Font.BOLD, 15));
             price.setForeground(UIConstants.PRIMARY);
             JLabel view = new JLabel("View: " + selectedPhong.getView());
@@ -331,15 +348,15 @@ public class CheckinDialog extends JDialog {
         checklist.setOpaque(false);
         checklist.setLayout(new BoxLayout(checklist, BoxLayout.Y_AXIS));
         checklist.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel lblChk = new JLabel("KIEM TRA TRUOC KHI NHAN KHACH");
+        JLabel lblChk = new JLabel("KIỂM TRA TRƯỚC KHI NHẬN KHÁCH");
         lblChk.setFont(UIConstants.FONT_SMALL_BOLD);
         lblChk.setForeground(UIConstants.TEXT_SECONDARY);
         lblChk.setAlignmentX(Component.LEFT_ALIGNMENT);
         checklist.add(Box.createVerticalStrut(12));
         checklist.add(lblChk);
         checklist.add(Box.createVerticalStrut(6));
-        for (String c : new String[] { "Phong sach se, ve sinh day du", "Dieu hoa, TV, den hoat dong binh thuong",
-                "Minibar day du", "Khan tam, ga giuong da thay moi" }) {
+        for (String c : new String[] { "Phòng sạch sẽ, vệ sinh đầy đủ", "Điều hòa, TV, đèn hoạt động bình thường",
+                "Minibar đầy đủ", "Khăn tắm, ga giường đã thay mới" }) {
             JCheckBox cb = new JCheckBox(c);
             cb.setFont(UIConstants.FONT_BODY);
             cb.setOpaque(false);
@@ -377,7 +394,7 @@ public class CheckinDialog extends JDialog {
         JPanel hdr = new JPanel();
         hdr.setOpaque(false);
         hdr.setLayout(new BoxLayout(hdr, BoxLayout.Y_AXIS));
-        JLabel title = new JLabel("Thống tin khách hàng");
+        JLabel title = new JLabel("Thông tin khách hàng");
         title.setFont(UIConstants.FONT_HEADER);
         JLabel sub = new JLabel("Nhập CCCD/Passport để tìm khách cũ, hoặc điền thông tin khách mới");
         sub.setFont(UIConstants.FONT_SMALL);
@@ -585,34 +602,57 @@ public class CheckinDialog extends JDialog {
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
 
-        JLabel title = new JLabel("Ngay & Gio luu tru");
+        JLabel title = new JLabel("Ngày & Giờ lưu trú");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel sub = new JLabel("Nhan vao o ngay de mo lich chon");
+        JLabel sub = new JLabel("Nhấn vào ô ngày để mở lịch chọn");
         sub.setFont(UIConstants.FONT_SMALL);
         sub.setForeground(UIConstants.TEXT_MUTED);
 
-        pickerNgayNhan = new DateTimePicker(selectedDatPhong != null && selectedDatPhong.getNgayNhanDK_Date() != null
-                ? selectedDatPhong.getNgayNhanDK_Date()
-                : new Date());
-        pickerNgayTra = new DateTimePicker(selectedDatPhong != null && selectedDatPhong.getNgayTraDK_Date() != null
-                ? selectedDatPhong.getNgayTraDK_Date()
-                : new Date(System.currentTimeMillis() + 86_400_000L));
+        // Thiết lập thời gian mặc định theo chuẩn khách sạn (Check-in 14:00, Check-out 12:00)
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        
+        // Ngày nhận: 14:00 hôm nay
+        if (selectedDatPhong != null && selectedDatPhong.getNgayNhanDK_Date() != null) {
+            pickerNgayNhan = new DateTimePicker(selectedDatPhong.getNgayNhanDK_Date());
+        } else {
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 14);
+            cal.set(java.util.Calendar.MINUTE, 0);
+            cal.set(java.util.Calendar.SECOND, 0);
+            pickerNgayNhan = new DateTimePicker(cal.getTime());
+        }
 
-        // Sức chứa tiêu chuẩn + 2 người (giường phụ/nệm) = tối đa tuyệt đối
+        // Ngày trả: 12:00 ngày mai
+        if (selectedDatPhong != null && selectedDatPhong.getNgayTraDK_Date() != null) {
+            pickerNgayTra = new DateTimePicker(selectedDatPhong.getNgayTraDK_Date());
+        } else {
+            cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
+            cal.set(java.util.Calendar.MINUTE, 0);
+            cal.set(java.util.Calendar.SECOND, 0);
+            pickerNgayTra = new DateTimePicker(cal.getTime());
+        }
+
+        // Sức chứa tiêu chuẩn + 2 người = tối đa tuyệt đối
         int maxPax = selectedPhong != null ? selectedPhong.getSucChua() + 2 : 10;
         int initVal = selectedDatPhong != null && selectedDatPhong.getSoKhach() > 0
                 ? Math.min(selectedDatPhong.getSoKhach(), maxPax)
                 : 1;
-        spnSoKhach = new JSpinner(new SpinnerNumberModel(initVal, 1, maxPax, 1));
-        spnSoKhach.setFont(UIConstants.FONT_BODY);
+
+        spnSoKhach = new ModernSpinner(new SpinnerNumberModel(initVal, 1, maxPax, 1));
+        spnSoKhach.setPreferredSize(new Dimension(80, 40));
         spnSoKhach.setToolTipText("Sức chứa tiêu chuẩn: " + (selectedPhong != null ? selectedPhong.getSucChua() : "?")
-                + " | Tối đa cho phép: " + maxPax);
+                + " | Tối đa cho phép: " + maxPax + " người");
+
+        // Wrapper để Spinner không bị giãn ngang
+        JPanel spnWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        spnWrapper.setOpaque(false);
+        spnWrapper.add(spnSoKhach);
 
         JPanel fields = new JPanel(new GridLayout(3, 1, 0, 14));
         fields.setOpaque(false);
-        fields.add(fieldRow("Ngay & gio nhan phong *", pickerNgayNhan));
-        fields.add(fieldRow("Ngay & gio tra (du kien) *", pickerNgayTra));
-        fields.add(fieldRow("So khach", spnSoKhach));
+        fields.add(fieldRow("Ngày & giờ nhận phòng *", pickerNgayNhan));
+        fields.add(fieldRow("Ngày & giờ trả (dự kiến) *", pickerNgayTra));
+        fields.add(fieldRow("Số khách", spnWrapper));
 
         JPanel content = new JPanel();
         content.setOpaque(false);
@@ -641,7 +681,7 @@ public class CheckinDialog extends JDialog {
         JPanel catalogPanel = new JPanel(new BorderLayout(0, 10));
         catalogPanel.setOpaque(false);
 
-        JLabel lblTitle = new JLabel("Danh muc dich vu");
+        JLabel lblTitle = new JLabel("Danh mục dịch vụ");
         lblTitle.setFont(UIConstants.FONT_HEADER);
         catalogPanel.add(lblTitle, BorderLayout.NORTH);
 
@@ -723,7 +763,7 @@ public class CheckinDialog extends JDialog {
         lblName.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblName.setForeground(new Color(0x1A202C));
 
-        JLabel lblPrice = new JLabel(String.format("%,.0fd", dv.getDonGia()));
+        JLabel lblPrice = new JLabel(String.format("%,.0fđ", dv.getDonGia()));
         lblPrice.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPrice.setForeground(UIConstants.SUCCESS);
 
@@ -733,7 +773,7 @@ public class CheckinDialog extends JDialog {
         info.add(lblPrice);
 
         // Add Button
-        JButton btnAdd = new JButton("Them");
+        JButton btnAdd = new JButton("Thêm");
         btnAdd.setFont(UIConstants.FONT_SMALL_BOLD);
         btnAdd.setBackground(UIConstants.PRIMARY);
         btnAdd.setForeground(Color.WHITE);
@@ -910,18 +950,23 @@ public class CheckinDialog extends JDialog {
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
 
-        JLabel title = new JLabel("Xac nhan nhan phong");
+        JLabel title = new JLabel("Xác nhận nhận phòng");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel sub = new JLabel("Kiem tra lai thong tin truoc khi hoan tat check-in");
+        JLabel sub = new JLabel("Kiểm tra lại thông tin trước khi hoàn tất check-in");
         sub.setFont(UIConstants.FONT_SMALL);
         sub.setForeground(UIConstants.TEXT_MUTED);
 
         // Doc du lieu tu cac field hien tai
         String phongInfo = selectedPhong != null
                 ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
-                : "Chua chon";
-        String giaInfo = selectedPhong != null ? String.format("%,.0f d/dem", (double) selectedPhong.getGiaTheoNgay())
-                : "--";
+                : "Chưa chọn";
+        
+        // Fix: Lay gia hien hanh de hien thi cho dong bo voi Tong thanh toan và Header
+        double giaHienHanh = selectedPhong != null && selectedPhong.getLoaiPhong() != null
+                ? bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong().getMaLoaiPhong())
+                : (selectedPhong != null ? (double)selectedPhong.getGiaTheoNgay() : 0);
+
+        String giaInfo = selectedPhong != null ? String.format("%,.0fđ/đêm", giaHienHanh) : "--";
         String khachInfo = txtTenKH != null && !txtTenKH.getText().isBlank() ? txtTenKH.getText().trim() : "--";
         String sdtInfo = txtSDT != null && !txtSDT.getText().isBlank() ? txtSDT.getText().trim() : "--";
         String cccdInfo = txtCCCD != null && !txtCCCD.getText().isBlank() ? txtCCCD.getText().trim() : "--";
@@ -957,7 +1002,7 @@ public class CheckinDialog extends JDialog {
         };
         checkIcon.setOpaque(false);
         checkIcon.setPreferredSize(new Dimension(22, 22));
-        JLabel readyTxt = new JLabel("San sang check-in");
+        JLabel readyTxt = new JLabel("Sẵn sàng check-in");
         readyTxt.setFont(new Font("Segoe UI", Font.BOLD, 15));
         readyTxt.setForeground(UIConstants.SUCCESS);
         readyRow.add(checkIcon);
@@ -968,13 +1013,13 @@ public class CheckinDialog extends JDialog {
         card.add(sepLine());
         card.add(Box.createVerticalStrut(10));
 
-        card.add(summaryRow("Phong", phongInfo, UIConstants.PRIMARY));
+        card.add(summaryRow("Phòng", phongInfo, UIConstants.PRIMARY));
         card.add(Box.createVerticalStrut(4));
-        card.add(summaryRow("Gia/dem", giaInfo, UIConstants.SUCCESS));
+        card.add(summaryRow("Giá/đêm", giaInfo, UIConstants.SUCCESS));
         card.add(Box.createVerticalStrut(10));
         card.add(sepLine());
         card.add(Box.createVerticalStrut(10));
-        card.add(summaryRow("Khach hang", khachInfo, new Color(0x1E2337)));
+        card.add(summaryRow("Khách hàng", khachInfo, new Color(0x1E2337)));
         card.add(Box.createVerticalStrut(4));
         card.add(summaryRow("SDT", sdtInfo, new Color(0x374151)));
         card.add(Box.createVerticalStrut(4));
@@ -993,12 +1038,24 @@ public class CheckinDialog extends JDialog {
         card.add(lblVoucherTitle);
         card.add(Box.createVerticalStrut(4));
 
-        JPanel voucherInputPanel = new JPanel(new BorderLayout(8, 0));
+        JPanel voucherInputPanel = new JPanel(new BorderLayout(10, 0));
         voucherInputPanel.setOpaque(false);
+        voucherInputPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42)); // Fixed height to prevent stretching
+        
         if (txtVoucher == null) {
             txtVoucher = new ModernTextField("Nhập mã voucher...");
+            if (inheritedVoucherCode != null) {
+                txtVoucher.setText(inheritedVoucherCode);
+            }
         }
         txtVoucher.setPreferredSize(new Dimension(180, 40));
+
+        // Auto-calculate discount if voucher is inherited or manually entered
+        String currentCode = txtVoucher.getText().trim();
+        if (!currentCode.isEmpty() && discountAmount == 0) {
+            // Trigger calculation once on load/refresh WITHOUT re-calling buildStep5
+            doApplyVoucher(currentCode, false, false);
+        }
 
         RoundedButton btnApply = new RoundedButton("Áp dụng", UIConstants.PRIMARY,
                 Color.WHITE);
@@ -1007,44 +1064,20 @@ public class CheckinDialog extends JDialog {
         btnApply.setForeground(UIConstants.PRIMARY);
         btnApply.setPreferredSize(new Dimension(80, 40));
         btnApply.addActionListener(e -> {
-            String code = txtVoucher.getText().trim();
-            if (code.isEmpty()) {
-                discountAmount = 0;
-                voucherDescription = "";
-                showStep(5); // Refresh summary
-                return;
-            }
-            KhuyenMai km = khuyenMaiDAO.getByVoucherCode(code);
-            double currentGia = bangGiaService
-                    .layGiaHienHanh(selectedPhong != null && selectedPhong.getLoaiPhong() != null
-                            ? selectedPhong.getLoaiPhong().getMaLoaiPhong()
-                            : "");
-            double currentTotal = currentGia;
-            for (SuDungDichVu s : selectedDV)
-                currentTotal += s.tinhThanhTien();
-
-            if (km == null) {
-                NotificationManager.showError("Lỗi", "Mã giảm giá không tồn tại!");
-                discountAmount = 0;
-            } else if (!km.kiemTraHopLe(currentTotal)) {
-                NotificationManager.showWarning("Không áp dụng được",
-                        "Voucher chưa đạt điều kiện hóa đơn tối thiểu (Min: "
-                                + String.format("%,.0f đ", km.getDieuKienToiThieu()) + ")");
-                discountAmount = 0;
-            } else {
-                discountAmount = km.tinhSoTienGiam(currentTotal);
-                voucherDescription = km.getTenKM() + " ("
-                        + (km.getLoaiGiam() == LoaiGiam.PERCENT ? km.getGiaTriGiam() + "%"
-                                : String.format("%,.0f đ", km.getGiaTriGiam()))
-                        + ")";
-                NotificationManager.showSuccess("Thành công", "Đã áp dụng mã giảm giá: " + km.getTenKM());
-            }
-            showStep(5); // Refresh step 5 content
+            doApplyVoucher(txtVoucher.getText().trim(), true, true);
         });
 
         voucherInputPanel.add(txtVoucher, BorderLayout.CENTER);
         voucherInputPanel.add(btnApply, BorderLayout.EAST);
-        card.add(voucherInputPanel);
+        
+        // Wrap in a left-aligned container to keep it strictly 40-42px high
+        JPanel voucherRow = new JPanel(new BorderLayout());
+        voucherRow.setOpaque(false);
+        voucherRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        voucherRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        voucherRow.add(voucherInputPanel, BorderLayout.CENTER);
+        
+        card.add(voucherRow);
 
         if (!selectedDV.isEmpty()) {
             card.add(Box.createVerticalStrut(10));
@@ -1060,33 +1093,27 @@ public class CheckinDialog extends JDialog {
             card.add(Box.createVerticalStrut(10));
             card.add(summaryRow("Tổng dịch vụ", String.format("%,.0f đ", totalDV), UIConstants.PRIMARY));
 
-            double giaHH = bangGiaService.layGiaHienHanh(selectedPhong != null && selectedPhong.getLoaiPhong() != null
-                    ? selectedPhong.getLoaiPhong().getMaLoaiPhong()
-                    : "");
-
             card.add(Box.createVerticalStrut(15));
             card.add(new JSeparator());
             card.add(Box.createVerticalStrut(12));
 
             if (discountAmount > 0) {
-                card.add(summaryRow("Tạm tính", String.format("%,.0f đ", giaHH + totalDV), UIConstants.TEXT_SECONDARY));
+                card.add(summaryRow("Tạm tính", String.format("%,.0f đ", giaHienHanh + totalDV), UIConstants.TEXT_SECONDARY));
                 card.add(summaryRow("Giảm giá: " + truncate(voucherDescription, 30),
                         String.format("-%,.0f đ", discountAmount), UIConstants.SUCCESS));
                 card.add(Box.createVerticalStrut(8));
             }
 
-            card.add(summaryRow("TỔNG THANH TOÁN", String.format("%,.0f đ", giaHH + totalDV - discountAmount),
+            card.add(summaryRow("TỔNG THANH TOÁN", String.format("%,.0f đ", giaHienHanh + totalDV - discountAmount),
                     UIConstants.PRIMARY));
         } else if (selectedPhong != null) {
-            double giaHH = bangGiaService.layGiaHienHanh(
-                    selectedPhong.getLoaiPhong() != null ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
             if (discountAmount > 0) {
-                card.add(summaryRow("Tam tính", String.format("%,.0f đ", giaHH), UIConstants.TEXT_SECONDARY));
+                card.add(summaryRow("Tạm tính", String.format("%,.0f đ", giaHienHanh), UIConstants.TEXT_SECONDARY));
                 card.add(summaryRow("Giảm giá: " + truncate(voucherDescription, 30),
                         String.format("-%,.0f đ", discountAmount), UIConstants.SUCCESS));
                 card.add(Box.createVerticalStrut(8));
             }
-            card.add(summaryRow("TỔNG THANH TOÁN", String.format("%,.0f đ", giaHH - discountAmount),
+            card.add(summaryRow("TỔNG THANH TOÁN", String.format("%,.0f đ", giaHienHanh - discountAmount),
                     UIConstants.PRIMARY));
         }
 
@@ -1104,7 +1131,15 @@ public class CheckinDialog extends JDialog {
         content.add(hdr);
         content.add(Box.createVerticalStrut(14));
         content.add(card);
-        panel.add(content, BorderLayout.NORTH);
+        JScrollPane scroll = new JScrollPane(content);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.getVerticalScrollBar().setUnitIncrement(15);
+
+        panel.add(scroll, BorderLayout.CENTER);
         return panel;
     }
 
@@ -1116,17 +1151,21 @@ public class CheckinDialog extends JDialog {
     }
 
     private JPanel summaryRow(String key, String val, Color valColor) {
-        JPanel row = new JPanel(new BorderLayout(8, 0));
+        JPanel row = new JPanel(new BorderLayout(12, 0));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
         JLabel k = new JLabel(key);
-        k.setFont(UIConstants.FONT_SMALL_BOLD);
-        k.setForeground(UIConstants.TEXT_MUTED);
-        k.setPreferredSize(new Dimension(88, 18));
+        k.setFont(UIConstants.FONT_SMALL);
+        k.setForeground(UIConstants.TEXT_SECONDARY);
+        k.setPreferredSize(new Dimension(120, 20));
+        
         JLabel v = new JLabel(val);
-        v.setFont(UIConstants.FONT_BODY);
+        v.setFont(new Font("Segoe UI", Font.BOLD, 13));
         v.setForeground(valColor);
+        v.setHorizontalAlignment(SwingConstants.RIGHT);
+        
         row.add(k, BorderLayout.WEST);
         row.add(v, BorderLayout.CENTER);
         return row;
@@ -1146,8 +1185,8 @@ public class CheckinDialog extends JDialog {
         lblStepInfo.setFont(UIConstants.FONT_SMALL);
         lblStepInfo.setForeground(UIConstants.TEXT_MUTED);
 
-        btnBack = new RoundedButton("Huy", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        btnNext = new RoundedButton("Tiep theo >>", UIConstants.PRIMARY, Color.WHITE);
+        btnBack = new RoundedButton("Hủy", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
+        btnNext = new RoundedButton("Tiếp theo >>", UIConstants.PRIMARY, Color.WHITE);
 
         btnBack.addActionListener(e -> {
             if (currentStep > 1)
@@ -1239,8 +1278,8 @@ public class CheckinDialog extends JDialog {
         ((CardLayout) stepContent.getLayout()).show(stepContent, String.valueOf(step));
         refreshHeaderInfo();
 
-        btnBack.setText(step == 1 ? "Huy" : "<< Quay lai");
-        btnNext.setText(step == TOTAL_STEPS ? "Xac nhan Check-in" : "Tiep theo >>");
+        btnBack.setText(step == 1 ? "Hủy" : "<< Quay lại");
+        btnNext.setText(step == TOTAL_STEPS ? "Xác nhận Check-in" : "Tiếp theo >>");
 
         if (step == TOTAL_STEPS) {
             btnNext.setBackground(UIConstants.SUCCESS);
@@ -1248,7 +1287,7 @@ public class CheckinDialog extends JDialog {
             btnNext.setBackground(UIConstants.PRIMARY);
         }
         if (lblStepInfo != null)
-            lblStepInfo.setText("Buoc " + step + "/" + TOTAL_STEPS);
+            lblStepInfo.setText("Bước " + step + "/" + TOTAL_STEPS);
         stepContent.revalidate();
         stepContent.repaint();
         repaint();
@@ -1341,7 +1380,7 @@ public class CheckinDialog extends JDialog {
                                 (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null
                                         ? selectedPhong.getLoaiPhong().getMaLoaiPhong()
                                         : ""))
-                : "Chon phong de bat dau";
+                : "Chọn phòng để bắt đầu";
         lblInfo.setText(info);
     }
 
@@ -1503,6 +1542,13 @@ public class CheckinDialog extends JDialog {
 
             selectedDatPhong
                     .setTrangThai(allCheckedIn ? TrangThaiDatPhong.CHECKED_IN : TrangThaiDatPhong.PARTIALLY_CHECKED_IN);
+            
+            // Persist voucher if entered during check-in for existing reservation
+            if (txtVoucher != null) {
+                String vCode = txtVoucher.getText().trim();
+                if (!vCode.isEmpty()) selectedDatPhong.setMaKhuyenMai(vCode);
+            }
+
             String errDp = datPhongService.sua(selectedDatPhong);
             if (errDp != null) {
                 NotificationManager.showError("Lỗi", "Lỗi cập nhật trạng thái đơn đặt: " + errDp);
@@ -1530,7 +1576,7 @@ public class CheckinDialog extends JDialog {
                     sddv.getSoLuong(),
                     sddv.getDonGiaLuu());
             if (errDv != null) {
-                String dvName = sddv.getDichVu() != null ? sddv.getDichVu().getTenDV() : "Dich vu";
+                String dvName = sddv.getDichVu() != null ? sddv.getDichVu().getTenDV() : "Dịch vụ";
                 failedServices.add(dvName + ": " + errDv);
             }
         }
@@ -1549,7 +1595,7 @@ public class CheckinDialog extends JDialog {
 
     private void chooseCCCDImage() {
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Chon anh CCCD/Passport");
+        chooser.setDialogTitle("Chọn ảnh CCCD/Passport");
         chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "jpeg", "png"));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
@@ -1562,7 +1608,7 @@ public class CheckinDialog extends JDialog {
                 lblImagePreview.setIcon(new ImageIcon(img));
                 lblImagePreview.setText("");
             } catch (Exception e) {
-                lblImagePreview.setText("Loi anh");
+                lblImagePreview.setText("Lỗi ảnh");
             }
         }
     }
@@ -1717,5 +1763,43 @@ public class CheckinDialog extends JDialog {
         p.add(lbl, BorderLayout.NORTH);
         p.add(comp, BorderLayout.CENTER);
         return p;
+    }
+    private void doApplyVoucher(String code, boolean showNotify, boolean refreshUI) {
+        if (code.isEmpty()) {
+            discountAmount = 0;
+            voucherDescription = "";
+            if (refreshUI) showStep(5);
+            return;
+        }
+        
+        KhuyenMai km = khuyenMaiDAO.getByVoucherCode(code);
+        double currentGia = bangGiaService.layGiaHienHanh(
+            selectedPhong != null && selectedPhong.getLoaiPhong() != null
+            ? selectedPhong.getLoaiPhong().getMaLoaiPhong() : "");
+        double currentTotal = currentGia;
+        for (SuDungDichVu s : selectedDV) currentTotal += s.tinhThanhTien();
+
+        if (km == null) {
+            if (showNotify) NotificationManager.showError("Lỗi", "Mã giảm giá không tồn tại!");
+            discountAmount = 0;
+        } else {
+            // Trường phái 1: Kiểm tra dựa trên ngày đặt thay vì ngày hiện tại
+            LocalDateTime refTime = (selectedDatPhong != null) ? selectedDatPhong.getNgayDat() : LocalDateTime.now();
+            
+            if (!km.kiemTraHopLe(currentTotal, refTime)) {
+                if (showNotify) NotificationManager.showWarning("Không áp dụng được",
+                        "Voucher không hợp lệ hoặc không đủ điều kiện (Min: "
+                                + String.format("%,.0f đ", km.getDieuKienToiThieu()) + ")");
+                discountAmount = 0;
+            } else {
+                discountAmount = km.tinhSoTienGiam(currentTotal);
+                voucherDescription = km.getTenKM() + " ("
+                        + (km.getLoaiGiam() == LoaiGiam.PERCENT ? km.getGiaTriGiam() + "%"
+                                : String.format("%,.0f đ", km.getGiaTriGiam()))
+                        + ")";
+                if (showNotify) NotificationManager.showSuccess("Thành công", "Đã áp dụng mã giảm giá: " + km.getTenKM());
+            }
+        }
+        if (refreshUI) showStep(5);
     }
 }

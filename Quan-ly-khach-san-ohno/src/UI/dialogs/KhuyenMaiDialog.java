@@ -3,6 +3,7 @@ package ui.dialogs;
 import dao.KhuyenMaiDAO;
 import entity.KhuyenMai;
 import entity.enums.LoaiGiam;
+import ui.components.DateTimePicker;
 import ui.components.UIConstants;
 import ui.components.RoundedComponents.ModernTextField;
 import ui.components.RoundedComponents.ModernComboBox;
@@ -12,7 +13,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 
 public class KhuyenMaiDialog extends JDialog {
 
@@ -22,7 +25,8 @@ public class KhuyenMaiDialog extends JDialog {
     private final boolean isViewOnly;
 
     // UI Components
-    private ModernTextField txtMa, txtTen, txtGiaTri, txtBatDau, txtKetThuc, txtSoLuong, txtMinBill;
+    private ModernTextField txtMa, txtTen, txtGiaTri, txtSoLuong, txtMinBill;
+    private DateTimePicker pickBatDau, pickKetThuc;
     private ModernComboBox<LoaiGiam> cbLoai;
     private JCheckBox chkActive;
 
@@ -111,8 +115,8 @@ public class KhuyenMaiDialog extends JDialog {
         gbc.gridy = row++;
         body.add(row2, gbc);
 
-        txtBatDau = addField(body, "Ngày bắt đầu (dd/MM/yyyy HH:mm) *", "", gbc, row++);
-        txtKetThuc = addField(body, "Ngày kết thúc (dd/MM/yyyy HH:mm) *", "", gbc, row++);
+        pickBatDau = addDatePickerField(body, "Ngày bắt đầu (dd/MM/yyyy HH:mm) *", gbc, row++);
+        pickKetThuc = addDatePickerField(body, "Ngày kết thúc (dd/MM/yyyy HH:mm) *", gbc, row++);
         
         // Row with 2 columns: Quota and Min Bill
         JPanel row3 = new JPanel(new GridLayout(1, 2, 12, 0));
@@ -153,6 +157,21 @@ public class KhuyenMaiDialog extends JDialog {
         setContentPane(root);
     }
 
+    private DateTimePicker addDatePickerField(JPanel p, String label, GridBagConstraints gbc, int row) {
+        JPanel wrap = new JPanel(new BorderLayout(0, 5));
+        wrap.setOpaque(false);
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+        lbl.setForeground(UIConstants.TEXT_PRIMARY);
+        DateTimePicker pick = new DateTimePicker(new Date());
+        pick.setPreferredSize(new Dimension(0, 42));
+        wrap.add(lbl, BorderLayout.NORTH);
+        wrap.add(pick, BorderLayout.CENTER);
+        gbc.gridy = row;
+        p.add(wrap, gbc);
+        return pick;
+    }
+
     private ModernTextField addField(JPanel p, String label, String hint, GridBagConstraints gbc, int row) {
         JPanel wrap = new JPanel(new BorderLayout(0, 5));
         wrap.setOpaque(false);
@@ -187,8 +206,8 @@ public class KhuyenMaiDialog extends JDialog {
         txtTen.setText(km.getTenKhuyenMai());
         cbLoai.setSelectedItem(km.getLoaiGiam());
         txtGiaTri.setText(String.valueOf(km.getGiaTriGiam()));
-        txtBatDau.setText(km.getNgayBatDau().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
-        txtKetThuc.setText(km.getNgayKetThuc().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        pickBatDau.setDate(java.util.Date.from(km.getNgayBatDau().atZone(ZoneId.systemDefault()).toInstant()));
+        pickKetThuc.setDate(java.util.Date.from(km.getNgayKetThuc().atZone(ZoneId.systemDefault()).toInstant()));
         txtSoLuong.setText(String.valueOf(km.getSoLuong()));
         txtMinBill.setText(String.valueOf(km.getDieuKienToiThieu()));
         chkActive.setSelected(km.isTrangThai());
@@ -198,8 +217,8 @@ public class KhuyenMaiDialog extends JDialog {
         txtMa.setEditable(false); 
         txtTen.setEditable(editable);
         txtGiaTri.setEditable(editable);
-        txtBatDau.setEditable(editable);
-        txtKetThuc.setEditable(editable);
+        pickBatDau.setEnabled(editable);
+        pickKetThuc.setEnabled(editable);
         txtSoLuong.setEditable(editable);
         txtMinBill.setEditable(editable);
         cbLoai.setEnabled(editable);
@@ -215,9 +234,8 @@ public class KhuyenMaiDialog extends JDialog {
             km.setLoaiGiam((LoaiGiam) cbLoai.getSelectedItem());
             km.setGiaTriGiam(Double.parseDouble(txtGiaTri.getText()));
             
-            DateTimeFormatter df = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-            km.setNgayBatDau(LocalDateTime.parse(txtBatDau.getText(), df));
-            km.setNgayKetThuc(LocalDateTime.parse(txtKetThuc.getText(), df));
+            km.setNgayBatDau(pickBatDau.getLocalDateTime());
+            km.setNgayKetThuc(pickKetThuc.getLocalDateTime());
             
             km.setSoLuong(Integer.parseInt(txtSoLuong.getText()));
             km.setDieuKienToiThieu(Double.parseDouble(txtMinBill.getText()));

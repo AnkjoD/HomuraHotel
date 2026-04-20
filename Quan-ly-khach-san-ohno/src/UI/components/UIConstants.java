@@ -105,7 +105,7 @@ public class UIConstants {
             case CHECKED_IN:  return "Đã check-in";
             case CHECKED_OUT: return "Đã trả phòng";
             case CANCELLED:   return "Đã hủy";
-            case NO_SHOW:     return "No-show";
+            case NO_SHOW:     return "Khách không đến";
             case WAITLIST:    return "Chờ xếp phòng";
             default:          return tt.toString();
         }

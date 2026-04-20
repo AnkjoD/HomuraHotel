@@ -187,7 +187,7 @@ public class BangGiaPanel extends JPanel {
                 // Trạng thái boolean hiển thị
                 if (val instanceof Boolean) {
                     Boolean active = (Boolean) val;
-                    lbl.setText(active ? "✔ Đang kích hoạt" : "Ngừng");
+                    lbl.setText(active ? "Đang kích hoạt" : "Ngừng");
                     lbl.setForeground(active ? UIConstants.SUCCESS : UIConstants.TEXT_MUTED);
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                 }

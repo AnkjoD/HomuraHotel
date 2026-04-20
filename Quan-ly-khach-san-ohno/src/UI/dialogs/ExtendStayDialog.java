@@ -6,7 +6,8 @@ import entity.Phong;
 import service.ThuePhongService;
 import service.DatPhongService;
 import ui.components.UIConstants;
-import ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents;
+import static ui.components.RoundedComponents.*;
 import ui.components.DateTimePicker;
 
 import javax.swing.*;
@@ -48,22 +49,22 @@ public class ExtendStayDialog extends JDialog {
 
     private void buildUI() {
         // --- Header ---
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(new Color(0x334155));
-        header.setPreferredSize(new Dimension(0, 70));
-        header.setBorder(new EmptyBorder(0, 25, 0, 25));
+        JPanel header = new JPanel(new GridLayout(2, 1, 0, 2));
+        header.setBackground(Color.WHITE);
+        header.setPreferredSize(new Dimension(0, 80));
+        header.setBorder(new EmptyBorder(15, 30, 10, 30));
 
-        JLabel lblTitle = new JLabel("GIA HẠN LƯU TRÚ (STAY EXTENSION)");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblTitle.setForeground(Color.WHITE);
-        header.add(lblTitle, BorderLayout.CENTER);
+        JLabel lblTitle = new JLabel("Gia hạn lưu trú (Stay Extension)");
+        lblTitle.setFont(UIConstants.FONT_HEADER);
+        lblTitle.setForeground(UIConstants.PRIMARY);
+        header.add(lblTitle);
         
         Phong p = chiTietDatPhong.getPhong();
-        JLabel lblRoom = new JLabel("Phòng " + (p != null ? p.getSoPhong() : "N/A") + " - Khách: " + 
+        JLabel lblRoom = new JLabel("Phòng " + (p != null ? p.getSoPhong() : "N/A") + " • Khách: " + 
                                    (datPhong.getKhachHang() != null ? datPhong.getKhachHang().getHoTen() : "Khách lẻ"));
         lblRoom.setFont(UIConstants.FONT_SMALL);
-        lblRoom.setForeground(new Color(0xCBD5E1));
-        header.add(lblRoom, BorderLayout.SOUTH);
+        lblRoom.setForeground(UIConstants.TEXT_MUTED);
+        header.add(lblRoom);
         
         add(header, BorderLayout.NORTH);
 
@@ -71,68 +72,87 @@ public class ExtendStayDialog extends JDialog {
         JPanel main = new JPanel();
         main.setLayout(new BoxLayout(main, BoxLayout.Y_AXIS));
         main.setOpaque(false);
-        main.setBorder(new EmptyBorder(25, 30, 25, 30));
+        main.setBorder(new EmptyBorder(20, 30, 20, 30));
 
         // 1. Current Stay Info
         JPanel currentPanel = new JPanel(new BorderLayout());
         currentPanel.setOpaque(false);
-        currentPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        currentPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         lblCurrentStay = new JLabel("Ngày trả hiện tại: " + datPhong.getNgayTraDuKien().format(dtf));
         lblCurrentStay.setFont(UIConstants.FONT_BODY_BOLD);
-        lblCurrentStay.setForeground(new Color(0xD97706));
+        lblCurrentStay.setForeground(new Color(0xD97706)); // Amber color for emphasis
         currentPanel.add(lblCurrentStay, BorderLayout.WEST);
         main.add(currentPanel);
-        main.add(Box.createVerticalStrut(20));
+        main.add(Box.createVerticalStrut(15));
 
         // 2. New Checkout Picker
-        main.add(new JLabel("Chọn ngày trả mới:"));
+        JLabel lblLabelPicker = new JLabel("Chọn ngày trả mới:");
+        lblLabelPicker.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblLabelPicker.setForeground(UIConstants.TEXT_SECONDARY);
+        main.add(lblLabelPicker);
         main.add(Box.createVerticalStrut(8));
-        dtpNewCheckout = new DateTimePicker(java.sql.Timestamp.valueOf(datPhong.getNgayTraDuKien().plusDays(1)));
+        
+        // Mặc định gia hạn thêm 1 ngày và đặt giờ là 12:00 (chuẩn khách sạn)
+        LocalDateTime defaultExt = datPhong.getNgayTraDuKien().plusDays(1)
+                                            .withHour(12).withMinute(0).withSecond(0);
+        dtpNewCheckout = new DateTimePicker(java.sql.Timestamp.valueOf(defaultExt));
         dtpNewCheckout.addChangeListener(e -> calculateImpact());
         main.add(dtpNewCheckout);
-        main.add(Box.createVerticalStrut(15));
+        main.add(Box.createVerticalStrut(12));
         
         // 3. Availability Check
-        lblAvailability = new JLabel("✓ Phòng sẵn sàng cho khoảng thời gian này");
+        lblAvailability = new JLabel("Phòng sẵn sàng cho khoảng thời gian này");
         lblAvailability.setFont(UIConstants.FONT_SMALL_BOLD);
         lblAvailability.setForeground(UIConstants.SUCCESS);
         main.add(lblAvailability);
-        main.add(Box.createVerticalStrut(25));
+        main.add(Box.createVerticalStrut(20));
 
-        // 4. Summary Box
-        JPanel summaryBox = new JPanel();
+        // 4. Summary Box - Using RoundedPanel for Premium look
+        RoundedPanel summaryBox = new RoundedPanel(UIConstants.CARD_RADIUS);
         summaryBox.setLayout(new BoxLayout(summaryBox, BoxLayout.Y_AXIS));
         summaryBox.setBackground(new Color(0xF8FAFC));
-        summaryBox.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(UIConstants.BORDER),
-            new EmptyBorder(15, 20, 15, 20)
-        ));
+        summaryBox.setBorder(new EmptyBorder(20, 20, 20, 20));
+        summaryBox.setShadow(true);
         
         lblExtractedInfo = new JLabel("Gia hạn thêm: 0 đêm");
         lblExtraCost = new JLabel("Phí phát sinh dự kiến: 0đ");
-        lblTotalEstimate = new JLabel("Tổng tiền phòng sau gia hạn: 0đ");
+        lblTotalEstimate = new JLabel("Tổng tiền phòng ước tính: 0đ");
         
         lblExtractedInfo.setFont(UIConstants.FONT_BODY);
         lblExtraCost.setFont(UIConstants.FONT_BODY);
-        lblTotalEstimate.setFont(UIConstants.FONT_BODY_BOLD);
+        lblTotalEstimate.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTotalEstimate.setForeground(UIConstants.PRIMARY);
 
         summaryBox.add(lblExtractedInfo);
-        summaryBox.add(Box.createVerticalStrut(8));
+        summaryBox.add(Box.createVerticalStrut(10));
         summaryBox.add(lblExtraCost);
         summaryBox.add(Box.createVerticalStrut(15));
-        summaryBox.add(new JSeparator());
-        summaryBox.add(Box.createVerticalStrut(10));
+        
+        // Custom separator
+        JPanel separator = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                g.setColor(new Color(0xE2E8F0));
+                g.drawLine(0, 0, getWidth(), 0);
+            }
+        };
+        separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        separator.setPreferredSize(new Dimension(0, 1));
+        summaryBox.add(separator);
+        
+        summaryBox.add(Box.createVerticalStrut(12));
         summaryBox.add(lblTotalEstimate);
         
         main.add(summaryBox);
         add(main, BorderLayout.CENTER);
 
         // --- Footer Buttons ---
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
-        footer.setBackground(new Color(0xF1F5F9));
-        RoundedButton btnCancel = new RoundedButton("Hủy bỏ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        RoundedButton btnConfirm = new RoundedButton("✓ Xác nhận gia hạn", UIConstants.PRIMARY, Color.WHITE);
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 20));
+        footer.setBackground(new Color(0xF8FAFC));
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xF1F5F9)));
+        
+        RoundedButton btnCancel = grayButton("Hủy bỏ");
+        RoundedButton btnConfirm = primaryButton("Xác nhận gia hạn");
         
         btnCancel.addActionListener(e -> dispose());
         btnConfirm.addActionListener(e -> handleConfirm());
@@ -149,7 +169,7 @@ public class ExtendStayDialog extends JDialog {
         LocalDateTime arrival = datPhong.getNgayNhanDuKien();
 
         if (newDate.isBefore(oldDate)) {
-            lblAvailability.setText("⚠ Ngày trả mới phải sau ngày trả hiện tại!");
+            lblAvailability.setText("Ngày trả mới phải sau ngày trả hiện tại!");
             lblAvailability.setForeground(Color.RED);
             return;
         }
@@ -162,12 +182,12 @@ public class ExtendStayDialog extends JDialog {
                 datPhong.getMaDatPhong());
                 
         if (!isAvailable) {
-            lblAvailability.setText("⚠ XUNG ĐỘT: Phòng đã có khách đặt trong khoảng thời gian này!");
+            lblAvailability.setText("XUNG ĐỘT: Phòng đã có lịch đặt trong khoảng thời gian này!");
             lblAvailability.setForeground(java.awt.Color.RED);
             this.newCheckoutTime = null; // Chặn xác nhận
             return;
         } else {
-            lblAvailability.setText("✓ Phòng trống sẵn sàng cho gia hạn");
+            lblAvailability.setText("Phòng trống sẵn sàng cho gia hạn");
             lblAvailability.setForeground(UIConstants.SUCCESS);
         }
 

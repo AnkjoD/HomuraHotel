@@ -5,6 +5,7 @@ import ui.MainFrame;
 import ui.components.UIConstants;
 import ui.components.NotificationManager;
 import ui.components.RoundedComponents.*;
+import ui.dialogs.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,6 +16,8 @@ public class TongQuanPanel extends JPanel {
 
     private final MainFrame      mainFrame;
     private final ThongKeService thongKeService = new ThongKeService();
+    private final ThuePhongService thuePhongService = new ThuePhongService();
+    private final PhongService phongService = new PhongService();
 
     // Stats Labels to update during refresh
     private JLabel lblStatEmpty, lblStatOccupied, lblStatReserved, lblStatCheckin, lblStatCheckout, lblStatRevenue;
@@ -104,8 +107,8 @@ public class TongQuanPanel extends JPanel {
         RoundedButton btnCheckout = new RoundedButton("Trả phòng", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
         RoundedButton btnCheckin  = new RoundedButton("+ Nhận phòng", UIConstants.PRIMARY, Color.WHITE);
 
-        btnCheckout.addActionListener(e -> mainFrame.navigateTo("thuephong"));
-        btnCheckin .addActionListener(e -> mainFrame.navigateTo("thuephong"));
+        btnCheckout.addActionListener(e -> handleDashboardCheckout());
+        btnCheckin .addActionListener(e -> handleDashboardCheckin());
 
         btnPanel.add(btnCheckout);
         btnPanel.add(btnCheckin);
@@ -699,6 +702,58 @@ public class TongQuanPanel extends JPanel {
     private void updateRecentActivity() {
         // Simple update: recreate the activity scroll content
         // In a real app, you'd update a list model
+    }
+
+    // ------------------------------------------------------------------ WORKFLOWS
+    private void handleDashboardCheckin() {
+        mainFrame.navigateTo("datphong", () -> {
+            DatPhongPanel dp = mainFrame.getDatPhongPanel();
+            if (dp != null) {
+                dp.applyConfirmedFilter();
+            }
+        });
+    }
+
+    private void handleDashboardCheckout() {
+        try {
+            java.util.List<entity.Phong> rooms = phongService.getAllPhong();
+            java.util.List<entity.Phong> occupied = new java.util.ArrayList<>();
+            for (entity.Phong p : rooms) {
+                if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
+                    occupied.add(p);
+                }
+            }
+
+            if (occupied.isEmpty()) {
+                NotificationManager.showInfo("Thông báo", "Hiện không có phòng nào đang được thuê.");
+                return;
+            }
+
+            String[] roomOptions = occupied.stream()
+                    .map(p -> "P." + p.getSoPhong() + " - " + p.getTenKhachHienTai())
+                    .toArray(String[]::new);
+
+            ModernComboBox<String> combo = new ModernComboBox<>(roomOptions);
+            int result = JOptionPane.showConfirmDialog(this, combo, "Chọn phòng để trả phòng (Thanh toán)", 
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result == JOptionPane.OK_OPTION) {
+                int idx = combo.getSelectedIndex();
+                if (idx >= 0) {
+                    entity.Phong p = occupied.get(idx);
+                    entity.ChiTietDatPhong ct = thuePhongService.getActiveByPhong(p.getMaPhong());
+                    if (ct != null) {
+                        HoaDonDialog dlg = new HoaDonDialog((Frame) SwingUtilities.getWindowAncestor(this), ct);
+                        dlg.setVisible(true);
+                        refresh();
+                    } else {
+                        NotificationManager.showError("Lỗi", "Không tìm thấy dữ liệu thuê phòng cho phòng " + p.getSoPhong());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            NotificationManager.showError("Lỗi", "Không thể thực hiện trả phòng: " + e.getMessage());
+        }
     }
 
     private void updateAlerts() {
