@@ -57,8 +57,7 @@ public class DatePicker extends JPanel {
     private void buildTextField() {
         txtDisplay = new JTextField(SDF.format(selectedCal.getTime()));
         txtDisplay.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtDisplay.setEditable(false);
-        txtDisplay.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        txtDisplay.setEditable(true);
         txtDisplay.setBorder(null);
         txtDisplay.setBackground(Color.WHITE);
 
@@ -89,13 +88,37 @@ public class DatePicker extends JPanel {
         add(wrapper, BorderLayout.CENTER);
         setPreferredSize(new Dimension(140, 40));
 
-        // Click → hiện popup
-        txtDisplay.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { togglePopup(); }
-        });
+        // Click wrapper/icon area → hiện popup (không click trực tiếp vào text để cho phép focus nhập liệu)
         wrapper.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) { togglePopup(); }
         });
+
+        // Xử lý nhập tay
+        txtDisplay.addActionListener(e -> parseManualInput());
+        txtDisplay.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) { parseManualInput(); }
+        });
+    }
+
+    private void parseManualInput() {
+        String input = txtDisplay.getText().trim();
+        if (input.isEmpty()) {
+            setDate(null);
+            return;
+        }
+
+        try {
+            SDF.setLenient(false);
+            Date date = SDF.parse(input);
+            setDate(date);
+            if (onDateSelected != null) {
+                onDateSelected.accept(date);
+            }
+        } catch (java.text.ParseException e) {
+            // Revert về giá trị hợp lệ gần nhất
+            updateDisplay();
+        }
     }
 
     // ---- Popup calendar ----
