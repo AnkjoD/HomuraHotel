@@ -29,6 +29,7 @@ public class KhachHangPanel extends JPanel {
     private ModernTextField txtSearch;
     private ModernComboBox<String> cboGioiTinh;
     private ModernComboBox<String> cboQuocTich;
+    private ModernComboBox<String> cboHang;
     private JTable table;
     private DefaultTableModel tableModel;
     private PaginationPanel pagination;
@@ -164,6 +165,13 @@ public class KhachHangPanel extends JPanel {
         cboQuocTich.addItem("Nội địa (Việt Nam)");
         cboQuocTich.addItem("Quốc tế");
 
+        cboHang = new ModernComboBox<>();
+        cboHang.setPreferredSize(new Dimension(170, 36));
+        cboHang.addItem("Hạng khách (Tất cả)");
+        cboHang.addItem("Hạng Thường (Bronze)");
+        cboHang.addItem("Thân thiết (Silver)");
+        cboHang.addItem("VIP (Gold)");
+
         DocumentListener dl = new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -185,10 +193,12 @@ public class KhachHangPanel extends JPanel {
         ActionListener al = e -> runFilter();
         cboGioiTinh.addActionListener(al);
         cboQuocTich.addActionListener(al);
+        cboHang.addActionListener(al);
 
         p.add(txtSearch);
         p.add(cboGioiTinh);
         p.add(cboQuocTich);
+        p.add(cboHang);
         return p;
     }
 
@@ -444,7 +454,14 @@ public class KhachHangPanel extends JPanel {
                     if (idxQt == 2 && isVN)
                         matchQt = false;
 
-                    return matchKw && matchGt && matchQt;
+                    boolean matchHang = true;
+                    String hang = kh.getHangKhachHang();
+                    int idxHang = cboHang.getSelectedIndex();
+                    if (idxHang == 1 && !hang.contains("Thường")) matchHang = false;
+                    if (idxHang == 2 && !hang.contains("Thân thiết")) matchHang = false;
+                    if (idxHang == 3 && !hang.contains("VIP")) matchHang = false;
+
+                    return matchKw && matchGt && matchQt && matchHang;
                 })
                 .collect(Collectors.toList());
 

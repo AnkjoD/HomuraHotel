@@ -117,7 +117,7 @@ public class ThongKePanel extends JPanel {
             right.add(btn);
         }
 
-        JToggleButton btnCustom = new JToggleButton("Tùy chỉnh 📅");
+        JToggleButton btnCustom = new JToggleButton("Tùy chỉnh \uff00\u0987");
         btnCustom.setFont(UIConstants.FONT_SMALL_BOLD);
         btnCustom.setFocusPainted(false);
         btnCustom.setSelected(currentKy.startsWith("custom:"));

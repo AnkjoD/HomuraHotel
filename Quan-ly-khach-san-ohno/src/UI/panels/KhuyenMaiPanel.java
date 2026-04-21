@@ -49,9 +49,13 @@ public class KhuyenMaiPanel extends JPanel {
         JPanel center = new JPanel(new BorderLayout(0, 12));
         center.setOpaque(false);
 
-        String[] cols = {"MÃ KM", "TÊN CHƯƠNG TRÌNH", "LOẠI", "GIÁ TRỊ", "BẮT ĐẦU", "KẾT THÚC", "TỐI THIỂU", "SỬ DỤNG", "TRẠNG THÁI"};
+        String[] cols = { "MÃ KM", "TÊN CHƯƠNG TRÌNH", "LOẠI", "GIÁ TRỊ", "BẮT ĐẦU", "KẾT THÚC", "TỐI THIỂU", "SỬ DỤNG",
+                "TRẠNG THÁI" };
         model = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int row, int col) { return false; }
+            @Override
+            public boolean isCellEditable(int row, int col) {
+                return false;
+            }
         };
         table = new JTable(model);
         styleTable();
@@ -69,15 +73,15 @@ public class KhuyenMaiPanel extends JPanel {
         JPopupMenu popup = new JPopupMenu();
         JMenuItem viewItem = new JMenuItem("Xem chi tiết");
         viewItem.addActionListener(e -> viewSelected());
-        
+
         JMenuItem editItem = new JMenuItem("Chỉnh sửa");
         editItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/edit.png"));
         editItem.addActionListener(e -> editSelected());
-        
+
         JMenuItem deleteItem = new JMenuItem("Xóa");
         deleteItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/delete.png"));
         deleteItem.addActionListener(e -> deleteSelected());
-        
+
         popup.add(viewItem);
         popup.add(editItem);
         popup.addSeparator();
@@ -91,12 +95,14 @@ public class KhuyenMaiPanel extends JPanel {
                 if (row >= 0 && row < table.getRowCount()) {
                     table.setRowSelectionInterval(row, row);
                 }
-                if (e.isPopupTrigger()) showPopup(e);
+                if (e.isPopupTrigger())
+                    showPopup(e);
             }
 
             @Override
             public void mouseReleased(java.awt.event.MouseEvent e) {
-                if (e.isPopupTrigger()) showPopup(e);
+                if (e.isPopupTrigger())
+                    showPopup(e);
             }
 
             @Override
@@ -114,11 +120,11 @@ public class KhuyenMaiPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
         scroll.getViewport().setBackground(Color.WHITE);
-        
+
         // Pagination
         pagination = new PaginationPanel();
         pagination.setPageChangeListener(page -> displayCurrentPage());
-        
+
         JPanel footer = new JPanel(new BorderLayout());
         footer.setBackground(Color.WHITE);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
@@ -166,11 +172,11 @@ public class KhuyenMaiPanel extends JPanel {
         txtSearch.setPreferredSize(new Dimension(280, 42));
         txtSearch.addActionListener(e -> loadData());
 
-        cbStatus = new ModernComboBox<>(new String[]{"Tất cả", "Hoạt động", "Tạm dừng", "Hết hạn"});
+        cbStatus = new ModernComboBox<>(new String[] { "Tất cả", "Hoạt động", "Tạm dừng", "Hết hạn" });
         cbStatus.setPreferredSize(new Dimension(160, 42));
         cbStatus.addActionListener(e -> loadData());
 
-        RoundedButton btnAdd = new RoundedButton("➕ Thêm khuyến mãi", UIConstants.PRIMARY, Color.WHITE);
+        RoundedButton btnAdd = new RoundedButton("+ Thêm khuyến mãi", UIConstants.PRIMARY, Color.WHITE);
         btnAdd.setPreferredSize(new Dimension(180, 42));
         btnAdd.addActionListener(e -> {
             new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), null, false, false).setVisible(true);
@@ -202,7 +208,8 @@ public class KhuyenMaiPanel extends JPanel {
         // Custom Zebra Renderer
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row, int col) {
+            public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
+                    int col) {
                 JLabel lbl = (JLabel) super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
                 lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
@@ -215,7 +222,7 @@ public class KhuyenMaiPanel extends JPanel {
         table.getColumnModel().getColumn(8).setCellRenderer(new KhuyenMaiStatusRenderer());
         table.getColumnModel().getColumn(7).setCellRenderer(new UsageRenderer());
         table.getColumnModel().getColumn(2).setCellRenderer(new BadgeRenderer());
-        
+
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
         table.getColumnModel().getColumn(3).setCellRenderer(rightRenderer);
@@ -226,7 +233,7 @@ public class KhuyenMaiPanel extends JPanel {
         String keyword = txtSearch.getText();
         String status = (String) cbStatus.getSelectedItem();
         allKhuyenMai = kmDAO.search(keyword, status);
-        
+
         if (pagination != null) {
             pagination.setCurrentPage(1);
         }
@@ -235,7 +242,8 @@ public class KhuyenMaiPanel extends JPanel {
 
     private void displayCurrentPage() {
         model.setRowCount(0);
-        if (allKhuyenMai == null) return;
+        if (allKhuyenMai == null)
+            return;
 
         int pageSize = 12;
         int currentPage = pagination.getCurrentPage();
@@ -245,34 +253,40 @@ public class KhuyenMaiPanel extends JPanel {
         for (int i = start; i < end; i++) {
             KhuyenMai km = allKhuyenMai.get(i);
             Object[] row = {
-                km.getMaKhuyenMai(),
-                km.getTenKhuyenMai(),
-                km.getLoaiGiam() == LoaiGiam.PERCENT ? "PHẦN TRĂM (%)" : "TIỀN MẶT (₫)",
-                km.getLoaiGiam() == LoaiGiam.PERCENT ? km.getGiaTriGiam() + "%" : String.format("%,.0f ₫", km.getGiaTriGiam()),
-                km.getNgayBatDau().format(df),
-                km.getNgayKetThuc().format(df),
-                String.format("%,.0f ₫", km.getDieuKienToiThieu()),
-                km.getDaDung() + "/" + km.getSoLuong(),
-                determineStatus(km)
+                    km.getMaKhuyenMai(),
+                    km.getTenKhuyenMai(),
+                    km.getLoaiGiam() == LoaiGiam.PERCENT ? "PHẦN TRĂM (%)" : "TIỀN MẶT (₫)",
+                    km.getLoaiGiam() == LoaiGiam.PERCENT ? km.getGiaTriGiam() + "%"
+                            : String.format("%,.0f ₫", km.getGiaTriGiam()),
+                    km.getNgayBatDau().format(df),
+                    km.getNgayKetThuc().format(df),
+                    String.format("%,.0f ₫", km.getDieuKienToiThieu()),
+                    km.getDaDung() + "/" + km.getSoLuong(),
+                    determineStatus(km)
             };
             model.addRow(row);
         }
-        
+
         pagination.update(allKhuyenMai.size(), pageSize, currentPage);
     }
 
     private String determineStatus(KhuyenMai km) {
-        if (!km.isTrangThai()) return "TẠM DỪNG";
+        if (!km.isTrangThai())
+            return "TẠM DỪNG";
         LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(km.getNgayBatDau())) return "SẮP DIỄN RA";
-        if (now.isAfter(km.getNgayKetThuc())) return "HẾT HẠN";
-        if (km.getDaDung() >= km.getSoLuong()) return "HẾT LƯỢT";
+        if (now.isBefore(km.getNgayBatDau()))
+            return "SẮP DIỄN RA";
+        if (now.isAfter(km.getNgayKetThuc()))
+            return "HẾT HẠN";
+        if (km.getDaDung() >= km.getSoLuong())
+            return "HẾT LƯỢT";
         return "HOẠT ĐỘNG";
     }
 
     private void viewSelected() {
         int row = table.getSelectedRow();
-        if (row < 0) return;
+        if (row < 0)
+            return;
         String id = (String) model.getValueAt(row, 0);
         KhuyenMai km = kmDAO.getByVoucherCode(id);
         if (km != null) {
@@ -283,7 +297,8 @@ public class KhuyenMaiPanel extends JPanel {
 
     private void editSelected() {
         int row = table.getSelectedRow();
-        if (row < 0) return;
+        if (row < 0)
+            return;
         String id = (String) model.getValueAt(row, 0);
         KhuyenMai km = kmDAO.getByVoucherCode(id);
         if (km != null) {
@@ -294,16 +309,20 @@ public class KhuyenMaiPanel extends JPanel {
 
     private void deleteSelected() {
         int row = table.getSelectedRow();
-        if (row < 0) return;
+        if (row < 0)
+            return;
         String id = (String) model.getValueAt(row, 0);
         KhuyenMai km = kmDAO.getByVoucherCode(id);
-        
+
         if (km != null && km.getDaDung() > 0) {
-            JOptionPane.showMessageDialog(this, "Không thể xóa khuyến mãi đã được sử dụng! Hãy chuyển trạng thái sang Tạm dừng.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Không thể xóa khuyến mãi đã được sử dụng! Hãy chuyển trạng thái sang Tạm dừng.", "Thông báo",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        if (JOptionPane.showConfirmDialog(this, "Xác nhận xóa mã " + id + "?", "Cảnh báo", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+        if (JOptionPane.showConfirmDialog(this, "Xác nhận xóa mã " + id + "?", "Cảnh báo",
+                JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
             if (kmDAO.delete(id)) {
                 loadData();
             } else {
@@ -316,15 +335,28 @@ public class KhuyenMaiPanel extends JPanel {
 
     private static class KhuyenMaiStatusRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             String text = (value != null) ? value.toString() : "";
             Color bg, fg;
             switch (text) {
-                case "HOẠT ĐỘNG": bg = new Color(230, 250, 240); fg = new Color(30, 150, 80); break;
-                case "HẾT HẠN": 
-                case "HẾT LƯỢT": bg = new Color(255, 235, 235); fg = new Color(220, 50, 50); break;
-                case "SẮP DIỄN RA": bg = new Color(235, 243, 255); fg = new Color(30, 100, 230); break;
-                default: bg = new Color(245, 247, 250); fg = UIConstants.TEXT_MUTED; break;
+                case "HOẠT ĐỘNG":
+                    bg = new Color(230, 250, 240);
+                    fg = new Color(30, 150, 80);
+                    break;
+                case "HẾT HẠN":
+                case "HẾT LƯỢT":
+                    bg = new Color(255, 235, 235);
+                    fg = new Color(220, 50, 50);
+                    break;
+                case "SẮP DIỄN RA":
+                    bg = new Color(235, 243, 255);
+                    fg = new Color(30, 100, 230);
+                    break;
+                default:
+                    bg = new Color(245, 247, 250);
+                    fg = UIConstants.TEXT_MUTED;
+                    break;
             }
             StatusBadge badge = new StatusBadge(text, bg, fg);
             badge.setHorizontalAlignment(CENTER);
@@ -338,7 +370,8 @@ public class KhuyenMaiPanel extends JPanel {
 
     private static class BadgeRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             String text = (value != null) ? value.toString() : "";
             Color bg = text.contains("%") ? new Color(240, 235, 255) : new Color(230, 245, 255);
             Color fg = text.contains("%") ? new Color(100, 80, 200) : new Color(30, 120, 180);
@@ -354,7 +387,8 @@ public class KhuyenMaiPanel extends JPanel {
 
     private static class UsageRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             String text = (value != null) ? value.toString() : "0/0";
             String[] parts = text.split("/");
             if (parts.length == 2) {
@@ -362,7 +396,8 @@ public class KhuyenMaiPanel extends JPanel {
                     double used = Double.parseDouble(parts[0]);
                     double total = Double.parseDouble(parts[1]);
                     double pct = (total > 0) ? (used / total) : 0;
-                    Color fg = (pct > 0.9) ? UIConstants.DANGER : (pct > 0.7 ? UIConstants.WARNING : UIConstants.SUCCESS);
+                    Color fg = (pct > 0.9) ? UIConstants.DANGER
+                            : (pct > 0.7 ? UIConstants.WARNING : UIConstants.SUCCESS);
                     JLabel l = new JLabel(text);
                     l.setFont(UIConstants.FONT_SMALL_BOLD);
                     l.setForeground(fg);
@@ -372,7 +407,8 @@ public class KhuyenMaiPanel extends JPanel {
                     w.setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
                     w.add(l);
                     return w;
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         }
