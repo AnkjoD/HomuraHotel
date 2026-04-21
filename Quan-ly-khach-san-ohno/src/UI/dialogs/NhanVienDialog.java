@@ -17,7 +17,7 @@ public class NhanVienDialog extends JDialog {
     private final boolean readOnly;
     private boolean confirmed = false;
 
-    private JTextField txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi, txtLuong;
+    private JTextField txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi;
     private ui.components.DatePicker dtNgaySinh, dtNgayVaoLam;
     private JPasswordField txtMatKhau;
     private JComboBox<String> cboChucVu, cboVaiTro, cboGioiTinh;
@@ -30,7 +30,7 @@ public class NhanVienDialog extends JDialog {
     private static final String REGEX_EMAIL = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
     private static final String REGEX_CCCD = "^(\\d{9}|\\d{12})$";
 
-    private JLabel errTen, errSDT, errMK, errEmail, errCCCD, errLuong, errNgay;
+    private JLabel errTen, errSDT, errMK, errEmail, errCCCD, errNgay;
 
     public NhanVienDialog(Frame parent, NhanVien nv) {
         this(parent, nv, false);
@@ -85,7 +85,6 @@ public class NhanVienDialog extends JDialog {
         txtDiaChi = field();
         dtNgaySinh = new ui.components.DatePicker(null);
         dtNgayVaoLam = new ui.components.DatePicker(new java.util.Date()); // Hôm nay
-        txtLuong = field(); // double
         txtMatKhau = new JPasswordField();
         styleField(txtMatKhau);
 
@@ -94,7 +93,6 @@ public class NhanVienDialog extends JDialog {
         errMK = errLabel();
         errEmail = errLabel();
         errCCCD = errLabel();
-        errLuong = errLabel();
         errNgay = errLabel();
 
         txtTen.addFocusListener(new java.awt.event.FocusAdapter() {
@@ -119,12 +117,6 @@ public class NhanVienDialog extends JDialog {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
                 validateCCCD();
-            }
-        });
-        txtLuong.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
-                validateLuong();
             }
         });
         txtMatKhau.addFocusListener(new java.awt.event.FocusAdapter() {
@@ -166,7 +158,6 @@ public class NhanVienDialog extends JDialog {
         fContent.add(labelField("Ngày sinh *", dtNgaySinh, errNgay));
         fContent.add(labelField("Giới tính", cboGioiTinh, null));
         fContent.add(labelField("Ngày vào làm", dtNgayVaoLam, null));
-        fContent.add(labelField("Lương cơ bản (VNĐ) *", txtLuong, errLuong));
         fContent.add(labelField("Chức vụ", cboChucVu, null));
         fContent.add(labelField("Vai trò hệ thống", cboVaiTro, null));
         fContent.add(labelField("Mật khẩu" + pwHint, txtMatKhau, errMK));
@@ -216,7 +207,6 @@ public class NhanVienDialog extends JDialog {
             dtNgaySinh.setDate(java.sql.Date.valueOf(entity.getNgaySinh()));
         if (entity.getNgayVaoLam() != null)
             dtNgayVaoLam.setDate(java.sql.Date.valueOf(entity.getNgayVaoLam()));
-        txtLuong.setText(String.valueOf(entity.getLuongCoBan()));
         chkActive.setSelected(entity.isDangLamViec());
         setCombo(cboGioiTinh, entity.getGioiTinh());
 
@@ -320,22 +310,6 @@ public class NhanVienDialog extends JDialog {
         return true;
     }
 
-    private boolean validateLuong() {
-        String lStr = txtLuong.getText().trim();
-        errLuong.setText(" ");
-        try {
-            double l = Double.parseDouble(lStr);
-            if (l < 0) {
-                errLuong.setText("Lương không được âm!");
-                return false;
-            }
-        } catch (Exception e) {
-            errLuong.setText("Vui lòng nhập số!");
-            return false;
-        }
-        return true;
-    }
-
     private boolean validateNgay() {
         errNgay.setText(" ");
         try {
@@ -362,9 +336,8 @@ public class NhanVienDialog extends JDialog {
         boolean ok3 = validateMK();
         boolean ok4 = validateEmail();
         boolean ok5 = validateCCCD();
-        boolean ok6 = validateLuong();
         boolean ok7 = validateNgay();
-        if (!ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7)
+        if (!ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok7)
             return;
 
         String ten = txtTen.getText().trim();
@@ -387,11 +360,8 @@ public class NhanVienDialog extends JDialog {
             if (dtNgayVaoLam.getDate() != null)
                 nv.setNgayVaoLam(
                         dtNgayVaoLam.getDate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-
-            if (!txtLuong.getText().isBlank())
-                nv.setLuongCoBan(Double.parseDouble(txtLuong.getText().trim()));
         } catch (Exception e) {
-            showErr("Lỗi định dạng ngày hoặc lương!");
+            showErr("Lỗi định dạng ngày!");
             return;
         }
 
@@ -503,7 +473,6 @@ public class NhanVienDialog extends JDialog {
         txtEmail.setEditable(false);
         txtCCCD.setEditable(false);
         txtDiaChi.setEditable(false);
-        txtLuong.setEditable(false);
         txtMatKhau.setEditable(false);
         cboChucVu.setEnabled(false);
         cboVaiTro.setEnabled(false);
@@ -514,7 +483,7 @@ public class NhanVienDialog extends JDialog {
 
         // Đổi màu nền nhẹ để người dùng nhận biết là read-only
         Color readOnlyBg = new Color(0xF8FAFC);
-        for (JTextField f : new JTextField[]{txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi, txtLuong}) {
+        for (JTextField f : new JTextField[]{txtTen, txtSDT, txtEmail, txtCCCD, txtDiaChi}) {
             f.setBackground(readOnlyBg);
         }
         txtMatKhau.setBackground(readOnlyBg);

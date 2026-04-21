@@ -89,7 +89,7 @@ public class NhanVienDAO {
     }
 
     public boolean insert(NhanVien nv) {
-        String sqlNV = "INSERT INTO NhanVien(maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec, luongCoBan) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sqlNV = "INSERT INTO NhanVien(maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         String sqlTK = "INSERT INTO TaiKhoan(tenDangNhap, matKhau, vaiTro, trangThai, maNhanVien) VALUES(?,?,?,1,?)";
         try {
             Connection conn = getConn();
@@ -107,7 +107,6 @@ public class NhanVienDAO {
                     ps.setString(9, nv.getDiaChi());
                     ps.setDate(10, nv.getNgayVaoLam() != null ? java.sql.Date.valueOf(nv.getNgayVaoLam()) : null);
                     ps.setBoolean(11, nv.isDangLamViec());
-                    ps.setDouble(12, nv.getLuongCoBan());
                     ps.executeUpdate();
                 }
                 TaiKhoan tk = nv.getTaiKhoan();
@@ -137,7 +136,7 @@ public class NhanVienDAO {
     }
 
     public boolean update(NhanVien nv) {
-        String sqlNV = "UPDATE NhanVien SET hoTen=?, sdt=?, chucVu=?, email=?, cccd=?, ngaySinh=?, gioiTinh=?, diaChi=?, ngayVaoLam=?, dangLamViec=?, luongCoBan=? WHERE maNhanVien=?";
+        String sqlNV = "UPDATE NhanVien SET hoTen=?, sdt=?, chucVu=?, email=?, cccd=?, ngaySinh=?, gioiTinh=?, diaChi=?, ngayVaoLam=?, dangLamViec=? WHERE maNhanVien=?";
         try {
             Connection conn = getConn();
             conn.setAutoCommit(false);
@@ -153,8 +152,7 @@ public class NhanVienDAO {
                     ps.setString(8, nv.getDiaChi());
                     ps.setDate(9, nv.getNgayVaoLam() != null ? java.sql.Date.valueOf(nv.getNgayVaoLam()) : null);
                     ps.setBoolean(10, nv.isDangLamViec());
-                    ps.setDouble(11, nv.getLuongCoBan());
-                    ps.setString(12, nv.getMaNhanVien());
+                    ps.setString(11, nv.getMaNhanVien());
                     ps.executeUpdate();
                 }
                 TaiKhoan tk = nv.getTaiKhoan();
@@ -226,6 +224,36 @@ public class NhanVienDAO {
         return "NV001";
     }
 
+    public boolean isSdtExists(String sdt, String excludeMaNV) {
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE sdt = ?" + (excludeMaNV != null ? " AND maNhanVien <> ?" : "");
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, sdt);
+            if (excludeMaNV != null)
+                ps.setString(2, excludeMaNV);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+                return rs.getInt(1) > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error checking SDT exists", e);
+        }
+        return false;
+    }
+
+    public boolean isCccdExists(String cccd, String excludeMaNV) {
+        String sql = "SELECT COUNT(*) FROM NhanVien WHERE cccd = ?" + (excludeMaNV != null ? " AND maNhanVien <> ?" : "");
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, cccd);
+            if (excludeMaNV != null)
+                ps.setString(2, excludeMaNV);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+                return rs.getInt(1) > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error checking CCCD exists", e);
+        }
+        return false;
+    }
+
     private NhanVien mapRow(ResultSet rs) throws SQLException {
         NhanVien nv = new NhanVien();
         nv.setMaNhanVien(rs.getString("maNhanVien"));
@@ -241,7 +269,6 @@ public class NhanVienDAO {
         Date join = rs.getDate("ngayVaoLam");
         if (join != null) nv.setNgayVaoLam(join.toLocalDate());
         nv.setDangLamViec(rs.getBoolean("dangLamViec"));
-        nv.setLuongCoBan(rs.getDouble("luongCoBan"));
 
         // Map account if exists
         String tenDN = rs.getString("tenDangNhap");

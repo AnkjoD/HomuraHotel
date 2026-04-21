@@ -14,7 +14,6 @@ public class NhanVien {
     private String diaChi;
     private LocalDate ngayVaoLam;
     private boolean dangLamViec = true; // true = đang làm, false = đã nghỉ
-    private double luongCoBan;
 
     private TaiKhoan taiKhoan;
 
@@ -61,8 +60,6 @@ public class NhanVien {
     public boolean isDangLamViec() { return dangLamViec; }
     public void setDangLamViec(boolean dangLamViec) { this.dangLamViec = dangLamViec; }
 
-    public double getLuongCoBan() { return luongCoBan; }
-    public void setLuongCoBan(double luongCoBan) { this.luongCoBan = luongCoBan; }
 
     public TaiKhoan getTaiKhoan() { return taiKhoan; }
     public void setTaiKhoan(TaiKhoan taiKhoan) { this.taiKhoan = taiKhoan; }

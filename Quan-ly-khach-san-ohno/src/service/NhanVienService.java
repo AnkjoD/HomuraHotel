@@ -26,6 +26,14 @@ public class NhanVienService {
             return "Họ tên không được trống!";
         if (nv.getSdt() == null || nv.getSdt().isBlank())
             return "Số điện thoại không được trống!";
+        if (dao.isSdtExists(nv.getSdt().trim(), null))
+            return "Số điện thoại này đã được sử dụng bởi nhân viên khác!";
+        
+        if (nv.getCccd() != null && !nv.getCccd().isBlank()) {
+            if (dao.isCccdExists(nv.getCccd().trim(), null))
+                return "Số CCCD này đã được sử dụng bởi nhân viên khác!";
+        }
+
         if (nv.getMaNhanVien() == null || nv.getMaNhanVien().isBlank()) {
             nv.setMaNhanVien(dao.generateMaNV());
         }
@@ -51,6 +59,17 @@ public class NhanVienService {
     public String sua(NhanVien nv) {
         if (nv.getHoTen() == null || nv.getHoTen().isBlank())
             return "Họ tên không được trống!";
+        
+        if (nv.getSdt() != null && !nv.getSdt().isBlank()) {
+            if (dao.isSdtExists(nv.getSdt().trim(), nv.getMaNhanVien()))
+                return "Số điện thoại này đã được sử dụng bởi nhân viên khác!";
+        }
+        
+        if (nv.getCccd() != null && !nv.getCccd().isBlank()) {
+            if (dao.isCccdExists(nv.getCccd().trim(), nv.getMaNhanVien()))
+                return "Số CCCD này đã được sử dụng bởi nhân viên khác!";
+        }
+
         return dao.update(nv) ? null : "Lỗi cập nhật!";
     }
 
