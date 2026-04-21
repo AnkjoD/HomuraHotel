@@ -596,6 +596,7 @@ public class MainFrame extends JFrame {
                 continue;
 
             if ("SEP".equals(key)) {
+                if (!authSvc.isManager()) continue; // Hide System separator for Staff
                 menuContainer.add(Box.createVerticalStrut(20));
                 JLabel lbl = new JLabel(label);
                 lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -669,22 +670,7 @@ public class MainFrame extends JFrame {
         footer.setOpaque(false);
         footer.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        JLabel settings = new JLabel("\u2699 Cài đặt hệ thống");
-        settings.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        settings.setForeground(new Color(0x64748B));
-        settings.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        settings.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                settings.setForeground(Color.WHITE);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                settings.setForeground(new Color(0x64748B));
-            }
-        });
-        footer.add(settings, BorderLayout.WEST);
+        // Remove settings link as requested
 
         sidebar.add(logoSection, BorderLayout.NORTH);
         sidebar.add(scroll, BorderLayout.CENTER);

@@ -20,11 +20,13 @@ public class LoginFrame extends JFrame {
 
     // === CƠ CHẾ KHÓA KHI SAI QUÁ NHIỀU LẦN ===
     private static final int MAX_ATTEMPTS = 5; // Tối đa 5 lần sai
-    private static final int LOCKOUT_SECONDS = 30 * 60; // Khóa 30 phút (1800s)
+    private static final int LOCKOUT_SECONDS = 30; // Khóa 30 giây (Theo yêu cầu người dùng)
+    private static final String LOCKOUT_FILE = "login_lockout.dat";
     private int failedAttempts = 0;
     private boolean isLockedOut = false;
     private Timer lockoutTimer;
     private int lockoutRemaining = 0; // Số giây còn lại
+    private long lockoutEndTime = 0;
 
     public LoginFrame() {
         setTitle("Đăng nhập – Hotel MS");
@@ -32,6 +34,7 @@ public class LoginFrame extends JFrame {
         setSize(800, 520);
         setLocationRelativeTo(null);
         setResizable(false);
+        loadLockoutState();
         initUI();
     }
 
@@ -369,7 +372,13 @@ public class LoginFrame extends JFrame {
     /** Bắt đầu đếm ngược khóa */
     private void startLockout() {
         isLockedOut = true;
-        lockoutRemaining = LOCKOUT_SECONDS;
+        
+        if (lockoutRemaining <= 0) {
+            lockoutRemaining = LOCKOUT_SECONDS;
+            lockoutEndTime = System.currentTimeMillis() + (LOCKOUT_SECONDS * 1000);
+        }
+        
+        saveLockoutState();
 
         btnLogin.setEnabled(false);
         txtUsername.setEnabled(false);
@@ -410,6 +419,8 @@ public class LoginFrame extends JFrame {
             lockoutTimer.stop();
             lockoutTimer = null;
         }
+        lockoutEndTime = 0;
+        saveLockoutState();
 
         btnLogin.setEnabled(true);
         txtUsername.setEnabled(true);
@@ -482,6 +493,7 @@ public class LoginFrame extends JFrame {
                     if (nv != null) {
                         // Đăng nhập thành công → reset counter
                         failedAttempts = 0;
+                        saveLockoutState();
                         try {
                             MainFrame mainFrame = new MainFrame();
                             mainFrame.setVisible(true);
@@ -496,6 +508,7 @@ public class LoginFrame extends JFrame {
                     } else {
                         // Đăng nhập thất bại
                         failedAttempts++;
+                        saveLockoutState();
 
                         if (AuthService.getInstance().isAccountDisabled(username, password)) {
                             // Tài khoản bị khóa bởi Admin
@@ -547,5 +560,35 @@ public class LoginFrame extends JFrame {
         loginInProgress = loading;
         btnLogin.setEnabled(!loading);
         btnLogin.setText(loading ? "Đang đăng nhập..." : "Đăng nhập");
+    }
+
+    private void saveLockoutState() {
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(new java.io.FileOutputStream(LOCKOUT_FILE))) {
+            out.writeInt(failedAttempts);
+            out.writeLong(lockoutEndTime);
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadLockoutState() {
+        java.io.File file = new java.io.File(LOCKOUT_FILE);
+        if (!file.exists()) return;
+
+        try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.FileInputStream(file))) {
+            failedAttempts = in.readInt();
+            lockoutEndTime = in.readLong();
+
+            long now = System.currentTimeMillis();
+            if (lockoutEndTime > now) {
+                lockoutRemaining = (int) ((lockoutEndTime - now) / 1000);
+                if (lockoutRemaining > 0) {
+                    // Cần dùng invokeLater vì UI chưa build xong hoàn toàn trong constructor
+                    SwingUtilities.invokeLater(this::startLockout);
+                }
+            }
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
     }
 }

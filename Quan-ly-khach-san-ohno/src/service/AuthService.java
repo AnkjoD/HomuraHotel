@@ -102,17 +102,15 @@ public class AuthService {
         // ADMIN & MANAGER: full access
         if (role == VaiTro.ADMIN || role == VaiTro.MANAGER) return true;
 
-        // RECEPTIONIST: chỉ các module nghiệp vụ
+        // RECEPTIONIST: chỉ 4 nghiệp vụ chính
         switch (moduleKey) {
             case "tongquan":
             case "datphong":
             case "thuephong":
             case "hoadon":
-            case "khachhang":
-            case "nhanvien":
                 return true;
             default:
-                return false; // qlhethong, thongke → ẩn
+                return false; // khachhang, nhanvien, qlhethong, thongke → ẩn
         }
     }
 
