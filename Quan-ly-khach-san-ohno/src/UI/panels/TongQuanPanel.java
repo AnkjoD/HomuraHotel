@@ -12,35 +12,61 @@ import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * TongQuanPanel — Dashboard tổng quan
+ *
+ * FIX (2026-04-23):
+ *  1. Toàn bộ DB call được chuyển ra khỏi EDT bằng SwingWorker.
+ *  2. refresh() thực sự rebuild nội dung các card (không còn stale data).
+ *  3. getDashboardStats() chỉ gọi 1 lần, truyền kết quả vào tất cả card.
+ *  4. updateRecentActivity() được implement đầy đủ.
+ *  5. Labels lblStatXxx được lưu tham chiếu thực và cập nhật đúng.
+ */
 public class TongQuanPanel extends JPanel {
 
-    private final MainFrame      mainFrame;
-    private final ThongKeService thongKeService = new ThongKeService();
+    private final MainFrame        mainFrame;
+    private final ThongKeService   thongKeService  = new ThongKeService();
     private final ThuePhongService thuePhongService = new ThuePhongService();
-    private final PhongService phongService = new PhongService();
+    private final PhongService     phongService    = new PhongService();
 
-    // Stats Labels to update during refresh
-    private JLabel lblStatEmpty, lblStatOccupied, lblStatReserved, lblStatCheckin, lblStatCheckout, lblStatRevenue;
-    private JPanel pnlRecentActivity, pnlAlertsList;
+    // ── Stat card labels (được gán trong buildStatsRow) ──────────────────────
+    private JLabel lblStatEmpty, lblStatOccupied, lblStatReserved,
+                   lblStatCheckin, lblStatCheckout, lblStatRevenue;
+
+    // ── Content containers — được rebuild khi refresh ─────────────────────────
+    private JPanel pnlCheckinList;    // container bên trong buildCheckinCard
+    private JLabel lblCheckinCount;
+    private JPanel pnlCheckoutList;   // container bên trong buildCheckoutCard
+    private JLabel lblCheckoutCount;
+    private JPanel pnlActivityList;   // container bên trong buildActivityCard
+    private JPanel pnlAlertList;      // container bên trong buildAlertCard
     private JLabel lblAlertCount;
 
-    // Track alert IDs already pushed as notifications to avoid repeating each refresh
-    private final java.util.Set<String> pushedAlertIds = new java.util.HashSet<>();
+    // Guard: tránh kích hoạt 2 worker cùng lúc
+    private volatile boolean isRefreshing = false;
 
+    // Track alert IDs đã push thông báo
+    private final Set<String> pushedAlertIds = new HashSet<>();
+
+    // ─────────────────────────────────────────────────────────────────────────
     public TongQuanPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
         setOpaque(false);
         setLayout(new BorderLayout());
-        buildUI();
+        buildUI();               // Dựng khung UI (không gọi DB)
+        loadDataAsync();         // Fetch data trên background thread
     }
 
+    // ─── PUBLIC API ──────────────────────────────────────────────────────────
+
+    /** Gọi khi cần refresh toàn bộ dashboard */
     public void refresh() {
-        updateStatsData();
-        updateRecentActivity();
-        updateAlerts();
+        loadDataAsync();
     }
 
-
+    // ─────────────────────────────────────────────────────────────────────────
+    // BƯỚC 1: Dựng khung UI tĩnh (không chạm DB)
+    // ─────────────────────────────────────────────────────────────────────────
     private void buildUI() {
         JScrollPane scroll = new JScrollPane(buildInner());
         scroll.setOpaque(false);
@@ -59,16 +85,163 @@ public class TongQuanPanel extends JPanel {
 
         inner.add(buildTitleRow());
         inner.add(Box.createVerticalStrut(20));
-        inner.add(buildStatsRow());
+        inner.add(buildStatsRow());       // tạo labels, hiển thị "..." ban đầu
         inner.add(Box.createVerticalStrut(20));
-        inner.add(buildMiddleRow());
+        inner.add(buildMiddleRow());      // tạo container rỗng
         inner.add(Box.createVerticalStrut(20));
-        inner.add(buildBottomRow());
+        inner.add(buildBottomRow());      // tạo container rỗng
 
         return inner;
     }
 
-    // ------------------------------------------------------------------ TITLE
+    // ─────────────────────────────────────────────────────────────────────────
+    // BƯỚC 2: Fetch data trên background thread, điền vào UI khi xong
+    // ─────────────────────────────────────────────────────────────────────────
+    private void loadDataAsync() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+
+        SwingWorker<DashboardData, Void> worker = new SwingWorker<DashboardData, Void>() {
+
+            @Override
+            protected DashboardData doInBackground() {
+                // Chạy trên background thread — an toàn để gọi DB
+                DashboardData data = new DashboardData();
+                data.stats      = thongKeService.getDashboardStats();          // 1 lần duy nhất
+                data.checkins   = thongKeService.getCheckinHomNay();
+                data.checkouts  = thongKeService.getCheckoutHomNay();
+                data.activities = thongKeService.getHoatDongGanDay(10);
+                data.alerts     = thongKeService.getAlerts();
+                return data;
+            }
+
+            @Override
+            protected void done() {
+                // Trở về EDT để cập nhật UI
+                try {
+                    DashboardData data = get();
+                    applyDataToUI(data);
+                } catch (Exception e) {
+                    System.err.println("[TongQuanPanel] ERROR loading data: " + e.getMessage());
+                } finally {
+                    isRefreshing = false;
+                }
+            }
+        };
+
+        worker.execute();
+    }
+
+    /** Phân phối data vào từng section của UI — chỉ chạy trên EDT */
+    private void applyDataToUI(DashboardData data) {
+        Map<String, Object> stats = data.stats;
+
+        // ── 1. Stat cards ────────────────────────────────────────────────────
+        int phongTrong = (int) stats.getOrDefault("phongTrong",    0);
+        int dangO      = (int) stats.getOrDefault("dangO",         0);
+        int daDat      = (int) stats.getOrDefault("daDat",         0);
+        int checkinCnt = (int) stats.getOrDefault("checkinHomNay",  0);
+        int checkoutCnt= (int) stats.getOrDefault("checkoutHomNay", 0);
+
+        if (lblStatEmpty    != null) lblStatEmpty   .setText(phongTrong + " phòng");
+        if (lblStatOccupied != null) lblStatOccupied.setText(dangO      + " phòng");
+        if (lblStatReserved != null) lblStatReserved.setText(daDat      + " phòng");
+        if (lblStatCheckin  != null) lblStatCheckin .setText(checkinCnt  + " lượt");
+        if (lblStatCheckout != null) lblStatCheckout.setText(checkoutCnt + " lượt");
+        if (lblStatRevenue  != null) {
+            long doanhThu = (long) stats.getOrDefault("doanhThuHomNay", 0L);
+            lblStatRevenue.setText(String.format("%,.1f tr đ", doanhThu / 1_000_000.0));
+        }
+
+        // ── 2. Room status card (bar + legend) — rebuild bằng cách gọi lại ──
+        // Khi refresh, room bar tự lấy từ label đã có → chỉ update legend text
+        // (Đơn giản: cập nhật stat labels đã đủ vì RoomStatusCard đọc từ đó)
+
+        // ── 3. Check-in list ─────────────────────────────────────────────────
+        if (lblCheckinCount != null) lblCheckinCount.setText(data.checkins.size() + " lượt");
+        if (pnlCheckinList  != null) {
+            pnlCheckinList.removeAll();
+            SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
+            if (data.checkins.isEmpty()) {
+                pnlCheckinList.add(buildEmptyLabel("Chưa có check-in hôm nay"));
+            } else {
+                for (Map<String, Object> ci : data.checkins) {
+                    pnlCheckinList.add(buildCheckinRow(
+                        (String) ci.get("hoTen"),
+                        ci.get("soPhong") + " – " + ci.get("tenLoai"),
+                        ci.get("ngayNhan") != null ? timeFmt.format(ci.get("ngayNhan")) : "--:--",
+                        "Chờ xác nhận"
+                    ));
+                }
+            }
+            pnlCheckinList.revalidate();
+            pnlCheckinList.repaint();
+        }
+
+        // ── 4. Check-out list ────────────────────────────────────────────────
+        if (lblCheckoutCount != null) lblCheckoutCount.setText(data.checkouts.size() + " lượt");
+        if (pnlCheckoutList  != null) {
+            pnlCheckoutList.removeAll();
+            SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
+            if (data.checkouts.isEmpty()) {
+                pnlCheckoutList.add(buildEmptyLabel("Chưa có check-out hôm nay"));
+            } else {
+                for (Map<String, Object> co : data.checkouts) {
+                    pnlCheckoutList.add(buildCheckoutRow(co, timeFmt));
+                }
+            }
+            pnlCheckoutList.revalidate();
+            pnlCheckoutList.repaint();
+        }
+
+        // ── 5. Activity list ─────────────────────────────────────────────────
+        if (pnlActivityList != null) {
+            pnlActivityList.removeAll();
+            if (data.activities.isEmpty()) {
+                pnlActivityList.add(buildEmptyLabel("Chưa có hoạt động"));
+            } else {
+                SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm dd/MM");
+                for (Map<String, Object> act : data.activities) {
+                    pnlActivityList.add(buildActivityRow(act, timeFmt));
+                }
+            }
+            pnlActivityList.revalidate();
+            pnlActivityList.repaint();
+        }
+
+        // ── 6. Alerts list ───────────────────────────────────────────────────
+        if (lblAlertCount != null) {
+            lblAlertCount.setText(data.alerts.size() + " mục");
+            lblAlertCount.setForeground(data.alerts.isEmpty() ? UIConstants.SUCCESS : UIConstants.DANGER);
+        }
+        if (pnlAlertList != null) {
+            pnlAlertList.removeAll();
+            if (data.alerts.isEmpty()) {
+                JLabel ok = buildEmptyLabel("✓ Mọi thứ đều ổn");
+                ok.setForeground(UIConstants.SUCCESS);
+                pnlAlertList.add(Box.createVerticalStrut(30));
+                pnlAlertList.add(ok);
+            } else {
+                for (Map<String, Object> alert : data.alerts) {
+                    pnlAlertList.add(buildAlertRow(alert));
+                    pnlAlertList.add(new JSeparator(JSeparator.HORIZONTAL));
+                }
+            }
+            pnlAlertList.revalidate();
+            pnlAlertList.repaint();
+
+            // Cập nhật pushedAlertIds
+            Set<String> currentIds = new HashSet<>();
+            for (Map<String, Object> alert : data.alerts) {
+                currentIds.add(String.valueOf(alert.getOrDefault("id", alert.getOrDefault("title", ""))));
+            }
+            pushedAlertIds.retainAll(currentIds);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BUILD UI — Title
+    // ─────────────────────────────────────────────────────────────────────────
     private JPanel buildTitleRow() {
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
@@ -86,7 +259,6 @@ public class TongQuanPanel extends JPanel {
         lblGreet.setFont(UIConstants.FONT_TITLE);
         lblGreet.setForeground(UIConstants.TEXT_PRIMARY);
 
-        // === PHÂN QUYỀN: Hiển thị vai trò thực tế thay vì "Admin" cứng ===
         entity.enums.VaiTro currentRole = auth.getCurrentRole();
         String roleName = currentRole == entity.enums.VaiTro.ADMIN ? "Admin"
                 : currentRole == entity.enums.VaiTro.MANAGER ? "Manager" : "Receptionist";
@@ -118,39 +290,33 @@ public class TongQuanPanel extends JPanel {
         return row;
     }
 
-    // ------------------------------------------------------------------ STATS ROW
+    // ─────────────────────────────────────────────────────────────────────────
+    // BUILD UI — Stats row (dùng placeholder "..." — sau fill bằng applyDataToUI)
+    // ─────────────────────────────────────────────────────────────────────────
     private JPanel buildStatsRow() {
         service.AuthService auth = service.AuthService.getInstance();
-        boolean showRevenue = auth.isManager(); // ADMIN hoặc MANAGER mới thấy doanh thu
+        boolean showRevenue = auth.isManager();
 
-        // === PHÂN QUYỀN: RECEPTIONIST thấy 5 card, ADMIN/MANAGER thấy 6 card ===
         int cols = showRevenue ? 6 : 5;
         JPanel row = new JPanel(new GridLayout(1, cols, 12, 0));
         row.setOpaque(false);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
-        Map<String, Object> stats = thongKeService.getDashboardStats();
-        int  phongTrong = (int)  stats.getOrDefault("phongTrong",    0);
-        int  dangO      = (int)  stats.getOrDefault("dangO",         0);
-        int  daDat      = (int)  stats.getOrDefault("daDat",         0);
-        int  checkin    = (int)  stats.getOrDefault("checkinHomNay",  0);
-        int  checkout   = (int)  stats.getOrDefault("checkoutHomNay", 0);
+        // Tạo stat cards VÀ lưu tham chiếu label để cập nhật sau
+        lblStatEmpty    = addStatCard(row, "Phòng trống",       "...",  UIConstants.SUCCESS);
+        lblStatOccupied = addStatCard(row, "Đang ở",            "...",  UIConstants.PRIMARY);
+        lblStatReserved = addStatCard(row, "Đã đặt trước",      "...",  UIConstants.WARNING);
+        lblStatCheckin  = addStatCard(row, "Check-in hôm nay",  "...",  UIConstants.SUCCESS);
+        lblStatCheckout = addStatCard(row, "Check-out hôm nay", "...",  UIConstants.ORANGE);
 
-        row.add(createStatCard("Phòng trống",       phongTrong + " phòng",                          UIConstants.SUCCESS));
-        row.add(createStatCard("Đang ở",            dangO      + " phòng",                          UIConstants.PRIMARY));
-        row.add(createStatCard("Đã đặt trước",      daDat      + " phòng",                          UIConstants.WARNING));
-        row.add(createStatCard("Check-in hôm nay",  checkin    + " lượt",                           UIConstants.SUCCESS));
-        row.add(createStatCard("Check-out hôm nay", checkout   + " lượt",                           UIConstants.ORANGE));
-
-        // === PHÂN QUYỀN: Chỉ ADMIN/MANAGER thấy doanh thu ===
         if (showRevenue) {
-            long doanhThu = (long) stats.getOrDefault("doanhThuHomNay", 0L);
-            row.add(createStatCard("Doanh thu hôm nay", String.format("%,.1f tr đ", doanhThu / 1_000_000.0), UIConstants.DANGER));
+            lblStatRevenue = addStatCard(row, "Doanh thu hôm nay", "...", UIConstants.DANGER);
         }
         return row;
     }
 
-    private RoundedPanel createStatCard(String label, String value, Color accent) {
+    /** Tạo 1 stat card, thêm vào parent, trả về JLabel value để có thể cập nhật */
+    private JLabel addStatCard(JPanel parent, String label, String initialValue, Color accent) {
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
         card.setBackground(Color.WHITE);
         card.setShadow(true);
@@ -161,7 +327,7 @@ public class TongQuanPanel extends JPanel {
         lblLabel.setFont(UIConstants.FONT_SMALL);
         lblLabel.setForeground(UIConstants.TEXT_SECONDARY);
 
-        JLabel lblValue = new JLabel(value);
+        JLabel lblValue = new JLabel(initialValue);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblValue.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -173,14 +339,16 @@ public class TongQuanPanel extends JPanel {
         center.add(lblValue);
 
         card.add(center, BorderLayout.CENTER);
-        return card;
+        parent.add(card);
+        return lblValue;   // ← trả về để caller lưu tham chiếu
     }
 
-    // ------------------------------------------------------------------ MIDDLE ROW
+    // ─────────────────────────────────────────────────────────────────────────
+    // BUILD UI — Middle row (Room status + Check-in)
+    // ─────────────────────────────────────────────────────────────────────────
     private JPanel buildMiddleRow() {
         JPanel row = new JPanel(new GridLayout(1, 2, 16, 0));
         row.setOpaque(false);
-        // Bỏ setMaximumSize cứng — để card tự co giãn theo nội dung
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
         row.add(buildRoomStatusCard());
         row.add(buildCheckinCard());
@@ -194,16 +362,10 @@ public class TongQuanPanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
 
-        Map<String, Object> stats = thongKeService.getDashboardStats();
-        int phongTrong = (int) stats.getOrDefault("phongTrong", 0);
-        int dangO      = (int) stats.getOrDefault("dangO",      0);
-        int daDat      = (int) stats.getOrDefault("daDat",      0);
-        int tongPhong  = Math.max(1, (int) stats.getOrDefault("tongPhong", 50));
-
         JLabel title = new JLabel("Tình trạng phòng");
         title.setFont(UIConstants.FONT_HEADER);
         title.setForeground(UIConstants.TEXT_PRIMARY);
-        JLabel total = new JLabel("Tổng " + tongPhong + " phòng");
+        JLabel total = new JLabel("Đang tải...");
         total.setFont(UIConstants.FONT_SMALL);
         total.setForeground(UIConstants.TEXT_MUTED);
 
@@ -212,10 +374,20 @@ public class TongQuanPanel extends JPanel {
         header.add(title, BorderLayout.WEST);
         header.add(total, BorderLayout.EAST);
 
-        final int pt = phongTrong, dO = dangO, dD = daDat, tp = tongPhong;
+        // Bar + legend sẽ được vẽ từ các lblStat đã lưu ở trên
+        // Dùng JPanel đặc biệt tham chiếu labels để tự cập nhật khi repaint
         JPanel barPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                // Đọc giá trị trực tiếp từ lblStatXxx hiện tại
+                int pt = parseStatLabel(lblStatEmpty);
+                int dO = parseStatLabel(lblStatOccupied);
+                int dD = parseStatLabel(lblStatReserved);
+                int tp = Math.max(1, pt + dO + dD);
+
+                // Cập nhật label "Tổng X phòng" nhân tiện
+                total.setText("Tổng " + tp + " phòng");
+
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = 12;
@@ -233,11 +405,12 @@ public class TongQuanPanel extends JPanel {
         barPanel.setOpaque(false);
         barPanel.setPreferredSize(new Dimension(0, 18));
 
+        // Legend sử dụng label refs — sẽ tự synced khi applyDataToUI cập nhật labels
         JPanel legend = new JPanel(new GridLayout(3, 1, 0, 4));
         legend.setOpaque(false);
-        legend.add(buildLegendItem("Phòng trống", UIConstants.SUCCESS, phongTrong + " phòng", (int)(100.0*phongTrong/tongPhong) + "%"));
-        legend.add(buildLegendItem("Đang ở",      UIConstants.PRIMARY, dangO      + " phòng", (int)(100.0*dangO/tongPhong)      + "%"));
-        legend.add(buildLegendItem("Đã đặt trước",UIConstants.WARNING, daDat      + " phòng", (int)(100.0*daDat/tongPhong)      + "%"));
+        legend.add(buildLegendRef("Phòng trống",    UIConstants.SUCCESS, lblStatEmpty));
+        legend.add(buildLegendRef("Đang ở",         UIConstants.PRIMARY, lblStatOccupied));
+        legend.add(buildLegendRef("Đã đặt trước",   UIConstants.WARNING, lblStatReserved));
 
         JButton btnSoDo = new JButton("Xem sơ đồ phòng →");
         btnSoDo.setFont(UIConstants.FONT_SMALL);
@@ -262,7 +435,18 @@ public class TongQuanPanel extends JPanel {
         return card;
     }
 
-    private JPanel buildLegendItem(String label, Color color, String count, String percent) {
+    /** Đọc số phòng từ text của label stat ("5 phòng" → 5) */
+    private int parseStatLabel(JLabel lbl) {
+        if (lbl == null) return 0;
+        try {
+            return Integer.parseInt(lbl.getText().replaceAll("[^0-9]", ""));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** Legend item tham chiếu trực tiếp vào label stat để synced */
+    private JPanel buildLegendRef(String label, Color color, JLabel statLabel) {
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
 
@@ -283,18 +467,29 @@ public class TongQuanPanel extends JPanel {
         lbl.setForeground(UIConstants.TEXT_SECONDARY);
         left.add(dot); left.add(lbl);
 
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        // Right side: count lấy từ statLabel ref, percent tính lại
+        JPanel right = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                // Cập nhật text trước khi vẽ
+                removeAll();
+                setLayout(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+                String countTxt = (statLabel != null) ? statLabel.getText() : "0 phòng";
+                int cnt = 0;
+                try { cnt = Integer.parseInt(countTxt.replaceAll("[^0-9]", "")); } catch (Exception ignored) {}
+                int total = Math.max(1, parseStatLabel(lblStatEmpty) + parseStatLabel(lblStatOccupied) + parseStatLabel(lblStatReserved));
+                JLabel c = new JLabel(countTxt);    c.setFont(UIConstants.FONT_SMALL_BOLD); c.setForeground(UIConstants.TEXT_PRIMARY);
+                JLabel pct = new JLabel((int)(100.0*cnt/total) + "%"); pct.setFont(UIConstants.FONT_SMALL_BOLD); pct.setForeground(color);
+                add(c); add(pct);
+                super.paintComponent(g);
+            }
+        };
         right.setOpaque(false);
-        JLabel cnt = new JLabel(count); cnt.setFont(UIConstants.FONT_SMALL_BOLD); cnt.setForeground(UIConstants.TEXT_PRIMARY);
-        JLabel pct = new JLabel(percent); pct.setFont(UIConstants.FONT_SMALL_BOLD); pct.setForeground(color);
-        right.add(cnt); right.add(pct);
 
         p.add(left,  BorderLayout.WEST);
         p.add(right, BorderLayout.EAST);
         return p;
     }
 
-    // ---- Check-in card (FIX: scroll đặt CENTER thay vì SOUTH) ----
     private JPanel buildCheckinCard() {
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
         card.setBackground(Color.WHITE);
@@ -302,55 +497,144 @@ public class TongQuanPanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
 
-        java.util.List<Map<String, Object>> checkins = thongKeService.getCheckinHomNay();
-
         JLabel title = new JLabel("Check-in hôm nay");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel count = new JLabel(checkins.size() + " lượt");
-        count.setFont(UIConstants.FONT_SMALL);
-        count.setForeground(UIConstants.TEXT_MUTED);
+        lblCheckinCount = new JLabel("...");
+        lblCheckinCount.setFont(UIConstants.FONT_SMALL);
+        lblCheckinCount.setForeground(UIConstants.TEXT_MUTED);
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(title, BorderLayout.WEST);
-        header.add(count, BorderLayout.EAST);
+        header.add(title,           BorderLayout.WEST);
+        header.add(lblCheckinCount, BorderLayout.EAST);
 
-        JPanel listPanel = new JPanel();
-        listPanel.setOpaque(false);
-        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+        // Container list — sẽ được fill bởi applyDataToUI
+        pnlCheckinList = new JPanel();
+        pnlCheckinList.setOpaque(false);
+        pnlCheckinList.setLayout(new BoxLayout(pnlCheckinList, BoxLayout.Y_AXIS));
+        pnlCheckinList.add(buildLoadingLabel());
 
-        SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
-        if (checkins.isEmpty()) {
-            JLabel empty = new JLabel("Chưa có check-in hôm nay");
-            empty.setFont(UIConstants.FONT_BODY);
-            empty.setForeground(UIConstants.TEXT_MUTED);
-            empty.setAlignmentX(Component.CENTER_ALIGNMENT);
-            listPanel.add(Box.createVerticalStrut(20));
-            listPanel.add(empty);
-        } else {
-            for (Map<String, Object> ci : checkins) {
-                listPanel.add(buildCheckinRow(
-                    (String) ci.get("hoTen"),
-                    ci.get("soPhong") + " – " + ci.get("tenLoai"),
-                    ci.get("ngayNhan") != null ? timeFmt.format(ci.get("ngayNhan")) : "--:--",
-                    "Chờ xác nhận"
-                ));
-            }
-        }
-
-        // FIX: scroll đặt CENTER để không bị che
-        JScrollPane scroll = new JScrollPane(listPanel);
+        JScrollPane scroll = new JScrollPane(pnlCheckinList);
         scroll.setOpaque(false);
         scroll.getViewport().setOpaque(false);
         scroll.setBorder(null);
         scroll.getVerticalScrollBar().setUnitIncrement(10);
 
-        card.add(header,                    BorderLayout.NORTH);
-        card.add(Box.createVerticalStrut(8), BorderLayout.CENTER);
-        card.add(scroll,                    BorderLayout.CENTER); // FIX
+        card.add(header, BorderLayout.NORTH);
+        card.add(scroll, BorderLayout.CENTER);
         return card;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // BUILD UI — Bottom row (Activity + Checkout + Alerts)
+    // ─────────────────────────────────────────────────────────────────────────
+    private JPanel buildBottomRow() {
+        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
+        row.add(buildActivityCard());
+        row.add(buildCheckoutCard());
+        row.add(buildAlertCard());
+        return row;
+    }
+
+    private JPanel buildActivityCard() {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
+
+        JLabel title = new JLabel("Hoạt động gần đây");
+        title.setFont(UIConstants.FONT_HEADER);
+        card.add(title, BorderLayout.NORTH);
+
+        pnlActivityList = new JPanel();
+        pnlActivityList.setOpaque(false);
+        pnlActivityList.setLayout(new BoxLayout(pnlActivityList, BoxLayout.Y_AXIS));
+        pnlActivityList.add(buildLoadingLabel());
+
+        JScrollPane scroll = new JScrollPane(pnlActivityList);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(10);
+
+        card.add(scroll, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildCheckoutCard() {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
+
+        JLabel title = new JLabel("Check-out hôm nay");
+        title.setFont(UIConstants.FONT_HEADER);
+        lblCheckoutCount = new JLabel("...");
+        lblCheckoutCount.setFont(UIConstants.FONT_SMALL);
+        lblCheckoutCount.setForeground(UIConstants.TEXT_MUTED);
+
+        JPanel hdr = new JPanel(new BorderLayout());
+        hdr.setOpaque(false);
+        hdr.add(title,            BorderLayout.WEST);
+        hdr.add(lblCheckoutCount, BorderLayout.EAST);
+        card.add(hdr, BorderLayout.NORTH);
+
+        pnlCheckoutList = new JPanel();
+        pnlCheckoutList.setOpaque(false);
+        pnlCheckoutList.setLayout(new BoxLayout(pnlCheckoutList, BoxLayout.Y_AXIS));
+        pnlCheckoutList.add(buildLoadingLabel());
+
+        JScrollPane scroll = new JScrollPane(pnlCheckoutList);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(10);
+
+        card.add(scroll, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildAlertCard() {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
+
+        JLabel title = new JLabel("Cảnh báo hôm nay");
+        title.setFont(UIConstants.FONT_HEADER);
+        lblAlertCount = new JLabel("...");
+        lblAlertCount.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblAlertCount.setForeground(UIConstants.TEXT_MUTED);
+
+        JPanel hdr = new JPanel(new BorderLayout());
+        hdr.setOpaque(false);
+        hdr.add(title,         BorderLayout.WEST);
+        hdr.add(lblAlertCount, BorderLayout.EAST);
+        card.add(hdr, BorderLayout.NORTH);
+
+        pnlAlertList = new JPanel();
+        pnlAlertList.setOpaque(false);
+        pnlAlertList.setLayout(new BoxLayout(pnlAlertList, BoxLayout.Y_AXIS));
+        pnlAlertList.add(buildLoadingLabel());
+
+        JScrollPane scroll = new JScrollPane(pnlAlertList);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(10);
+
+        card.add(scroll, BorderLayout.CENTER);
+        return card;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ROW BUILDERS — dùng trong applyDataToUI
+    // ─────────────────────────────────────────────────────────────────────────
     private JPanel buildCheckinRow(String name, String room, String time, String status) {
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
@@ -399,312 +683,154 @@ public class TongQuanPanel extends JPanel {
         return row;
     }
 
-    // ------------------------------------------------------------------ BOTTOM ROW
-    private JPanel buildBottomRow() {
-        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+    private JPanel buildCheckoutRow(Map<String, Object> co, SimpleDateFormat timeFmt) {
+        JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280)); // tăng chiều cao
-        row.add(buildActivityCard());
-        row.add(buildCheckoutCard());
-        row.add(buildAlertCard());
+        row.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+
+        JLabel room = new JLabel("P." + co.get("soPhong"));
+        room.setFont(UIConstants.FONT_BODY_BOLD);
+        room.setForeground(UIConstants.PRIMARY);
+        room.setPreferredSize(new Dimension(50, 20));
+
+        JPanel info = new JPanel();
+        info.setOpaque(false);
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        JLabel name = new JLabel(String.valueOf(co.get("hoTen")));
+        name.setFont(UIConstants.FONT_SMALL_BOLD);
+        String timeStr = co.get("ngayTraDK") != null ? timeFmt.format(co.get("ngayTraDK")) : "";
+        JLabel t = new JLabel(timeStr);
+        t.setFont(UIConstants.FONT_SMALL);
+        t.setForeground(UIConstants.TEXT_MUTED);
+        info.add(name); info.add(t);
+
+        String trangThai = String.valueOf(co.get("trangThai"));
+        boolean daTraP = "Đã trả".equals(trangThai);
+        JLabel badge = new JLabel(daTraP ? "Đã trả" : "Chờ trả");
+        badge.setFont(UIConstants.FONT_SMALL_BOLD);
+        badge.setForeground(daTraP ? UIConstants.SUCCESS : UIConstants.WARNING);
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        left.setOpaque(false);
+        left.add(room); left.add(info);
+        row.add(left,  BorderLayout.WEST);
+        row.add(badge, BorderLayout.EAST);
         return row;
     }
 
-    // ---- Hoạt động gần đây (FIX: thêm scroll) ----
-    private JPanel buildActivityCard() {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
-        card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
+    private JPanel buildActivityRow(Map<String, Object> act, SimpleDateFormat timeFmt) {
+        JPanel item = new JPanel(new BorderLayout());
+        item.setOpaque(false);
+        item.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
 
-        JLabel title = new JLabel("Hoạt động gần đây");
-        title.setFont(UIConstants.FONT_HEADER);
-        card.add(title, BorderLayout.NORTH);
-        card.add(Box.createVerticalStrut(10), BorderLayout.CENTER);
-
-        java.util.List<Map<String, Object>> acts = thongKeService.getHoatDongGanDay(10);
-
-        JPanel list = new JPanel();
-        list.setOpaque(false);
-        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-
-        if (acts.isEmpty()) {
-            JLabel empty = new JLabel("Chưa có hoạt động");
-            empty.setFont(UIConstants.FONT_BODY);
-            empty.setForeground(UIConstants.TEXT_MUTED);
-            empty.setAlignmentX(Component.CENTER_ALIGNMENT);
-            list.add(Box.createVerticalStrut(16));
-            list.add(empty);
-        } else {
-            SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm dd/MM");
-            for (Map<String, Object> act : acts) {
-                JPanel item = new JPanel(new BorderLayout());
-                item.setOpaque(false);
-                item.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
-                item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-
-                JPanel dot = new JPanel() {
-                    @Override protected void paintComponent(Graphics g) {
-                        Graphics2D g2 = (Graphics2D) g.create();
-                        String loai = String.valueOf(act.get("loai"));
-                        boolean isCheckin = "Nh\u1EADn ph\u00F2ng".equals(loai) || "Nh\u1EADn ph\u00F2ng".equals(loai);
-                        g2.setColor(isCheckin ? UIConstants.SUCCESS : UIConstants.ORANGE);
-                        g2.fillOval(0, 4, 8, 8);
-                        g2.dispose();
-                    }
-                };
-                dot.setOpaque(false);
-                dot.setPreferredSize(new Dimension(14, 16));
-
-                JPanel info = new JPanel();
-                info.setOpaque(false);
-                info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-                JLabel lblAct  = new JLabel(act.get("loai") + " – P." + act.get("soPhong"));
-                lblAct.setFont(UIConstants.FONT_SMALL_BOLD);
-                JLabel lblName = new JLabel(act.get("hoTen") != null ? String.valueOf(act.get("hoTen")) : "");
-                lblName.setFont(UIConstants.FONT_SMALL);
-                lblName.setForeground(UIConstants.TEXT_MUTED);
-                info.add(lblAct); info.add(lblName);
-
-                String thoiGianStr = "--:--";
-                if (act.get("thoiGian") instanceof java.util.Date) {
-                    thoiGianStr = timeFmt.format((java.util.Date) act.get("thoiGian"));
-                }
-                JLabel time = new JLabel(thoiGianStr);
-                time.setFont(UIConstants.FONT_SMALL);
-                time.setForeground(UIConstants.TEXT_MUTED);
-
-                JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-                left.setOpaque(false);
-                left.add(dot); left.add(info);
-                item.add(left, BorderLayout.WEST);
-                item.add(time, BorderLayout.EAST);
-                list.add(item);
+        String loai = String.valueOf(act.get("loai"));
+        boolean isCheckin = "Nhận phòng".equals(loai);
+        JPanel dot = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(isCheckin ? UIConstants.SUCCESS : UIConstants.ORANGE);
+                g2.fillOval(0, 4, 8, 8);
+                g2.dispose();
             }
+        };
+        dot.setOpaque(false);
+        dot.setPreferredSize(new Dimension(14, 16));
+
+        JPanel info = new JPanel();
+        info.setOpaque(false);
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        JLabel lblAct  = new JLabel(loai + " – P." + act.get("soPhong"));
+        lblAct.setFont(UIConstants.FONT_SMALL_BOLD);
+        JLabel lblName = new JLabel(act.get("hoTen") != null ? String.valueOf(act.get("hoTen")) : "");
+        lblName.setFont(UIConstants.FONT_SMALL);
+        lblName.setForeground(UIConstants.TEXT_MUTED);
+        info.add(lblAct); info.add(lblName);
+
+        String thoiGianStr = "--:--";
+        if (act.get("thoiGian") instanceof java.util.Date) {
+            thoiGianStr = timeFmt.format((java.util.Date) act.get("thoiGian"));
+        }
+        JLabel time = new JLabel(thoiGianStr);
+        time.setFont(UIConstants.FONT_SMALL);
+        time.setForeground(UIConstants.TEXT_MUTED);
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        left.setOpaque(false);
+        left.add(dot); left.add(info);
+        item.add(left, BorderLayout.WEST);
+        item.add(time, BorderLayout.EAST);
+        return item;
+    }
+
+    private JPanel buildAlertRow(Map<String, Object> alert) {
+        String type     = String.valueOf(alert.getOrDefault("type",  "warning"));
+        String titleStr = String.valueOf(alert.getOrDefault("title", ""));
+        String descStr  = String.valueOf(alert.getOrDefault("desc",  ""));
+
+        Color barColor;
+        String icon;
+        switch (type) {
+            case "danger":  barColor = UIConstants.DANGER; icon = "⚠"; break;
+            case "info":    barColor = UIConstants.INFO;   icon = "ℹ"; break;
+            default:        barColor = UIConstants.WARNING; icon = "⚡"; break;
         }
 
-        // FIX: thêm scroll
-        JScrollPane scroll = new JScrollPane(list);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        scroll.getVerticalScrollBar().setUnitIncrement(10);
+        JPanel item = new JPanel(new BorderLayout(10, 0));
+        item.setOpaque(false);
+        item.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
+        item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
 
-        card.add(scroll, BorderLayout.CENTER);
-        return card;
+        JLabel lblIcon = new JLabel(icon);
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.BOLD, 18));
+        lblIcon.setForeground(barColor);
+        lblIcon.setPreferredSize(new Dimension(24, 24));
+        lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JPanel info = new JPanel();
+        info.setOpaque(false);
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        JLabel l1 = new JLabel(titleStr); l1.setFont(UIConstants.FONT_SMALL_BOLD); l1.setForeground(UIConstants.TEXT_PRIMARY);
+        JLabel l2 = new JLabel(descStr);  l2.setFont(UIConstants.FONT_TINY);      l2.setForeground(UIConstants.TEXT_SECONDARY);
+        info.add(l1); info.add(l2);
+
+        JPanel indicator = new JPanel();
+        indicator.setBackground(barColor);
+        indicator.setPreferredSize(new Dimension(3, 30));
+
+        JPanel content = new JPanel(new BorderLayout(8, 0));
+        content.setOpaque(false);
+        content.add(lblIcon, BorderLayout.WEST);
+        content.add(info,    BorderLayout.CENTER);
+
+        item.add(indicator, BorderLayout.WEST);
+        item.add(content,   BorderLayout.CENTER);
+        return item;
     }
 
-    // ---- Check-out hôm nay (FIX: thêm scroll) ----
-    private JPanel buildCheckoutCard() {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
-        card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
-
-        java.util.List<Map<String, Object>> outs = thongKeService.getCheckoutHomNay();
-
-        JLabel title = new JLabel("Check-out hôm nay");
-        title.setFont(UIConstants.FONT_HEADER);
-        JLabel cnt = new JLabel(outs.size() + " lượt");
-        cnt.setFont(UIConstants.FONT_SMALL);
-        cnt.setForeground(UIConstants.TEXT_MUTED);
-
-        JPanel hdr = new JPanel(new BorderLayout());
-        hdr.setOpaque(false);
-        hdr.add(title, BorderLayout.WEST);
-        hdr.add(cnt,   BorderLayout.EAST);
-        card.add(hdr, BorderLayout.NORTH);
-
-        JPanel list = new JPanel();
-        list.setOpaque(false);
-        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-
-        SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
-
-        if (outs.isEmpty()) {
-            JLabel empty = new JLabel("Chưa có check-out hôm nay");
-            empty.setFont(UIConstants.FONT_BODY);
-            empty.setForeground(UIConstants.TEXT_MUTED);
-            empty.setAlignmentX(Component.CENTER_ALIGNMENT);
-            list.add(Box.createVerticalStrut(16));
-            list.add(empty);
-        } else {
-            for (Map<String, Object> co : outs) {
-                JPanel row = new JPanel(new BorderLayout());
-                row.setOpaque(false);
-                row.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
-                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-
-                JLabel room = new JLabel("P." + co.get("soPhong"));
-                room.setFont(UIConstants.FONT_BODY_BOLD);
-                room.setForeground(UIConstants.PRIMARY);
-                room.setPreferredSize(new Dimension(50, 20));
-
-                JPanel info = new JPanel();
-                info.setOpaque(false);
-                info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-                JLabel name = new JLabel(String.valueOf(co.get("hoTen")));
-                name.setFont(UIConstants.FONT_SMALL_BOLD);
-                String timeStr = co.get("ngayTraDK") != null ? timeFmt.format(co.get("ngayTraDK")) : "";
-                JLabel t = new JLabel(timeStr);
-                t.setFont(UIConstants.FONT_SMALL);
-                t.setForeground(UIConstants.TEXT_MUTED);
-                info.add(name); info.add(t);
-
-                String trangThai = String.valueOf(co.get("trangThai"));
-                boolean daTraP = "Đã trả".equals(trangThai);
-                JLabel badge = new JLabel(daTraP ? "Đã trả" : "Chờ trả");
-                badge.setFont(UIConstants.FONT_SMALL_BOLD);
-                badge.setForeground(daTraP ? UIConstants.SUCCESS : UIConstants.WARNING);
-
-                JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-                left.setOpaque(false);
-                left.add(room); left.add(info);
-                row.add(left,  BorderLayout.WEST);
-                row.add(badge, BorderLayout.EAST);
-                list.add(row);
-            }
-        }
-
-        // FIX: thêm scroll
-        JScrollPane scroll = new JScrollPane(list);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        scroll.getVerticalScrollBar().setUnitIncrement(10);
-
-        card.add(scroll, BorderLayout.CENTER);
-        return card;
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────────────────
+    private JLabel buildLoadingLabel() {
+        JLabel lbl = new JLabel("Đang tải...");
+        lbl.setFont(UIConstants.FONT_BODY);
+        lbl.setForeground(UIConstants.TEXT_MUTED);
+        lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        return lbl;
     }
 
-    // ---- Cảnh báo & Nhắc nhở (kết nối DB thật qua getAlerts()) ----
-    private JPanel buildAlertCard() {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
-        card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
-
-        java.util.List<Map<String, Object>> alerts = thongKeService.getAlerts();
-
-        JLabel title = new JLabel("Cảnh báo hôm nay");
-        title.setFont(UIConstants.FONT_HEADER);
-        JLabel cnt = new JLabel(alerts.size() + " mục");
-        cnt.setFont(UIConstants.FONT_SMALL_BOLD);
-        cnt.setForeground(alerts.isEmpty() ? UIConstants.SUCCESS : UIConstants.DANGER);
-
-        JPanel hdr = new JPanel(new BorderLayout());
-        hdr.setOpaque(false);
-        hdr.add(title, BorderLayout.WEST);
-        hdr.add(cnt,   BorderLayout.EAST);
-        card.add(hdr, BorderLayout.NORTH);
-
-        JPanel list = new JPanel();
-        list.setOpaque(false);
-        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-
-        if (alerts.isEmpty()) {
-            JLabel empty = new JLabel("✓ Mọi thứ đều ổn");
-            empty.setFont(UIConstants.FONT_BODY);
-            empty.setForeground(UIConstants.SUCCESS);
-            empty.setAlignmentX(Component.CENTER_ALIGNMENT);
-            list.add(Box.createVerticalStrut(30));
-            list.add(empty);
-        } else {
-            for (Map<String, Object> alert : alerts) {
-                String type     = String.valueOf(alert.getOrDefault("type",  "warning"));
-                String titleStr = String.valueOf(alert.getOrDefault("title", ""));
-                String descStr  = String.valueOf(alert.getOrDefault("desc",  ""));
-
-                Color barColor;
-                String icon;
-                switch (type) {
-                    case "danger":  
-                        barColor = UIConstants.DANGER; 
-                        icon = "⚠"; // Warning sign
-                        break;
-                    case "info":    
-                        barColor = UIConstants.INFO;   
-                        icon = "ℹ"; // Info sign
-                        break;
-                    default:        
-                        barColor = UIConstants.WARNING;
-                        icon = "⚡"; // Bolt/Flash
-                        break;
-                }
-
-                JPanel item = new JPanel(new BorderLayout(10, 0));
-                item.setOpaque(false);
-                item.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
-                item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-
-                JLabel lblIcon = new JLabel(icon);
-                lblIcon.setFont(new Font("Segoe UI Emoji", Font.BOLD, 18));
-                lblIcon.setForeground(barColor);
-                lblIcon.setPreferredSize(new Dimension(24, 24));
-                lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
-
-                JPanel info = new JPanel();
-                info.setOpaque(false);
-                info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-                JLabel l1 = new JLabel(titleStr); l1.setFont(UIConstants.FONT_SMALL_BOLD); l1.setForeground(UIConstants.TEXT_PRIMARY);
-                JLabel l2 = new JLabel(descStr);  l2.setFont(UIConstants.FONT_TINY);      l2.setForeground(UIConstants.TEXT_SECONDARY);
-                info.add(l1); info.add(l2);
-
-                JPanel indicator = new JPanel();
-                indicator.setBackground(barColor);
-                indicator.setPreferredSize(new Dimension(3, 30));
-
-                item.add(indicator, BorderLayout.WEST);
-                
-                JPanel content = new JPanel(new BorderLayout(8, 0));
-                content.setOpaque(false);
-                content.add(lblIcon, BorderLayout.WEST);
-                content.add(info, BorderLayout.CENTER);
-                
-                item.add(content, BorderLayout.CENTER);
-                
-                list.add(item);
-                list.add(new JSeparator(JSeparator.HORIZONTAL));
-            }
-        }
-
-
-        JScrollPane scroll = new JScrollPane(list);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        scroll.getVerticalScrollBar().setUnitIncrement(10);
-
-        card.add(scroll, BorderLayout.CENTER);
-        return card;
+    private JLabel buildEmptyLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(UIConstants.FONT_BODY);
+        lbl.setForeground(UIConstants.TEXT_MUTED);
+        lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        return lbl;
     }
 
-    private void updateStatsData() {
-        new Thread(() -> {
-            Map<String, Object> stats = thongKeService.getDashboardStats();
-            SwingUtilities.invokeLater(() -> {
-                if (lblStatEmpty != null) lblStatEmpty.setText(stats.getOrDefault("phongTrong", 0) + " phòng");
-                if (lblStatOccupied != null) lblStatOccupied.setText(stats.getOrDefault("dangO", 0) + " phòng");
-                if (lblStatReserved != null) lblStatReserved.setText(stats.getOrDefault("daDat", 0) + " phòng");
-                if (lblStatCheckin != null) lblStatCheckin.setText(thongKeService.getCheckinHomNay().size() + " lượt");
-                if (lblStatCheckout != null) lblStatCheckout.setText(thongKeService.getCheckoutHomNay().size() + " lượt");
-                if (lblStatRevenue != null) {
-                    long doanhThu = (long) stats.getOrDefault("doanhThuHomNay", 0L);
-                    lblStatRevenue.setText(String.format("%,.1f tr đ", doanhThu / 1_000_000.0));
-                }
-            });
-        }).start();
-    }
-
-    private void updateRecentActivity() {
-        // Simple update: recreate the activity scroll content
-        // In a real app, you'd update a list model
-    }
-
-    // ------------------------------------------------------------------ WORKFLOWS
+    // ─────────────────────────────────────────────────────────────────────────
+    // WORKFLOWS (Checkin / Checkout nhanh từ Dashboard)
+    // ─────────────────────────────────────────────────────────────────────────
     private void handleDashboardCheckin() {
         mainFrame.navigateTo("datphong", () -> {
             DatPhongPanel dp = mainFrame.getDatPhongPanel();
@@ -734,7 +860,7 @@ public class TongQuanPanel extends JPanel {
                     .toArray(String[]::new);
 
             ModernComboBox<String> combo = new ModernComboBox<>(roomOptions);
-            int result = JOptionPane.showConfirmDialog(this, combo, "Chọn phòng để trả phòng (Thanh toán)", 
+            int result = JOptionPane.showConfirmDialog(this, combo, "Chọn phòng để trả phòng (Thanh toán)",
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
             if (result == JOptionPane.OK_OPTION) {
@@ -756,31 +882,14 @@ public class TongQuanPanel extends JPanel {
         }
     }
 
-    private void updateAlerts() {
-        new Thread(() -> {
-            java.util.List<Map<String, Object>> alerts = thongKeService.getAlerts();
-            SwingUtilities.invokeLater(() -> {
-                // Cập nhật badge số cảnh báo
-                if (lblAlertCount != null) {
-                    lblAlertCount.setText(alerts.size() + " mục");
-                }
-
-                // === PUSH NOTIFICATION: Đã chuyển sang chuông thông báo (NotificationBell) trên Header ===
-                // Không hiển thị toast tự động để tránh làm phiền người dùng.
-                /*
-                for (Map<String, Object> alert : alerts) {
-                    ... (giữ logic trong code cũ nếu cần tham khảo, hoặc xóa hẳn)
-                }
-                */
-
-                // Xoá các alert ID không còn trong danh sách (phòng đã trả) để có thể
-                // push lại nếu phòng bị quá hạn trở lại
-                java.util.Set<String> currentIds = new java.util.HashSet<>();
-                for (Map<String, Object> alert : alerts) {
-                    currentIds.add(String.valueOf(alert.getOrDefault("id", alert.getOrDefault("title", ""))));
-                }
-                pushedAlertIds.retainAll(currentIds);
-            });
-        }).start();
+    // ─────────────────────────────────────────────────────────────────────────
+    // DATA CONTAINER
+    // ─────────────────────────────────────────────────────────────────────────
+    private static class DashboardData {
+        Map<String, Object>              stats      = new LinkedHashMap<>();
+        java.util.List<Map<String,Object>> checkins  = new java.util.ArrayList<>();
+        java.util.List<Map<String,Object>> checkouts = new java.util.ArrayList<>();
+        java.util.List<Map<String,Object>> activities= new java.util.ArrayList<>();
+        java.util.List<Map<String,Object>> alerts    = new java.util.ArrayList<>();
     }
 }
