@@ -41,73 +41,81 @@ public class DatPhongService {
     }
 
     public String datPhong(DatPhong dp) {
-        // Validation
+        // ── Validation (trước transaction) ──────────────────────────────────
         if (dp == null) return "Dữ liệu đặt phòng không hợp lệ!";
-        if (dp.getKhachHang() == null || dp.getKhachHang().getMaKhachHang() == null) 
+        if (dp.getKhachHang() == null || dp.getKhachHang().getMaKhachHang() == null)
             return "Chưa chọn khách hàng!";
-        if (dp.getNgayNhan() == null || dp.getNgayTra() == null) 
+        if (dp.getNgayNhan() == null || dp.getNgayTra() == null)
             return "Ngày không hợp lệ!";
-        if (!dp.getNgayTra().isAfter(dp.getNgayNhan())) 
+        if (!dp.getNgayTra().isAfter(dp.getNgayNhan()))
             return "Ngày trả phải sau ngày nhận!";
         if (dp.getSoLuongKhach() <= 0)
             return "Số lượng khách phải lớn hơn 0!";
-        
-        // Validate sức chứa tổng thể (đã xử lý ở UI)
-        // Bỏ qua chặn sức chứa từng phòng để hỗ trợ khách đoàn
-        
-        if (dp.getTrangThai() == null) dp.setTrangThai(TrangThaiDatPhong.PENDING);
-        
-        // Generate maDatPhong if not set
-        if (dp.getMaDatPhong() == null || dp.getMaDatPhong().isEmpty()) {
-            dp.setMaDatPhong(datPhongDAO.generateMaDatPhong());
-        }
-        if (dp.getNgayDat() == null) {
-            dp.setNgayDat(LocalDateTime.now());
-        }
-        
-        boolean ok = datPhongDAO.insert(dp);
-        if (!ok) return "Lỗi đặt phòng!";
-        
-        // Update Voucher Quota if present
-        if (dp.getMaKhuyenMai() != null && !dp.getMaKhuyenMai().isEmpty()) {
-            KhuyenMai km = khuyenMaiDAO.getByVoucherCode(dp.getMaKhuyenMai());
-            if (km != null) {
-                km.setDaDung(km.getDaDung() + 1);
-                khuyenMaiDAO.update(km);
-                LogService.addLog("Áp dụng Voucher", "Khuyến mãi", "Voucher " + km.getMaKhuyenMai() + " được dành cho ĐP " + dp.getMaDatPhong());
-            }
-        }
-        
-        // Insert ChiTietDatPhong for each room in the booking
-        if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
-            for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
-                if (ct.getMaChiTiet() == null || ct.getMaChiTiet().isEmpty()) {
-                    ct.setMaChiTiet(ctDAO.generateMaChiTiet());
-                }
-                ct.setDatPhong(dp);
-                if (!ctDAO.insert(ct)) {
-                    return "Lỗi thêm chi tiết đặt phòng!";
-                }
-            }
-        }
 
-        // Insert dánh sách dịch vụ đi kèm (nếu có)
-        if (dp.getDsDichVu() != null && !dp.getDsDichVu().isEmpty()) {
-            SuDungDichVuDAO sddvDAO = new SuDungDichVuDAO();
-            for (SuDungDichVu s : dp.getDsDichVu()) {
-                // Link tới ChiTiet đầu tiên nếu cần maChiTiet (hoặc DAO tự map maDatPhong)
-                if (s.getCtdp() == null && dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
-                    s.setCtdp(dp.getDsChiTiet().get(0));
-                }
-                if (!sddvDAO.insert(s)) {
-                    LOGGER.warning("Không lưu được dịch vụ: " + s.getTenDichVu());
+        if (dp.getTrangThai() == null) dp.setTrangThai(TrangThaiDatPhong.PENDING);
+        if (dp.getMaDatPhong() == null || dp.getMaDatPhong().isEmpty())
+            dp.setMaDatPhong(datPhongDAO.generateMaDatPhong());
+        if (dp.getNgayDat() == null)
+            dp.setNgayDat(LocalDateTime.now());
+
+        // ── Transaction bao toàn bộ các bước ghi DB ─────────────────────────
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+
+            // 1. Tạo đơn đặt phòng chính
+            if (!datPhongDAO.insert(dp)) {
+                db.rollbackTransaction();
+                return "Lỗi tạo đơn đặt phòng!";
+            }
+
+            // 2. Cập nhật quota Voucher nếu có
+            if (dp.getMaKhuyenMai() != null && !dp.getMaKhuyenMai().isEmpty()) {
+                KhuyenMai km = khuyenMaiDAO.getByVoucherCode(dp.getMaKhuyenMai());
+                if (km != null) {
+                    km.setDaDung(km.getDaDung() + 1);
+                    khuyenMaiDAO.update(km);
+                    LogService.addLog("Áp dụng Voucher", "Khuyến mãi",
+                            "Voucher " + km.getMaKhuyenMai() + " được dành cho ĐP " + dp.getMaDatPhong());
                 }
             }
+
+            // 3. Insert ChiTietDatPhong cho từng phòng
+            if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
+                for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                    if (ct.getMaChiTiet() == null || ct.getMaChiTiet().isEmpty())
+                        ct.setMaChiTiet(ctDAO.generateMaChiTiet());
+                    ct.setDatPhong(dp);
+                    if (!ctDAO.insert(ct)) {
+                        db.rollbackTransaction();
+                        return "Lỗi thêm chi tiết đặt phòng (phòng " +
+                               (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?") + ")!";
+                    }
+                }
+            }
+
+            // 4. Insert dịch vụ đi kèm (nếu có)
+            if (dp.getDsDichVu() != null && !dp.getDsDichVu().isEmpty()) {
+                SuDungDichVuDAO sddvDAO = new SuDungDichVuDAO();
+                for (SuDungDichVu s : dp.getDsDichVu()) {
+                    if (s.getCtdp() == null && dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty())
+                        s.setCtdp(dp.getDsChiTiet().get(0));
+                    if (!sddvDAO.insert(s))
+                        LOGGER.warning("Không lưu được dịch vụ: " + s.getTenDichVu());
+                }
+            }
+
+            db.commitTransaction();
+            LOGGER.info("Đặt phòng thành công: " + dp.getMaDatPhong());
+            return null;
+
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi trong datPhong()", e);
+            return "Lỗi hệ thống: " + e.getMessage();
         }
-        
-        LOGGER.info("Đặt phòng thành công: " + dp.getMaDatPhong());
-        return null;
     }
+
 
     /**
      * Tính toán phí phạt hủy phòng dự kiến dựa trên thời điểm hủy.
@@ -367,42 +375,17 @@ public class DatPhongService {
     }
 
     /**
-     * Tìm các đơn CONFIRMED có ngày nhận trong vòng hoursAhead tiếng tới (sắp check-in).
+     * Tìm các đơn CONFIRMED có ngày nhận trong vòng hoursAhead tiếng tới (dùng SQL).
      */
     public List<DatPhong> getUpcomingArrivals(int hoursAhead) {
-        List<DatPhong> result = new ArrayList<>();
-        LocalDateTime now  = LocalDateTime.now();
-        LocalDateTime end  = now.plusHours(hoursAhead);
-        LocalDateTime start = now.minusHours(2); // Cho phép trễ tối đa 2 tiếng (chưa thành no-show)
-        
-        for (DatPhong dp : datPhongDAO.getAll()) {
-            if (dp.getTrangThai() == TrangThaiDatPhong.CONFIRMED
-                && dp.getNgayNhanDuKien() != null) {
-                
-                LocalDateTime thoiGianNhan = dp.getNgayNhanDuKien();
-                // Thuộc khoảng: (Bây giờ - 2 tiếng) <= Thời gian nhận <= (Bây giờ + hoursAhead)
-                if (!thoiGianNhan.isBefore(start) && !thoiGianNhan.isAfter(end)) {
-                    result.add(dp);
-                }
-            }
-        }
-        return result;
+        return datPhongDAO.getUpcomingArrivals(hoursAhead);
     }
 
     /**
-     * Tìm các đơn PENDING lâu hơn hoursOld tiếng mà chưa được xác nhận.
+     * Tìm các đơn PENDING lâu hơn hoursOld tiếng mà chưa được xác nhận (dùng SQL).
      */
     public List<DatPhong> getLongPendingBookings(int hoursOld) {
-        List<DatPhong> result = new ArrayList<>();
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(hoursOld);
-        for (DatPhong dp : datPhongDAO.getAll()) {
-            if (dp.getTrangThai() == TrangThaiDatPhong.PENDING
-                && dp.getNgayDat() != null
-                && dp.getNgayDat().isBefore(cutoff)) {
-                result.add(dp);
-            }
-        }
-        return result;
+        return datPhongDAO.getLongPending(hoursOld);
     }
 
     /**

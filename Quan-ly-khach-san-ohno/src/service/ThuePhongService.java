@@ -167,13 +167,11 @@ public class ThuePhongService {
 
             List<ChiTietDatPhong> segments = new ArrayList<>();
             if (mainCt.getDatPhong() != null) {
-                String mainKhId = mainCt.getKhachHang() != null ? mainCt.getKhachHang().getMaKhachHang() : "";
+                // Lấy TẤT CẢ phòng chưa thanh toán trong cùng đơn đặt phòng.
+                // KHÔNG filter theo maKhachHang để tránh bỏ sót phòng của khách đoàn
+                // có người đại diện khác nhau.
                 segments = ctdpDAO.getByDatPhong(mainCt.getDatPhong().getMaDatPhong()).stream()
                         .filter(c -> !c.isDaThanhToan())
-                        .filter(c -> {
-                            String currentKhId = c.getKhachHang() != null ? c.getKhachHang().getMaKhachHang() : "";
-                            return currentKhId.equals(mainKhId);
-                        })
                         .collect(java.util.stream.Collectors.toList());
             } else {
                 segments.add(mainCt);
@@ -335,11 +333,7 @@ public class ThuePhongService {
             if (mainCt.getDatPhong() != null) {
                 DatPhong dp = datPhongDAO.getById(mainCt.getDatPhong().getMaDatPhong());
                 if (dp != null) {
-                    boolean allPaid = true;
-                    for (ChiTietDatPhong c : ctdpDAO.getByDatPhong(dp.getMaDatPhong())) {
-                        if (c.getNgayTraThucTe() == null) { allPaid = false; break; }
-                    }
-                    if (allPaid) { dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT); datPhongDAO.update(dp); }
+                    updateDatPhongStatus(dp, ctdpDAO.getByDatPhong(dp.getMaDatPhong()));
                 }
             }
 
@@ -378,14 +372,7 @@ public class ThuePhongService {
             if (ct.getDatPhong() != null) {
                 DatPhong dp = datPhongDAO.getById(ct.getDatPhong().getMaDatPhong());
                 if (dp != null) {
-                    boolean allCheckedOut = true;
-                    for (ChiTietDatPhong c : ctdpDAO.getByDatPhong(dp.getMaDatPhong())) {
-                        if (c.getNgayTraThucTe() == null) { allCheckedOut = false; break; }
-                    }
-                    if (allCheckedOut) {
-                        dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
-                        datPhongDAO.update(dp);
-                    }
+                    updateDatPhongStatus(dp, ctdpDAO.getByDatPhong(dp.getMaDatPhong()));
                 }
             }
             Phong phong = phongDAO.getById(ct.getPhong().getMaPhong());
@@ -622,6 +609,50 @@ public class ThuePhongService {
             dbConn.commitTransaction();
             return null;
         } catch (Exception e) { dbConn.rollbackTransaction(); return e.getMessage(); }
+    }
+
+    /**
+     * Cập nhật trạng thái DatPhong dựa trên tình trạng thực tế của tất cả ChiTietDatPhong.
+     *
+     * Logic:
+     *  - Tất cả đã trả (daThanhToan=true hoặc ngayTraThucTe!=null) → CHECKED_OUT
+     *  - Có ít nhất 1 phòng đang ở (ngayNhanThucTe!=null, ngayTraThucTe==null) → CHECKED_IN hoặc PARTIALLY_CHECKED_IN
+     *  - Tất cả chưa checkin → giữ trạng thái CONFIRMED (không thay đổi)
+     *
+     * Phòng chưa check-in (ngayNhanThucTe IS NULL) KHÔNG được tính là "đang ở" hay "chưa trả".
+     */
+    private void updateDatPhongStatus(DatPhong dp, List<ChiTietDatPhong> allRooms) {
+        if (dp == null || allRooms == null || allRooms.isEmpty()) return;
+
+        // Đếm từng loại trạng thái phòng
+        int totalRooms     = allRooms.size();
+        int checkedOutRooms = 0;  // daThanhToan=true hoặc ngayTraThucTe!=null
+        int activeRooms    = 0;   // checkin rồi nhưng chưa trả (ngayNhanThucTe!=null, ngayTraThucTe==null)
+        // Phòng chưa checkin (ngayNhanThucTe==null) không tính vào active — vẫn là "pending"
+
+        for (ChiTietDatPhong c : allRooms) {
+            boolean daTra = c.isDaThanhToan() || c.getNgayTraThucTe() != null;
+            boolean dangO = c.getNgayNhanThucTe() != null && c.getNgayTraThucTe() == null;
+            if (daTra)   checkedOutRooms++;
+            if (dangO)   activeRooms++;
+        }
+
+        if (checkedOutRooms == totalRooms) {
+            // Tất cả phòng đã trả (kể cả phòng chưa checkin — coi như không dùng)
+            dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
+        } else if (checkedOutRooms > 0 || activeRooms > 0) {
+            // Có ít nhất 1 phòng đã trả HOẶC đang ở, nhưng chưa xong hết
+            if (activeRooms == totalRooms - checkedOutRooms) {
+                // Tất cả phòng còn lại đều đang ở → CHECKED_IN
+                dp.setTrangThai(TrangThaiDatPhong.CHECKED_IN);
+            } else {
+                // Một số phòng đã trả, một số còn đang ở hoặc chưa checkin → PARTIALLY_CHECKED_IN
+                dp.setTrangThai(TrangThaiDatPhong.PARTIALLY_CHECKED_IN);
+            }
+        }
+        // Nếu checkedOutRooms==0 && activeRooms==0: tất cả chưa checkin → giữ nguyên
+
+        datPhongDAO.update(dp);
     }
 
     public KhuyenMai getBestPromotion(double total) {
