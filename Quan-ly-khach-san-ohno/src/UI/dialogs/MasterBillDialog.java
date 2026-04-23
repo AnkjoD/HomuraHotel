@@ -33,7 +33,7 @@ public class MasterBillDialog extends JDialog {
     private boolean confirmed = false;
 
     private DefaultTableModel tableModel;
-    private JLabel lblTongPhong, lblTongDV, lblTongPhuPhi, lblTongCong;
+    private JLabel lblTongPhong, lblTongDV, lblTongPhuPhi, lblTienCoc, lblTongCong;
     private JComboBox<String> cboHinhThuc;
 
     public MasterBillDialog(Frame parent, DatPhong dp, List<ChiTietDatPhong> rooms) {
@@ -245,6 +245,9 @@ public class MasterBillDialog extends JDialog {
         lblTongDV.setFont(UIConstants.FONT_BODY);
         lblTongPhuPhi = new JLabel("0 đ");
         lblTongPhuPhi.setFont(UIConstants.FONT_BODY);
+        lblTienCoc = new JLabel("Không cọc");
+        lblTienCoc.setFont(UIConstants.FONT_BODY);
+        lblTienCoc.setForeground(new java.awt.Color(0xF97316)); // cam
         lblTongCong = new JLabel("0 đ");
         lblTongCong.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTongCong.setForeground(UIConstants.PRIMARY);
@@ -323,11 +326,20 @@ public class MasterBillDialog extends JDialog {
         java.math.BigDecimal bdTotalPhong = java.math.BigDecimal.valueOf(totalPhong);
         java.math.BigDecimal bdTotalDV = java.math.BigDecimal.valueOf(totalDV);
         java.math.BigDecimal bdTotalPhuPhi = java.math.BigDecimal.valueOf(totalPhuPhi);
-        
-        if (lblTongPhong != null) lblTongPhong.setText(String.format("%,.0f đ", bdTotalPhong.doubleValue()));
-        if (lblTongDV != null) lblTongDV.setText(String.format("%,.0f đ", bdTotalDV.doubleValue()));
+
+        // Tiền cọc — hiển thị và trừ khỏi tổng
+        double tienCoc = datPhong.getTienDatCoc();
+
+        if (lblTongPhong  != null) lblTongPhong.setText(String.format("%,.0f đ", bdTotalPhong.doubleValue()));
+        if (lblTongDV     != null) lblTongDV.setText(String.format("%,.0f đ", bdTotalDV.doubleValue()));
         if (lblTongPhuPhi != null) lblTongPhuPhi.setText(String.format("%,.0f đ", bdTotalPhuPhi.doubleValue()));
-        if (lblTongCong != null) lblTongCong.setText(String.format("%,.0f đ", bdTotalPhong.add(bdTotalDV).add(bdTotalPhuPhi).doubleValue()));
+        if (lblTienCoc    != null) lblTienCoc.setText(tienCoc > 0 ? String.format("-%,.0f đ", tienCoc) : "Không cọc");
+        if (lblTongCong   != null) {
+            double tongSauCoc = Math.max(0,
+                    bdTotalPhong.add(bdTotalDV).add(bdTotalPhuPhi)
+                    .subtract(java.math.BigDecimal.valueOf(tienCoc)).doubleValue());
+            lblTongCong.setText(String.format("%,.0f đ", tongSauCoc));
+        }
     }
 
     private JPanel buildSummarySection() {
@@ -343,6 +355,8 @@ public class MasterBillDialog extends JDialog {
         panel.add(sumRow("Tổng phụ phí", lblTongPhuPhi, false));
         panel.add(Box.createVerticalStrut(4));
         panel.add(sumRow("Tổng dịch vụ", lblTongDV, false));
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(sumRow("Tiền cọc đã đặt (khấu trừ)", lblTienCoc, false));
         panel.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
@@ -543,6 +557,14 @@ public class MasterBillDialog extends JDialog {
         panel.add(Box.createVerticalStrut(8));
         panel.add(printSep());
         panel.add(Box.createVerticalStrut(8));
+
+        double tienCoc = datPhong.getTienDatCoc();
+        if (tienCoc > 0) {
+            panel.add(printRow("Tiền cọc đã đặt (khấu trừ):", String.format("-%,.0f đ", tienCoc)));
+            panel.add(Box.createVerticalStrut(8));
+            panel.add(printSep());
+            panel.add(Box.createVerticalStrut(8));
+        }
 
         JLabel total = new JLabel("TỔNG CỘNG:   " + lblTongCong.getText());
         total.setFont(new Font("Segoe UI", Font.BOLD, 15));

@@ -30,7 +30,7 @@ public class HoaDonDialog extends JDialog {
     private boolean confirmed = false;
 
     private DefaultTableModel tableModel;
-    private JLabel lblTongPhong, lblTongDV, lblGiamGia, lblTongCong;
+    private JLabel lblTongPhong, lblTongDV, lblGiamGia, lblTienCoc, lblTongCong;
     private JComboBox<String> cboDV;
     private JSpinner spnSL;
     private java.util.List<DichVu> dvList = new ArrayList<>();
@@ -249,6 +249,9 @@ public class HoaDonDialog extends JDialog {
         lblGiamGia = new JLabel("0 đ");
         lblGiamGia.setFont(UIConstants.FONT_BODY);
         lblGiamGia.setForeground(UIConstants.SUCCESS);
+        lblTienCoc = new JLabel("0 đ");
+        lblTienCoc.setFont(UIConstants.FONT_BODY);
+        lblTienCoc.setForeground(new java.awt.Color(0xF97316)); // cam — deposit highlight
         lblTongCong = new JLabel("0 đ");
         lblTongCong.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTongCong.setForeground(UIConstants.PRIMARY);
@@ -351,9 +354,33 @@ public class HoaDonDialog extends JDialog {
             lblTongDV.setText(String.format("%,.0f đ", bdTienDV.doubleValue()));
         if (lblGiamGia != null)
             lblGiamGia.setText(String.format("-%,.0f đ", bdGiamGia.doubleValue()));
-        
+
+        // ── Tiền cọc ──────────────────────────────────────────────────────
+        double tienCoc = 0;
+        if (thuePhong.getDatPhong() != null)
+            tienCoc = thuePhong.getDatPhong().getTienDatCoc();
+        if (tienCoc > 0) {
+            tableModel.addRow(new Object[] {
+                    "─────────────────────────",
+                    String.format("-%,.0f đ", tienCoc),
+                    "1",
+                    String.format("-%,.0f đ", tienCoc)
+            });
+            // Override nội dung ô đầu tiên cho rõ nghĩa hơn bằng cách xoá & thêm lại
+            int lastRow = tableModel.getRowCount() - 1;
+            tableModel.setValueAt("Khấu trừ tiền cọc đã đặt", lastRow, 0);
+            tableModel.setValueAt("-" + String.format("%,.0f đ", tienCoc), lastRow, 3);
+            tableModel.setValueAt("—", lastRow, 1);
+            tableModel.setValueAt("—", lastRow, 2);
+        }
+        if (lblTienCoc != null)
+            lblTienCoc.setText(tienCoc > 0 ? String.format("-%,.0f đ", tienCoc) : "Không cọc");
+        // ──────────────────────────────────────────────────────────────────
+
         if (lblTongCong != null) {
-            double finalTotal = bdTienPhong.add(bdPhuPhi).add(bdTienDV).subtract(bdGiamGia).doubleValue();
+            double finalTotal = bdTienPhong.add(bdPhuPhi).add(bdTienDV).subtract(bdGiamGia)
+                    .subtract(java.math.BigDecimal.valueOf(tienCoc)).doubleValue();
+            if (finalTotal < 0) finalTotal = 0; // Không cho âm
             lblTongCong.setText(String.format("%,.0f đ", finalTotal));
         }
     }
@@ -426,6 +453,8 @@ public class HoaDonDialog extends JDialog {
         panel.add(sumRow("Tiền dịch vụ", lblTongDV, false));
         panel.add(Box.createVerticalStrut(4));
         panel.add(sumRow("Giảm giá", lblGiamGia, false));
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(sumRow("Tiền cọc đã đặt (khấu trừ)", lblTienCoc, false));
         panel.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
@@ -804,6 +833,8 @@ public class HoaDonDialog extends JDialog {
         }
         
         double tongFinal = subTotal - tienGiam;
+        double dpCoc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getTienDatCoc() : 0;
+        double tongSauCoc = Math.max(0, tongFinal - dpCoc);
         
         panel.add(printSep());
         panel.add(Box.createVerticalStrut(10));
@@ -812,12 +843,13 @@ public class HoaDonDialog extends JDialog {
         summaryBox.setOpaque(false);
         summaryBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
         
-        JPanel rightSummary = new JPanel(new GridLayout(3, 1, 0, 5));
+        JPanel rightSummary = new JPanel(new GridLayout(4, 1, 0, 5));
         rightSummary.setOpaque(false);
         rightSummary.add(printSummaryLine("Tổng tiền dịch vụ:", String.format("%,.0f đ", totalDV + phiCheckinOut + phiKhac)));
         if (tienGiam > 0) rightSummary.add(printSummaryLine("Giảm giá (Voucher):", String.format("-%,.0f đ", tienGiam)));
-        
-        JLabel lblTongFinal = new JLabel("TỔNG CỘNG:   " + String.format("%,.0f đ", tongFinal));
+        if (dpCoc > 0)   rightSummary.add(printSummaryLine("Tiền cọc đã đặt:",     String.format("-%,.0f đ", dpCoc)));
+
+        JLabel lblTongFinal = new JLabel("TỔNG CỘNG:   " + String.format("%,.0f đ", tongSauCoc));
         lblTongFinal.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTongFinal.setForeground(new Color(0x1E293B));
         lblTongFinal.setHorizontalAlignment(SwingConstants.RIGHT);
