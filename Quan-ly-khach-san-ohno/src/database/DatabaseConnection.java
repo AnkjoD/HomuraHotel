@@ -88,7 +88,7 @@ public class DatabaseConnection {
         this.dbDriver = props.getProperty("db.driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver");
     }
 
-    public Connection getConnection() throws SQLException {
+    public synchronized Connection getConnection() throws SQLException {
         try {
             if (connection == null || connection.isClosed()) {
                 Class.forName(dbDriver);

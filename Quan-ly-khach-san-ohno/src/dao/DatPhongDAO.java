@@ -78,10 +78,7 @@ public class DatPhongDAO {
             ps.setInt(7, dp.getSoLuongKhach());
             ps.setDouble(8, dp.getTienDatCoc());
             ps.setDouble(9, dp.getTongTienTamTinh());
-            String statusStr = dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING";
-            if ("PARTIALLY_CHECKED_IN".equals(statusStr))
-                statusStr = "CHECKED_IN";
-            ps.setString(10, statusStr);
+            ps.setString(10, dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING");
             ps.setString(11, dp.getGhiChu());
             ps.setString(12, dp.getLoaiKhach() != null ? dp.getLoaiKhach() : "CA_NHAN");
             ps.setString(13, dp.getTenDoan());
@@ -117,10 +114,7 @@ public class DatPhongDAO {
             ps.setInt(7, dp.getSoLuongKhach());
             ps.setDouble(8, dp.getTienDatCoc());
             ps.setDouble(9, dp.getTongTienTamTinh());
-            String statusStr = dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING";
-            if ("PARTIALLY_CHECKED_IN".equals(statusStr))
-                statusStr = "CHECKED_IN";
-            ps.setString(10, statusStr);
+            ps.setString(10, dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING");
             ps.setString(11, dp.getGhiChu());
             ps.setString(12, dp.getLoaiKhach() != null ? dp.getLoaiKhach() : "CA_NHAN");
             ps.setString(13, dp.getTenDoan());
@@ -141,10 +135,7 @@ public class DatPhongDAO {
             ps.setInt(5, dp.getSoLuongKhach());
             ps.setDouble(6, dp.getTienDatCoc());
             ps.setDouble(7, dp.getTongTienTamTinh());
-            String statusStr = dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING";
-            if ("PARTIALLY_CHECKED_IN".equals(statusStr))
-                statusStr = "CHECKED_IN";
-            ps.setString(8, statusStr);
+            ps.setString(8, dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING");
             ps.setString(9, dp.getGhiChu());
             ps.setString(10, dp.getLoaiKhach() != null ? dp.getLoaiKhach() : "CA_NHAN");
             ps.setString(11, dp.getTenDoan());
@@ -176,10 +167,7 @@ public class DatPhongDAO {
             ps.setInt(5, dp.getSoLuongKhach());
             ps.setDouble(6, dp.getTienDatCoc());
             ps.setDouble(7, dp.getTongTienTamTinh());
-            String statusStr = dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING";
-            if ("PARTIALLY_CHECKED_IN".equals(statusStr))
-                statusStr = "CHECKED_IN";
-            ps.setString(8, statusStr);
+            ps.setString(8, dp.getTrangThai() != null ? dp.getTrangThai().name() : "PENDING");
             ps.setString(9, dp.getGhiChu());
             ps.setString(10, dp.getLoaiKhach() != null ? dp.getLoaiKhach() : "CA_NHAN");
             ps.setString(11, dp.getTenDoan());
@@ -310,6 +298,44 @@ public class DatPhongDAO {
             LOGGER.log(Level.SEVERE, "Lỗi đánh dấu no-show", e);
             return false;
         }
+    }
+
+    /**
+     * Lấy danh sách đặt phòng CONFIRMED sắp đến (dùng SQL, không load toàn bảng).
+     * @param hoursAhead Cửa sổ tương lai (tiếng)
+     */
+    public List<DatPhong> getUpcomingArrivals(int hoursAhead) {
+        List<DatPhong> list = new ArrayList<>();
+        String sql = "SELECT * FROM DatPhong WHERE trangThai = 'CONFIRMED' " +
+                     "AND ngayNhanDuKien BETWEEN DATEADD(HOUR, -2, GETDATE()) " +
+                     "                      AND DATEADD(HOUR, ?, GETDATE()) " +
+                     "ORDER BY ngayNhanDuKien ASC";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setInt(1, hoursAhead);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) list.add(mapRow(rs));
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi getUpcomingArrivals", e);
+        }
+        return list;
+    }
+
+    /**
+     * Lấy danh sách đặt phòng PENDING lâu hơn hoursOld tiếng (dùng SQL).
+     */
+    public List<DatPhong> getLongPending(int hoursOld) {
+        List<DatPhong> list = new ArrayList<>();
+        String sql = "SELECT * FROM DatPhong WHERE trangThai = 'PENDING' " +
+                     "AND ngayDat < DATEADD(HOUR, -?, GETDATE()) " +
+                     "ORDER BY ngayDat ASC";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setInt(1, hoursOld);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) list.add(mapRow(rs));
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Lỗi getLongPending", e);
+        }
+        return list;
     }
 
     /** Chuyển booking từ waitlist lên confirmed */
@@ -462,22 +488,7 @@ public class DatPhongDAO {
                 dp.setDsChiTiet(ctDAO.getByDatPhong(maDatPhong));
             }
         }
-
-        // Nâng cấp trạng thái CHECKED_IN lên PARTIALLY_CHECKED_IN nếu còn phòng chưa
-        // nhận
-        if (dp.getTrangThai() == TrangThaiDatPhong.CHECKED_IN) {
-            if (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()) {
-                boolean allIn = true;
-                for (entity.ChiTietDatPhong ct : dp.getDsChiTiet()) {
-                    if (ct.getPhong() == null || ct.getPhong().getTrangThai() != entity.enums.TrangThaiPhong.OCCUPIED) {
-                        allIn = false;
-                        break;
-                    }
-                }
-                if (!allIn)
-                    dp.setTrangThai(TrangThaiDatPhong.PARTIALLY_CHECKED_IN);
-            }
-        }
+        // Trạng thái PARTIALLY_CHECKED_IN được đọc thẳng từ DB (không cần suy luận).
 
         return dp;
     }

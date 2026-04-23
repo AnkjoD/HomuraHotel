@@ -45,6 +45,7 @@ public class ThongKeDAO {
                  ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Phong")) {
                 stats.put("tongPhong", rs.next() ? rs.getInt(1) : 0);
             }
+            // Gộp checkin + checkout count vào đây — không cần gọi riêng nữa
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery(
                     "SELECT COUNT(*) FROM ChiTietDatPhong " +
