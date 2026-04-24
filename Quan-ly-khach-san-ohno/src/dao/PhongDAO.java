@@ -252,7 +252,7 @@ public class PhongDAO {
             "FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "LEFT JOIN KhachHang kh ON dp.maKhachHang = kh.maKhachHang " +
-            "WHERE dp.trangThai = 'CONFIRMED' " +
+            "WHERE dp.trangThai IN ('CONFIRMED', 'PARTIALLY_CHECKED_IN') " +
             "AND dp.ngayNhanDuKien <= DATEADD(DAY, 1, ?) " +
             "AND dp.ngayTraDuKien > ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -288,7 +288,7 @@ public class PhongDAO {
             "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
-            "AND dp.trangThai IN ('CONFIRMED', 'CHECKED_IN') " +
+            "AND dp.trangThai IN ('CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
             "AND dp.ngayNhanDuKien < ? " +
             "AND dp.ngayTraDuKien > ?"
         );
