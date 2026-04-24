@@ -166,20 +166,7 @@ public class ThuePhongService {
             }
 
             List<ChiTietDatPhong> segments = new ArrayList<>();
-            if (mainCt.getDatPhong() != null) {
-                // Lấy TẤT CẢ phòng chưa thanh toán trong cùng đơn đặt phòng.
-                // KHÔNG filter theo maKhachHang để tránh bỏ sót phòng của khách đoàn
-                // có người đại diện khác nhau.
-                segments = ctdpDAO.getByDatPhong(mainCt.getDatPhong().getMaDatPhong()).stream()
-                        .filter(c -> !c.isDaThanhToan())
-                        .collect(java.util.stream.Collectors.toList());
-            } else {
-                segments.add(mainCt);
-            }
-
-            boolean foundMain = false;
-            for (ChiTietDatPhong s : segments) if (s.getMaChiTiet().equals(maChiTiet)) foundMain = true;
-            if (!foundMain) segments.add(mainCt);
+            segments.add(mainCt);
 
             HoaDon hd = new HoaDon();
             hd.setMaHoaDon(hoaDonDAO.generateMaHD());
@@ -333,6 +320,9 @@ public class ThuePhongService {
             if (mainCt.getDatPhong() != null) {
                 DatPhong dp = datPhongDAO.getById(mainCt.getDatPhong().getMaDatPhong());
                 if (dp != null) {
+                    if (tienCoc > 0) {
+                        dp.setTienDatCoc(0);
+                    }
                     updateDatPhongStatus(dp, ctdpDAO.getByDatPhong(dp.getMaDatPhong()));
                 }
             }
