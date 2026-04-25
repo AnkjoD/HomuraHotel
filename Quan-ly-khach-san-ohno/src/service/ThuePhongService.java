@@ -65,7 +65,11 @@ public class ThuePhongService {
 
             int sucChua = phong.getLoaiPhong().getSucChua();
             int maxPax = sucChua + 2;
-            if (ct.getDatPhong().getSoLuongKhach() > maxPax && sucChua > 0) {
+            
+            List<ChiTietDatPhong> ds = ct.getDatPhong().getDsChiTiet();
+            boolean isGroup = (ds != null && ds.size() > 1);
+            
+            if (!isGroup && ct.getDatPhong().getSoLuongKhach() > maxPax && sucChua > 0) {
                 return "Số khách (" + ct.getDatPhong().getSoLuongKhach() + ") vượt mức tối đa tuyệt đối cho phép (" + maxPax + ")!";
             }
         }
@@ -155,6 +159,10 @@ public class ThuePhongService {
      * Overload for legacy logic that only passes status (UNPAID/PAID)
      */
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode) {
+        return checkOut(maChiTiet, maNV, status, voucherCode, -1);
+    }
+    
+    public String checkOut(String maChiTiet, String maNV, String status, String voucherCode, double customDeposit) {
         database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
             dbConn.beginTransaction();
@@ -294,7 +302,19 @@ public class ThuePhongService {
             
             double tienCoc = 0;
             if (mainCt.getDatPhong() != null) {
-                tienCoc = mainCt.getDatPhong().getTienDatCoc();
+                // Nghiệp vụ thực tế: Nếu tách bill thanh toán lẻ 1 phòng trong khách đoàn,
+                // tiền cọc không tự động cấn trừ mà sẽ được giữ lại cho Master Bill (Hóa đơn tổng)
+                // trừ phi có chỉ định cấn trừ thủ công (customDeposit >= 0).
+                List<ChiTietDatPhong> realDs = ctdpDAO.getByDatPhong(mainCt.getDatPhong().getMaDatPhong());
+                boolean isGroup = realDs != null && realDs.size() > 1;
+                double maxCoc = mainCt.getDatPhong().getTienDatCoc();
+                
+                if (customDeposit >= 0) { // Khi thao tác Manual Deduct
+                    tienCoc = Math.min(customDeposit, maxCoc);
+                } else if (!isGroup) {
+                    tienCoc = maxCoc;
+                }
+                
                 if (tienCoc > 0) {
                     ChiTietHoaDon cthdCoc = new ChiTietHoaDon();
                     cthdCoc.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
@@ -321,7 +341,7 @@ public class ThuePhongService {
                 DatPhong dp = datPhongDAO.getById(mainCt.getDatPhong().getMaDatPhong());
                 if (dp != null) {
                     if (tienCoc > 0) {
-                        dp.setTienDatCoc(0);
+                        dp.setTienDatCoc(Math.max(0, dp.getTienDatCoc() - tienCoc)); // Trừ cọc vừa dùng
                     }
                     updateDatPhongStatus(dp, ctdpDAO.getByDatPhong(dp.getMaDatPhong()));
                 }
