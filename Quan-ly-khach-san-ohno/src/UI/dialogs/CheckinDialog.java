@@ -116,8 +116,7 @@ public class CheckinDialog extends JDialog {
             if (pickerNgayTra != null)
                 pickerNgayTra.setDate(dp.getNgayTraDK_Date() != null ? dp.getNgayTraDK_Date()
                         : new Date(System.currentTimeMillis() + 86_400_000L));
-            if (spnSoKhach != null)
-                spnSoKhach.setValue(dp.getSoLuongKhach() > 0 ? dp.getSoLuongKhach() : 1);
+            // `spnSoKhach` initialization is already handled intelligently in buildStep3()
             
             // Sync text fields if they were created during buildUI
             if (selectedKhach != null) {
@@ -634,9 +633,21 @@ public class CheckinDialog extends JDialog {
 
         // Sức chứa tiêu chuẩn + 2 người = tối đa tuyệt đối
         int maxPax = selectedPhong != null ? selectedPhong.getSucChua() + 2 : 10;
-        int initVal = selectedDatPhong != null && selectedDatPhong.getSoKhach() > 0
-                ? Math.min(selectedDatPhong.getSoKhach(), maxPax)
-                : 1;
+        
+        int initVal = 1;
+        if (selectedDatPhong != null && selectedDatPhong.getSoKhach() > 0) {
+            int dpSoKhach = selectedDatPhong.getSoKhach();
+            int numRooms = (selectedDatPhong.getDsChiTiet() != null && !selectedDatPhong.getDsChiTiet().isEmpty()) 
+                    ? selectedDatPhong.getDsChiTiet().size() : 1;
+            
+            if (numRooms > 1) {
+                // Chia trung bình số khách cho từng phòng
+                int avgKhach = (int) Math.ceil((double) dpSoKhach / numRooms);
+                initVal = Math.min(avgKhach, maxPax);
+            } else {
+                initVal = Math.min(dpSoKhach, maxPax);
+            }
+        }
 
         spnSoKhach = new ModernSpinner(new SpinnerNumberModel(initVal, 1, maxPax, 1));
         spnSoKhach.setPreferredSize(new Dimension(80, 40));
