@@ -57,6 +57,8 @@ public class HoaDonDialog extends JDialog {
         return Math.max(1, thuePhongService.tinhSoNgay(resolveNgayNhan_Date(), new Date()));
     }
 
+    private double customDeductedDeposit = -1;
+
     public HoaDonDialog(Frame parent, ChiTietDatPhong tp) {
         super(parent, "Hóa đơn – Phòng " + tp.getSoPhong(), true);
         this.thuePhong = tp;
@@ -357,8 +359,17 @@ public class HoaDonDialog extends JDialog {
 
         // ── Tiền cọc ──────────────────────────────────────────────────────
         double tienCoc = 0;
-        if (thuePhong.getDatPhong() != null)
-            tienCoc = thuePhong.getDatPhong().getTienDatCoc();
+        if (thuePhong.getDatPhong() != null) {
+            java.util.List<ChiTietDatPhong> realDs = thuePhongService.getChiTietByDatPhong(thuePhong.getDatPhong().getMaDatPhong());
+            boolean isGroup = realDs != null && realDs.size() > 1;
+            double maxCoc = thuePhong.getDatPhong().getTienDatCoc();
+            
+            if (customDeductedDeposit >= 0) {
+                tienCoc = Math.min(customDeductedDeposit, maxCoc);
+            } else if (!isGroup) {
+                tienCoc = maxCoc;
+            }
+        }
         if (tienCoc > 0) {
             tableModel.addRow(new Object[] {
                     "─────────────────────────",
@@ -454,7 +465,41 @@ public class HoaDonDialog extends JDialog {
         panel.add(Box.createVerticalStrut(4));
         panel.add(sumRow("Giảm giá", lblGiamGia, false));
         panel.add(Box.createVerticalStrut(4));
-        panel.add(sumRow("Tiền cọc đã đặt (khấu trừ)", lblTienCoc, false));
+        
+        // ── Deposit Row with optional manual edit ──
+        JPanel rCoc = new JPanel(new BorderLayout());
+        rCoc.setOpaque(false);
+        rCoc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        JLabel lCoc = new JLabel("Tiền cọc đã đặt (khấu trừ)");
+        lCoc.setFont(UIConstants.FONT_BODY);
+        lCoc.setForeground(UIConstants.TEXT_SECONDARY);
+        rCoc.add(lCoc, BorderLayout.WEST);
+        
+        JPanel rCocRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rCocRight.setOpaque(false);
+        rCocRight.add(lblTienCoc);
+        
+        if (thuePhong.getDatPhong() != null) {
+            double maxCoc = thuePhong.getDatPhong().getTienDatCoc();
+            if (maxCoc > 0) {
+                RoundedButton btnEditCoc = new RoundedButton("Sửa", UIConstants.PRIMARY_LIGHT, UIConstants.PRIMARY);
+                btnEditCoc.setFont(UIConstants.FONT_SMALL_BOLD);
+                btnEditCoc.setPreferredSize(new Dimension(50, 24));
+                btnEditCoc.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                btnEditCoc.addActionListener(e -> {
+                    Double val = promptDepositDeduction(maxCoc);
+                    if (val != null) {
+                        customDeductedDeposit = val;
+                        loadBillRows();
+                    }
+                });
+                rCocRight.add(btnEditCoc);
+            }
+        }
+        rCoc.add(rCocRight, BorderLayout.EAST);
+        panel.add(rCoc);
+        // ──────────────────────────────────────────
+
         panel.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
@@ -472,9 +517,8 @@ public class HoaDonDialog extends JDialog {
         rowHT.add(lblHT, BorderLayout.WEST);
 
         String[] options = { "Tiền mặt", "Chuyển khoản", "Thẻ tín dụng" };
-        cboHinhThuc = new JComboBox<>(options);
-        cboHinhThuc.setFont(UIConstants.FONT_BODY);
-        cboHinhThuc.setBackground(Color.WHITE);
+        cboHinhThuc = new ModernComboBox<>(options);
+        // ... (khúc combo box giữ nguyên)
         cboHinhThuc.setPreferredSize(new Dimension(140, 28));
         
         JPanel comboPan = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
@@ -558,6 +602,51 @@ public class HoaDonDialog extends JDialog {
     }
 
     // ---- CHECK-OUT ----
+    private Double promptDepositDeduction(double maxCoc) {
+        JPanel pnl = new JPanel();
+        pnl.setLayout(new BoxLayout(pnl, BoxLayout.Y_AXIS));
+        pnl.setBackground(Color.WHITE);
+        pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel lblInfo = new JLabel("Tổng cọc của Đơn đặt là: " + String.format("%,.0f đ", maxCoc));
+        lblInfo.setFont(UIConstants.FONT_BODY);
+        lblInfo.setForeground(UIConstants.TEXT_MUTED);
+
+        JLabel lblTitle = new JLabel("NHẬP SỐ TIỀN CẦN CẤN TRỪ VÀO PHÒNG NÀY:");
+        lblTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblTitle.setForeground(UIConstants.PRIMARY);
+
+        ModernTextField txtInput = new ModernTextField("VD: " + String.format("%.0f", maxCoc));
+        txtInput.setText(customDeductedDeposit >= 0 ? String.format("%.0f", customDeductedDeposit) : "0");
+        txtInput.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        txtInput.setPreferredSize(new Dimension(280, 42));
+
+        pnl.add(lblInfo);
+        pnl.add(Box.createVerticalStrut(15));
+        pnl.add(lblTitle);
+        pnl.add(Box.createVerticalStrut(8));
+        pnl.add(txtInput);
+
+        // Try styling OptionPane background temporarily via UIManager but better just use plain JOptionPane for now, styled from inside.
+        Object[] options = {"Đồng ý", "Huỷ"};
+        int res = JOptionPane.showOptionDialog(this, pnl, "Khấu trừ Tiền Cọc", 
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+
+        if (res == JOptionPane.OK_OPTION) {
+            try {
+                double val = Double.parseDouble(txtInput.getText().replace(",", "").trim());
+                if (val >= 0 && val <= maxCoc) {
+                    return val;
+                } else {
+                    ui.components.NotificationManager.showError("Lỗi nhập liệu", "Số tiền phải từ 0 đến " + String.format("%,.0f", maxCoc));
+                }
+            } catch (Exception ex) {
+                ui.components.NotificationManager.showError("Lỗi", "Vui lòng nhập định dạng số hợp lệ (VD: 300000).");
+            }
+        }
+        return null;
+    }
+
     private void doCheckout() {
         // Lấy hình thức thanh toán từ ComboBox trên giao diện
         String hinhThuc = (String) cboHinhThuc.getSelectedItem();
@@ -661,7 +750,8 @@ public class HoaDonDialog extends JDialog {
                 thuePhong.getMaChiTiet(),
                 AuthService.getInstance().getCurrentMaNV(),
                 status,
-                currentVoucher);
+                currentVoucher,
+                customDeductedDeposit);
 
         if (err == null) {
             confirmed = true;
@@ -833,7 +923,17 @@ public class HoaDonDialog extends JDialog {
         }
         
         double tongFinal = subTotal - tienGiam;
-        double dpCoc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getTienDatCoc() : 0;
+        double dpCoc = 0;
+        if (thuePhong.getDatPhong() != null) {
+            java.util.List<ChiTietDatPhong> realDs = thuePhongService.getChiTietByDatPhong(thuePhong.getDatPhong().getMaDatPhong());
+            boolean isGroup = realDs != null && realDs.size() > 1;
+            double maxCoc = thuePhong.getDatPhong().getTienDatCoc();
+            if (customDeductedDeposit >= 0) {
+                dpCoc = Math.min(customDeductedDeposit, maxCoc);
+            } else if (!isGroup) {
+                dpCoc = maxCoc;
+            }
+        }
         double tongSauCoc = Math.max(0, tongFinal - dpCoc);
         
         panel.add(printSep());
