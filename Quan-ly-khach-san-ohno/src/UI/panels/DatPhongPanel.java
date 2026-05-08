@@ -11,6 +11,7 @@ import ui.dialogs.CheckinDialog;
 import ui.dialogs.NoShowDialog;
 import ui.dialogs.DatPhongDialog;
 import ui.components.DateTimePicker;
+import ui.components.StatusBadge;
 import ui.components.RoundedComponents.*;
 import entity.enums.TrangThaiDatPhong;
 import java.time.LocalDateTime;
@@ -52,6 +53,9 @@ public class DatPhongPanel extends JPanel {
     private Set<Phong> selectedRooms = new LinkedHashSet<>();
     private RoundedButton btnDatNhieuPhong;
     private JLabel lblSelectedCount;
+
+    // KPI Labels
+    private JLabel lblStatTotal, lblStatUpcoming, lblStatInHouse, lblStatCompleted;
 
     private static final String CARD_LIST = "LIST";
     private static final String CARD_SEARCH = "SEARCH";
@@ -130,6 +134,9 @@ public class DatPhongPanel extends JPanel {
         hdr.add(titleBox, BorderLayout.WEST);
         hdr.add(rightHdr, BorderLayout.EAST);
 
+        // ---- Stats Dashboard ----
+        JPanel statsPanel = buildStats();
+
         // ---- Card trắng ----
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
         card.setBackground(Color.WHITE);
@@ -149,22 +156,13 @@ public class DatPhongPanel extends JPanel {
         txtSearchList = new ModernTextField("Tìm khách hàng, số phòng...");
         txtSearchList.setPreferredSize(new Dimension(280, 40));
         txtSearchList.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                filterListTable();
-            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filterListTable(); }
         });
 
         String[] statuses = { "Tất cả trạng thái", "Chờ xác nhận", "Đã xác nhận", "Đang check-in", "Đã check-in",
-                "Đã trả phòng",
-                "Đã hủy", "Khách không đến", "Chờ xếp phòng" };
+                "Đã trả phòng", "Đã hủy", "Khách không đến", "Chờ xếp phòng" };
         cboFilterStatus = new ModernComboBox<>(statuses);
         cboFilterStatus.setPreferredSize(new Dimension(200, 40));
         cboFilterStatus.addActionListener(e -> filterListTable());
@@ -184,15 +182,12 @@ public class DatPhongPanel extends JPanel {
 
         toolbar.add(leftTools, BorderLayout.WEST);
 
-        // ---- Table (thêm cột Kênh đặt phòng) ----
+        // ---- Table ----
         String[] cols = { "_ma", "Mã đặt", "Khách hàng", "Loại", "Kênh", "Phòng", "Loại phòng", "Check-in", "Check-out",
-                "Số khách",
-                "Đặt cọc", "Trạng thái" };
+                "Số khách", "Đặt cọc", "Trạng thái" };
         modelDatPhong = new DefaultTableModel(cols, 0) {
             @Override
-            public boolean isCellEditable(int r, int c) {
-                return false;
-            }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
         tableDatPhong = new JTable(modelDatPhong);
         styleListTable();
@@ -201,15 +196,9 @@ public class DatPhongPanel extends JPanel {
         tableDatPhong.getColumnModel().removeColumn(tableDatPhong.getColumnModel().getColumn(0));
         tableDatPhong.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseReleased(MouseEvent e) {
-                showPopup(e);
-            }
-
+            public void mouseReleased(MouseEvent e) { showPopup(e); }
             @Override
-            public void mousePressed(MouseEvent e) {
-                showPopup(e);
-            }
-
+            public void mousePressed(MouseEvent e) { showPopup(e); }
             private void showPopup(MouseEvent e) {
                 if (e.isPopupTrigger()) {
                     int r = tableDatPhong.rowAtPoint(e.getPoint());
@@ -218,24 +207,20 @@ public class DatPhongPanel extends JPanel {
                     } else {
                         tableDatPhong.clearSelection();
                     }
-
                     int row = tableDatPhong.getSelectedRow();
                     if (row >= 0) {
                         int modelRow = tableDatPhong.convertRowIndexToModel(row);
                         String ma = (String) modelDatPhong.getValueAt(modelRow, 0);
                         String ten = (String) modelDatPhong.getValueAt(modelRow, 2);
                         TrangThaiDatPhong status = (TrangThaiDatPhong) modelDatPhong.getValueAt(modelRow, 11);
-
                         JPopupMenu menu = createDynamicMenu(ma, ten, status);
                         menu.show(e.getComponent(), e.getX(), e.getY());
                     }
                 }
             }
-
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2
-                        && tableDatPhong.getSelectedRow() >= 0) {
+                if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 2 && tableDatPhong.getSelectedRow() >= 0) {
                     int row = tableDatPhong.convertRowIndexToModel(tableDatPhong.getSelectedRow());
                     String maDat = (String) modelDatPhong.getValueAt(row, 0);
                     viewDetails(maDat);
@@ -258,8 +243,9 @@ public class DatPhongPanel extends JPanel {
         card.add(sp, BorderLayout.CENTER);
         card.add(footer, BorderLayout.SOUTH);
 
-        JPanel mainContent = new JPanel(new BorderLayout(0, 10));
+        JPanel mainContent = new JPanel(new BorderLayout(0, 20));
         mainContent.setOpaque(false);
+        mainContent.add(statsPanel, BorderLayout.NORTH);
         mainContent.add(card, BorderLayout.CENTER);
 
         root.add(hdr, BorderLayout.NORTH);
@@ -860,90 +846,106 @@ public class DatPhongPanel extends JPanel {
     // TABLE STYLE & LOAD
     // ================================================================
     private void styleListTable() {
-        tableDatPhong.setFont(UIConstants.FONT_BODY);
-        tableDatPhong.setRowHeight(40);
+        tableDatPhong.setRowHeight(48);
         tableDatPhong.setShowGrid(false);
         tableDatPhong.setIntercellSpacing(new Dimension(0, 0));
         tableDatPhong.setBackground(Color.WHITE);
         tableDatPhong.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        tableDatPhong.getTableHeader().setBackground(new Color(0xF8FAFC));
         tableDatPhong.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        tableDatPhong.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        tableDatPhong.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        tableDatPhong.getTableHeader().setBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        tableDatPhong.getTableHeader().setForeground(UIConstants.TEXT_PRIMARY);
+        tableDatPhong.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        tableDatPhong.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
 
-        tableDatPhong.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+        // Renderers
+        DefaultTableCellRenderer left = new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(
-                    JTable t, Object v, boolean sel, boolean foc, int row, int col) {
-                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, row, col);
-                lbl.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT
-                        : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
-                lbl.setFont(UIConstants.FONT_BODY);
-                lbl.setForeground(UIConstants.TEXT_PRIMARY);
-
-                if (col == 2) { // Loại khách column
-                    String val = v != null ? v.toString() : "Khách lẻ";
-                    lbl.setText(val);
-                    boolean isDoan = val.contains("đoàn");
-                    lbl.setForeground(isDoan ? new Color(0x7C3AED) : new Color(0x0EA5E9));
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                }
-
-                if (col == 3) { // Kênh (View index 3 sau khi ẩn cột 0)
-                    lbl.setForeground(new Color(0x64748B));
-                    lbl.setFont(UIConstants.FONT_SMALL);
-                }
-
-                if (col == 9) { // Đặt cọc column
-                    String val = v != null ? v.toString() : "0đ";
-                    lbl.setText(val);
-                    lbl.setForeground("0đ".equals(val) || "0,0đ".equals(val)
-                            ? UIConstants.TEXT_MUTED
-                            : UIConstants.WARNING);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                }
-
-                if (col == 10) { // Trạng thái column
-                    TrangThaiDatPhong st = null;
-                    if (v instanceof TrangThaiDatPhong) {
-                        st = (TrangThaiDatPhong) v;
-                    } else {
-                        try {
-                            st = TrangThaiDatPhong.valueOf(v != null ? v.toString() : "");
-                        } catch (Exception ignored) {
-                        }
-                    }
-                    lbl.setText(UIConstants.getTrangThaiDatPhongLabel(st));
-                    lbl.setForeground(UIConstants.getTrangThaiDatPhongColor(st));
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                }
-
-                // Indicator: Overdue Deposit
-                DatPhong rowDp = null;
-                try {
-                    String ma = (String) t.getModel().getValueAt(row, 0);
-                    rowDp = allDatPhong.stream().filter(d -> d.getMaDatPhong().equals(ma)).findFirst().orElse(null);
-                } catch (Exception e) {
-                }
-
-                if (rowDp != null && rowDp.getTrangThai() == TrangThaiDatPhong.PENDING &&
-                        rowDp.getTienDatCoc() <= 0 && rowDp.getHanNopCoc() != null
-                        && rowDp.getHanNopCoc().isBefore(LocalDateTime.now())) {
-                    lbl.setBackground(new Color(0xFEF2F2)); // Light red background
-                    if (col == 1)
-                        lbl.setForeground(Color.RED); // Highlight ID
-                }
-
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
                 return lbl;
+            }
+        };
+
+        DefaultTableCellRenderer center = new DefaultTableCellRenderer();
+        center.setHorizontalAlignment(SwingConstants.CENTER);
+
+        DefaultTableCellRenderer right = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+                lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                return lbl;
+            }
+        };
+
+        tableDatPhong.getColumnModel().getColumn(1).setCellRenderer(center); // Mã đặt
+        tableDatPhong.getColumnModel().getColumn(2).setCellRenderer(left);   // Khách hàng
+        tableDatPhong.getColumnModel().getColumn(4).setCellRenderer(left);   // Kênh
+        tableDatPhong.getColumnModel().getColumn(5).setCellRenderer(left);   // Phòng
+        tableDatPhong.getColumnModel().getColumn(6).setCellRenderer(center); // Loại phòng
+        tableDatPhong.getColumnModel().getColumn(7).setCellRenderer(center); // Check-in
+        tableDatPhong.getColumnModel().getColumn(8).setCellRenderer(center); // Check-out
+        tableDatPhong.getColumnModel().getColumn(9).setCellRenderer(center); // Số khách
+        tableDatPhong.getColumnModel().getColumn(10).setCellRenderer(right); // Đặt cọc
+
+        // Badge Loại (Blue/Purple)
+        tableDatPhong.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                String val = (v == null) ? "" : v.toString();
+                Color bg = val.toLowerCase().contains("đoàn") ? new Color(0xF3E8FF) : new Color(0xDBEAFE);
+                Color fg = val.toLowerCase().contains("đoàn") ? new Color(0x9333EA) : new Color(0x2563EB);
+                return new ui.components.StatusBadge(val, bg, fg);
+            }
+        });
+
+        // Status Badge
+        tableDatPhong.getColumnModel().getColumn(11).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                if (!(v instanceof TrangThaiDatPhong)) return super.getTableCellRendererComponent(t, v, s, f, r, c);
+                TrangThaiDatPhong st = (TrangThaiDatPhong) v;
+                String label = UIConstants.getTrangThaiDatPhongLabel(st);
+                Color bg = new Color(0xF1F5F9);
+                Color fg = UIConstants.TEXT_SECONDARY;
+
+                if (st == TrangThaiDatPhong.CONFIRMED) { bg = new Color(0xDCFCE7); fg = new Color(0x15803D); }
+                else if (st == TrangThaiDatPhong.PENDING) { bg = new Color(0xFEF9C3); fg = new Color(0x854D0E); }
+                else if (st == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) { bg = new Color(0xDBEAFE); fg = new Color(0x1D4ED8); }
+                else if (st == TrangThaiDatPhong.CHECKED_IN) { bg = new Color(0xCFFAFE); fg = new Color(0x0E7490); }
+                else if (st == TrangThaiDatPhong.CHECKED_OUT) { bg = new Color(0xDCFCE7); fg = new Color(0x15803D); }
+                else if (st == TrangThaiDatPhong.CANCELLED) { bg = new Color(0xFEE2E2); fg = new Color(0xB91C1C); }
+                else if (st == TrangThaiDatPhong.NO_SHOW) { bg = new Color(0xFFEDD5); fg = new Color(0x9A3412); }
+
+                return new ui.components.StatusBadge(label, bg, fg);
             }
         });
     }
 
     private void loadDatPhongTable() {
         allDatPhong = datPhongService.getAll();
+        updateStats();
         filterListTable();
+    }
+
+    private void updateStats() {
+        if (allDatPhong == null || lblStatTotal == null) return;
+        int total = allDatPhong.size();
+        int upcoming = 0;
+        int inHouse = 0;
+        int completed = 0;
+        for (DatPhong d : allDatPhong) {
+            TrangThaiDatPhong st = d.getTrangThai();
+            if (st == TrangThaiDatPhong.PENDING || st == TrangThaiDatPhong.CONFIRMED || st == TrangThaiDatPhong.WAITLIST) upcoming++;
+            else if (st == TrangThaiDatPhong.PARTIALLY_CHECKED_IN || st == TrangThaiDatPhong.CHECKED_IN) inHouse++;
+            else if (st == TrangThaiDatPhong.CHECKED_OUT) completed++;
+        }
+        lblStatTotal.setText(String.valueOf(total));
+        lblStatUpcoming.setText(String.valueOf(upcoming));
+        lblStatInHouse.setText(String.valueOf(inHouse));
+        lblStatCompleted.setText(String.valueOf(completed));
     }
 
     private void displayDatPhongPage() {
@@ -1032,8 +1034,14 @@ public class DatPhongPanel extends JPanel {
                 btnRoom.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
                 btnRoom.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-                if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
-                    btnRoom.setText("P." + p.getSoPhong() + " - Đã nhận phòng");
+                boolean isDone = ct.isDaThanhToan() || ct.getNgayTraThucTe() != null;
+                boolean isOccupied = p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED;
+
+                if (isOccupied || isDone) {
+                    String lockLabel = isDone 
+                            ? "P." + p.getSoPhong() + " - Đã hoàn thành ✓" 
+                            : "P." + p.getSoPhong() + " - Đã nhận phòng";
+                    btnRoom.setText(lockLabel);
                     btnRoom.setBackground(new Color(156, 163, 175)); // Khóa nút
                 } else {
                     btnRoom.addActionListener(ev -> {
@@ -1673,6 +1681,63 @@ public class DatPhongPanel extends JPanel {
         });
 
         return btnBell;
+    }
+
+    private JPanel buildStats() {
+        JPanel p = new JPanel(new GridLayout(1, 4, 16, 0));
+        p.setOpaque(false);
+
+        p.add(buildStatCard("Tổng đơn đặt", "0", new Color(0x6366F1), 1));
+        p.add(buildStatCard("Sắp đến", "0", new Color(0xF59E0B), 2));
+        p.add(buildStatCard("Đang lưu trú", "0", new Color(0x3B82F6), 3));
+        p.add(buildStatCard("Hoàn thành", "0", new Color(0x10B981), 4));
+
+        return p;
+    }
+
+    private JPanel buildStatCard(String title, String value, Color accent, int type) {
+        RoundedPanel card = new RoundedPanel(12);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblTitle.setForeground(UIConstants.TEXT_SECONDARY);
+
+        JLabel lblVal = new JLabel(value);
+        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        lblVal.setForeground(UIConstants.TEXT_PRIMARY);
+
+        if (type == 1) lblStatTotal = lblVal;
+        else if (type == 2) lblStatUpcoming = lblVal;
+        else if (type == 3) lblStatInHouse = lblVal;
+        else if (type == 4) lblStatCompleted = lblVal;
+
+        JPanel indicator = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(accent);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+            }
+        };
+        indicator.setPreferredSize(new Dimension(4, 24));
+
+        JPanel left = new JPanel(new BorderLayout(12, 0));
+        left.setOpaque(false);
+        left.add(indicator, BorderLayout.WEST);
+        
+        JPanel text = new JPanel(new GridLayout(2, 1, 0, 2));
+        text.setOpaque(false);
+        text.add(lblTitle);
+        text.add(lblVal);
+        left.add(text, BorderLayout.CENTER);
+
+        card.add(left, BorderLayout.WEST);
+        return card;
     }
 
     public void refresh() {
