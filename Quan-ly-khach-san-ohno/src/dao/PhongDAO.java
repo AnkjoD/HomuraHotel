@@ -36,6 +36,15 @@ public class PhongDAO {
             "   AND ct.ngayTraThucTe IS NULL " +
             "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
             " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai, " +
+            "(SELECT TOP 1 kh.sdt " +
+            " FROM ChiTietDatPhong ct " +
+            " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+            " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
+            " WHERE ct.maPhong = p.maPhong " +
+            "   AND ct.ngayNhanThucTe IS NOT NULL " +
+            "   AND ct.ngayTraThucTe IS NULL " +
+            "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
+            " ORDER BY ct.ngayNhanThucTe DESC) AS sdtKhachHienTai, " +
             "(SELECT TOP 1 ct.ngayNhanThucTe FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianCheckIn, " +
             "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
             "FROM Phong p " +
@@ -48,10 +57,13 @@ public class PhongDAO {
                 Phong p = mapRow(rs);
                 try { 
                     String guest = rs.getString("tenKhachHienTai");
+                    String phone = rs.getString("sdtKhachHienTai");
                     if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
                         p.setTenKhachHienTai(guest);
+                        p.setSdtKhachHienTai(phone);
                     } else {
                         p.setTenKhachHienTai(null);
+                        p.setSdtKhachHienTai(null);
                     }
                     Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
                     if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
@@ -76,6 +88,15 @@ public class PhongDAO {
                      "   AND ct.ngayTraThucTe IS NULL " +
                      "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
                      " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai, " +
+                     "(SELECT TOP 1 kh.sdt " +
+                     " FROM ChiTietDatPhong ct " +
+                     " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                     " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
+                     " WHERE ct.maPhong = p.maPhong " +
+                     "   AND ct.ngayNhanThucTe IS NOT NULL " +
+                     "   AND ct.ngayTraThucTe IS NULL " +
+                     "   AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') " +
+                     " ORDER BY ct.ngayNhanThucTe DESC) AS sdtKhachHienTai, " +
                      "(SELECT TOP 1 ct.ngayNhanThucTe FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianCheckIn, " +
                      "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
                      "FROM Phong p " +
@@ -89,10 +110,13 @@ public class PhongDAO {
                 Phong p = mapRow(rs);
                 try { 
                     String guest = rs.getString("tenKhachHienTai");
+                    String phone = rs.getString("sdtKhachHienTai");
                     if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
                         p.setTenKhachHienTai(guest);
+                        p.setSdtKhachHienTai(phone);
                     } else {
                         p.setTenKhachHienTai(null);
+                        p.setSdtKhachHienTai(null);
                     }
                     Timestamp tsIn = rs.getTimestamp("thoiGianCheckIn");
                     if (tsIn != null) p.setCheckInTime(tsIn.toLocalDateTime());
@@ -149,7 +173,15 @@ public class PhongDAO {
             " WHERE ct.maPhong = p.maPhong " +
             "   AND ct.ngayNhanThucTe IS NOT NULL " +
             "   AND ct.ngayTraThucTe IS NULL " +
-            " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai " +
+            " ORDER BY ct.ngayNhanThucTe DESC) AS tenKhachHienTai, " +
+            "(SELECT TOP 1 kh.sdt " +
+            " FROM ChiTietDatPhong ct " +
+            " JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+            " JOIN KhachHang kh ON ISNULL(ct.maKhachHang, dp.maKhachHang) = kh.maKhachHang " +
+            " WHERE ct.maPhong = p.maPhong " +
+            "   AND ct.ngayNhanThucTe IS NOT NULL " +
+            "   AND ct.ngayTraThucTe IS NULL " +
+            " ORDER BY ct.ngayNhanThucTe DESC) AS sdtKhachHienTai " +
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
@@ -169,7 +201,10 @@ public class PhongDAO {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 Phong p = mapRow(rs);
-                try { p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); } catch (Exception ignored) {}
+                try { 
+                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                    p.setSdtKhachHienTai(rs.getString("sdtKhachHienTai"));
+                } catch (Exception ignored) {}
                 list.add(p);
             }
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
@@ -253,6 +288,7 @@ public class PhongDAO {
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "LEFT JOIN KhachHang kh ON dp.maKhachHang = kh.maKhachHang " +
             "WHERE dp.trangThai IN ('CONFIRMED', 'PARTIALLY_CHECKED_IN') " +
+            "AND ct.ngayNhanThucTe IS NULL " +
             "AND dp.ngayNhanDuKien <= DATEADD(DAY, 1, ?) " +
             "AND dp.ngayTraDuKien > ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {

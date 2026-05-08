@@ -1,13 +1,13 @@
 package ui.panels;
 
-import ui.MainFrame;
-import ui.components.RoundedComponents.RoundedButton;
-import ui.components.RoundedComponents.RoundedPanel;
-import ui.components.UIConstants;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import javax.swing.*;
+import ui.MainFrame;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.UIConstants;
 
 /**
  * QLHeThongPanel — Hub điều hướng đến 4 panel quản lý hệ thống:
@@ -144,61 +144,61 @@ public class QLHeThongPanel extends JPanel {
 
     private void ensureSubPanel(String key) {
         switch (key) {
-            case "banggia":
+            case "banggia" -> {
                 if (pBangGia == null) {
                     pBangGia = new BangGiaPanel();
-                    cardArea.add(wrapWithBack(pBangGia, key), key);
+                    cardArea.add(wrapWithBack(pBangGia), "banggia");
                 } else {
                     pBangGia.refresh();
                 }
-                break;
-            case "loaiphong":
+            }
+            case "loaiphong" -> {
                 if (pLoaiPhong == null) {
                     pLoaiPhong = new LoaiPhongPanel();
-                    cardArea.add(wrapWithBack(pLoaiPhong, key), key);
+                    cardArea.add(wrapWithBack(pLoaiPhong), "loaiphong");
                 } else {
                     pLoaiPhong.refresh();
                 }
-                break;
-            case "phong":
+            }
+            case "phong" -> {
                 if (pPhong == null) {
                     pPhong = new PhongPanel();
-                    cardArea.add(wrapWithBack(pPhong, key), key);
+                    cardArea.add(wrapWithBack(pPhong), "phong");
                 } else {
                     pPhong.refresh();
                 }
-                break;
-            case "dichvu":
+            }
+            case "dichvu" -> {
                 if (pDichVu == null) {
                     pDichVu = new DichVuPanel();
-                    cardArea.add(wrapWithBack(pDichVu, key), key);
+                    cardArea.add(wrapWithBack(pDichVu), "dichvu");
                 } else {
                     pDichVu.refresh();
                 }
-                break;
-            case "nhatky":
+            }
+            case "nhatky" -> {
                 if (pLog == null) {
                     pLog = new LogPanel();
-                    cardArea.add(wrapWithBack(pLog, key), key);
+                    cardArea.add(wrapWithBack(pLog), "nhatky");
                 } else {
                     pLog.refresh();
                 }
-                break;
-            case "lichsuca":
+            }
+            case "lichsuca" -> {
                 if (pShift == null) {
                     pShift = new ShiftHistoryPanel();
-                    cardArea.add(wrapWithBack(pShift, key), key);
+                    cardArea.add(wrapWithBack(pShift), "lichsuca");
                 } else {
                     pShift.refresh();
                 }
-                break;
+            }
         }
     }
 
     /**
      * Bọc một sub-panel bằng nút "← Quay lại" phía trên cùng.
      */
-    private JPanel wrapWithBack(JPanel subPanel, String key) {
+    private JPanel wrapWithBack(JPanel subPanel) {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
 

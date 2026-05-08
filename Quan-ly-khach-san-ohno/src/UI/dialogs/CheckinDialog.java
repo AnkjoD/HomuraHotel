@@ -1536,15 +1536,26 @@ public class CheckinDialog extends JDialog {
             selectedDatPhong = dp;
         } else {
             // Logic cho khách đoàn/nhiều phòng: Chỉ chuyển hẳn sang CHECKED_IN khi tất cả
-            // phòng đã nhận
+            // phòng chưa checkout đều đã nhận phòng.
+            // QUAN TRỌNG: Load lại dữ liệu mới nhất từ DB (tránh dùng cache in-memory
+            // bị cũ sau khi thanh toán 1 phòng trong đoàn).
             boolean allCheckedIn = true;
-            if (selectedDatPhong.getDsChiTiet() != null && selectedDatPhong.getDsChiTiet().size() > 1) {
-                for (ChiTietDatPhong item : selectedDatPhong.getDsChiTiet()) {
-                    if (item.getPhong().getMaPhong().equals(selectedPhong.getMaPhong()))
+            java.util.List<ChiTietDatPhong> freshList =
+                    thuePhongService.getChiTietByDatPhong(selectedDatPhong.getMaDatPhong());
+            if (freshList != null && freshList.size() > 1) {
+                for (ChiTietDatPhong item : freshList) {
+                    // Bỏ qua phòng hiện tại đang được check-in
+                    if (item.getPhong() != null &&
+                            item.getPhong().getMaPhong().equals(selectedPhong.getMaPhong()))
                         continue;
 
-                    Phong p = phongService.getPhongById(item.getPhong().getMaPhong());
-                    if (p != null && p.getTrangThai() != entity.enums.TrangThaiPhong.OCCUPIED) {
+                    // Bỏ qua phòng đã checkout/thanh toán — không cần check nữa
+                    boolean daDong = item.isDaThanhToan() || item.getNgayTraThucTe() != null;
+                    if (daDong) continue;
+
+                    // Phòng này chưa checkout, kiểm tra đã checkin chưa
+                    boolean daCheckin = item.getNgayNhanThucTe() != null;
+                    if (!daCheckin) {
                         allCheckedIn = false;
                         break;
                     }

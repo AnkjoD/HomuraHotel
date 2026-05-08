@@ -68,6 +68,16 @@ public class ThuePhongPanel extends JPanel {
         refreshGrid();
     }
 
+    public void applyOccupiedFilter() {
+        currentFilter = "OCCUPIED";
+        currentFloor = 0;
+        currentType = "ALL";
+        currentView = "ALL";
+        searchRoom = "";
+        rebuildFilter();
+        refreshGrid();
+    }
+
     private void buildUI() {
         JPanel main = new JPanel(new BorderLayout());
         main.setOpaque(false);
@@ -183,8 +193,8 @@ public class ThuePhongPanel extends JPanel {
         btnClear.setFont(UIConstants.FONT_SMALL_BOLD);
         btnClear.addActionListener(e -> resetFilters());
 
-        ModernTextField txtSearch = new ModernTextField("Tìm số phòng...");
-        txtSearch.setPreferredSize(new Dimension(160, 36));
+        ModernTextField txtSearch = new ModernTextField("Tìm số phòng, tên khách, SĐT...");
+        txtSearch.setPreferredSize(new Dimension(180, 36));
         txtSearch.setText(searchRoom);
         txtSearch.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) {
@@ -421,7 +431,9 @@ public class ThuePhongPanel extends JPanel {
             boolean showType = "ALL".equals(currentType)
                     || (p.getTenLoaiPhong() != null && p.getTenLoaiPhong().equalsIgnoreCase(currentType));
             boolean showSearch = searchRoom.isEmpty()
-                    || (p.getSoPhong() != null && p.getSoPhong().toLowerCase().contains(searchRoom.toLowerCase()));
+                    || (p.getSoPhong() != null && p.getSoPhong().toLowerCase().contains(searchRoom.toLowerCase()))
+                    || (p.getTenKhachHienTai() != null && p.getTenKhachHienTai().toLowerCase().contains(searchRoom.toLowerCase()))
+                    || (p.getSdtKhachHienTai() != null && p.getSdtKhachHienTai().contains(searchRoom));
             boolean showView = "ALL".equals(currentView)
                     || (p.getView() != null && p.getView().equalsIgnoreCase(currentView));
 

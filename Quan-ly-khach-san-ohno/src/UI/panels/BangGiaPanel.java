@@ -19,10 +19,13 @@ public class BangGiaPanel extends JPanel {
 
     private final BangGiaService service = new BangGiaService();
 
+    private ModernTextField txtSearch;
+    private ModernComboBox<String> cboTrangThai;
     private DefaultTableModel tableModel;
     private JTable table;
     private PaginationPanel pagination;
-    private List<BangGia> fullList;
+    private List<BangGia> tatCaBangGia;
+    private List<BangGia> filteredList;
 
     public BangGiaPanel() {
         setOpaque(false);
@@ -37,10 +40,16 @@ public class BangGiaPanel extends JPanel {
 
         main.add(buildHeader(), BorderLayout.NORTH);
 
-        JPanel center = new JPanel(new BorderLayout(0, 12));
+        JPanel center = new JPanel(new BorderLayout(0, 20));
         center.setOpaque(false);
-        center.add(buildTableArea(), BorderLayout.CENTER);
+        center.add(buildStats(), BorderLayout.NORTH);
 
+        JPanel tableWrapper = new JPanel(new BorderLayout(0, 14));
+        tableWrapper.setOpaque(false);
+        tableWrapper.add(buildFilterBar(), BorderLayout.NORTH);
+        tableWrapper.add(buildTableArea(), BorderLayout.CENTER);
+
+        center.add(tableWrapper, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
         add(main, BorderLayout.CENTER);
     }
@@ -71,6 +80,63 @@ public class BangGiaPanel extends JPanel {
 
         p.add(left, BorderLayout.WEST);
         p.add(btns, BorderLayout.EAST);
+        return p;
+    }
+
+    private JPanel buildStats() {
+        List<BangGia> all = service.getAll();
+        int total = all.size();
+        long active = all.stream().filter(BangGia::isTrangThai).count();
+        long expired = all.stream().filter(bg -> bg.getNgayKetThuc() != null 
+                        && bg.getNgayKetThuc().isBefore(java.time.LocalDateTime.now())).count();
+
+        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+        row.setOpaque(false);
+        row.add(statCard("Tổng bảng giá", total + " bản ghi", UIConstants.PRIMARY));
+        row.add(statCard("Đang kích hoạt", active + " bảng giá", UIConstants.SUCCESS));
+        row.add(statCard("Đã hết hạn", expired + " bảng giá", UIConstants.WARNING));
+        return row;
+    }
+
+    private RoundedPanel statCard(String label, String val, Color c) {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+
+        JLabel l1 = new JLabel(label);
+        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setForeground(UIConstants.TEXT_SECONDARY);
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        card.add(l1, BorderLayout.NORTH);
+        card.add(l2, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildFilterBar() {
+        txtSearch = new ModernTextField("Tìm theo tên bảng giá...");
+        txtSearch.setPreferredSize(new Dimension(300, 40));
+
+        cboTrangThai = new ModernComboBox<>();
+        cboTrangThai.addItem("Tất cả trạng thái");
+        cboTrangThai.addItem("Đang kích hoạt");
+        cboTrangThai.addItem("Ngừng");
+        cboTrangThai.setPreferredSize(new Dimension(200, 40));
+
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+        });
+        cboTrangThai.addActionListener(e -> runFilter());
+
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        p.setOpaque(false);
+        p.add(txtSearch);
+        p.add(cboTrangThai);
         return p;
     }
 
@@ -171,10 +237,22 @@ public class BangGiaPanel extends JPanel {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setBackground(Color.WHITE);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        t.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        t.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        t.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        t.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        t.getTableHeader().setDefaultRenderer(headerRenderer);
         t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
@@ -184,12 +262,21 @@ public class BangGiaPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề
+                if (col == 0 || col == 2 || col == 3 || col == 4 || col == 5 || col == 6 || col == 7) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
                 // Trạng thái boolean hiển thị
                 if (val instanceof Boolean) {
                     Boolean active = (Boolean) val;
                     lbl.setText(active ? "Đang kích hoạt" : "Ngừng");
                     lbl.setForeground(active ? UIConstants.SUCCESS : UIConstants.TEXT_MUTED);
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
                 }
                 return lbl;
             }
@@ -210,30 +297,51 @@ public class BangGiaPanel extends JPanel {
     }
 
     private void loadData() {
-        fullList = service.getAll();
+        String kw = txtSearch != null ? txtSearch.getText().trim().toLowerCase() : "";
+        String filterTT = cboTrangThai != null && cboTrangThai.getSelectedIndex() > 0
+                ? cboTrangThai.getSelectedItem().toString()
+                : null;
+
+        tatCaBangGia = service.getAll();
+        filteredList = tatCaBangGia.stream().filter(bg -> {
+            boolean matchKw = kw.isEmpty() || bg.getTenBangGia().toLowerCase().contains(kw);
+            
+            boolean matchStatus = true;
+            if (filterTT != null) {
+                boolean active = "Đang kích hoạt".equals(filterTT);
+                matchStatus = (bg.isTrangThai() == active);
+            }
+            
+            return matchKw && matchStatus;
+        }).collect(java.util.stream.Collectors.toList());
+
         if (pagination != null) pagination.setCurrentPage(1);
         displayPage();
     }
 
+    private void runFilter() {
+        loadData();
+    }
+
     private void displayPage() {
         tableModel.setRowCount(0);
-        if (fullList == null) return;
+        if (filteredList == null) return;
 
         int pageSize = 12;
         int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
 
-        int totalPages = (int) Math.ceil((double) fullList.size() / pageSize);
+        int totalPages = (int) Math.ceil((double) filteredList.size() / pageSize);
         if (currentPage > totalPages && totalPages > 0) {
             currentPage = totalPages;
             if (pagination != null) pagination.setCurrentPage(currentPage);
         }
 
         int start = (currentPage - 1) * pageSize;
-        int end = Math.min(start + pageSize, fullList.size());
+        int end = Math.min(start + pageSize, filteredList.size());
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
         for (int i = start; i < end; i++) {
-            BangGia bg = fullList.get(i);
+            BangGia bg = filteredList.get(i);
             tableModel.addRow(new Object[] {
                     bg.getMaBangGia(), i + 1, bg.getTenBangGia(),
                     bg.getLoaiBangGiaLabel(), bg.getDoiTuongApDungLabel(),
@@ -245,7 +353,7 @@ public class BangGiaPanel extends JPanel {
         }
 
         if (pagination != null) {
-            pagination.update(fullList.size(), pageSize, currentPage);
+            pagination.update(filteredList.size(), pageSize, currentPage);
         }
     }
 

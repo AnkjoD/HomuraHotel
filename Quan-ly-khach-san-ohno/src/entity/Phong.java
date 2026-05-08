@@ -15,6 +15,7 @@ public class Phong {
     private double giaTheoNgay;
     private TrangThaiPhong trangThai;
     private String tenKhachHienTai;
+    private String sdtKhachHienTai;
     private LocalDateTime checkInTime;
     private LocalDateTime expectedCheckOutTime;
     
@@ -88,6 +89,9 @@ public class Phong {
 
     public String getTenKhachHienTai() { return tenKhachHienTai; }
     public void setTenKhachHienTai(String tenKhachHienTai) { this.tenKhachHienTai = tenKhachHienTai; }
+
+    public String getSdtKhachHienTai() { return sdtKhachHienTai; }
+    public void setSdtKhachHienTai(String sdtKhachHienTai) { this.sdtKhachHienTai = sdtKhachHienTai; }
 
     public LocalDateTime getCheckInTime() { return checkInTime; }
     public void setCheckInTime(LocalDateTime checkInTime) { this.checkInTime = checkInTime; }

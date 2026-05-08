@@ -151,22 +151,22 @@ public class KhachHangPanel extends JPanel {
         p.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
         txtSearch = new ModernTextField("Tìm Mã, Họ Tên, SĐT, CCCD...");
-        txtSearch.setPreferredSize(new Dimension(280, 36));
+        txtSearch.setPreferredSize(new Dimension(280, 40));
 
         cboGioiTinh = new ModernComboBox<>();
-        cboGioiTinh.setPreferredSize(new Dimension(140, 36));
+        cboGioiTinh.setPreferredSize(new Dimension(160, 40));
         cboGioiTinh.addItem("Giới tính (Tất cả)");
         cboGioiTinh.addItem("Nam");
         cboGioiTinh.addItem("Nữ");
 
         cboQuocTich = new ModernComboBox<>();
-        cboQuocTich.setPreferredSize(new Dimension(160, 36));
+        cboQuocTich.setPreferredSize(new Dimension(185, 40));
         cboQuocTich.addItem("Quốc tịch (Tất cả)");
         cboQuocTich.addItem("Nội địa (Việt Nam)");
         cboQuocTich.addItem("Quốc tế");
 
         cboHang = new ModernComboBox<>();
-        cboHang.setPreferredSize(new Dimension(170, 36));
+        cboHang.setPreferredSize(new Dimension(200, 40));
         cboHang.addItem("Hạng khách (Tất cả)");
         cboHang.addItem("Hạng Thường (Bronze)");
         cboHang.addItem("Thân thiết (Silver)");
@@ -326,10 +326,26 @@ public class KhachHangPanel extends JPanel {
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setBackground(Color.WHITE);
         table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        // Thiết lập chiều rộng cột
+        int[] widths = { 100, 180, 110, 160, 80, 130, 120 };
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
@@ -340,31 +356,16 @@ public class KhachHangPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
 
-                // Gender coloring natively
-                if (col == 2 && val != null) {
-                    String gt = val.toString();
-                    if (gt.equalsIgnoreCase("Nam")) {
-                        lbl.setForeground(new Color(0x2563EB));
-                        lbl.setText(gt);
-                    } else if (gt.equalsIgnoreCase("Nữ")) {
-                        lbl.setForeground(new Color(0xDB2777));
-                        lbl.setText(gt);
-                    }
+                // Mặc định căn giữa cho hầu hết các cột định danh
+                if (col == 0 || col == 2 || col == 3 || col == 4 || col == 6) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else if (col == 5) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
                 }
 
-                // Nationality coloring natively
-                if (col == 5 && val != null) {
-                    String qt = val.toString();
-                    if (qt.equalsIgnoreCase("Việt Nam")) {
-                        lbl.setText(qt);
-                        lbl.setForeground(UIConstants.TEXT_PRIMARY);
-                    } else if (!qt.isBlank()) {
-                        lbl.setText(qt);
-                        lbl.setForeground(new Color(0xD97706)); // Gold for Int'l
-                    }
-                }
-
-                // Tier coloring
+                // Tier coloring (Index 3: Hạng khách)
                 if (col == 3 && val != null) {
                     String tier = val.toString();
                     if (tier.contains("VIP")) {
@@ -375,6 +376,14 @@ public class KhachHangPanel extends JPanel {
                         lbl.setFont(UIConstants.FONT_BODY_BOLD);
                     } else {
                         lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                    }
+                }
+
+                // Nationality coloring (Index 6: Quốc tịch)
+                if (col == 6 && val != null) {
+                    String qt = val.toString();
+                    if (!qt.equalsIgnoreCase("Việt Nam") && !qt.isBlank()) {
+                        lbl.setForeground(new Color(0xD97706)); // Gold for Int'l
                     }
                 }
 

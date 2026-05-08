@@ -379,15 +379,31 @@ public class HoaDonPanel extends JPanel {
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setBackground(Color.WHITE);
         table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
 
         DefaultTableCellRenderer rightRender = new DefaultTableCellRenderer();
         rightRender.setHorizontalAlignment(JLabel.RIGHT);
         for (int i : new int[] { 5, 6, 7 })
             table.getColumnModel().getColumn(i).setCellRenderer(rightRender);
+
+        // Thiết lập chiều rộng cột để không bị cắt chữ
+        int[] widths = { 150, 85, 170, 100, 150, 110, 110, 130, 110, 120 };
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
@@ -399,17 +415,14 @@ public class HoaDonPanel extends JPanel {
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
 
                 if (col == 1) {
-                    // Loại column — color-coded
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                     String v = val != null ? val.toString() : "";
-                    if (v.contains("Đoàn")) {
-                        lbl.setForeground(new Color(0x7C3AED));
-                    } else {
-                        lbl.setForeground(new Color(0x0EA5E9));
-                    }
+                    lbl.setForeground(v.contains("Đoàn") ? new Color(0x7C3AED) : new Color(0x0EA5E9));
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
                 }
                 if (col == 9) {
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
                     String v = val != null ? val.toString() : "";
                     if (v.equals("Đã thanh toán")) {
                         lbl.setForeground(UIConstants.SUCCESS);
@@ -418,6 +431,9 @@ public class HoaDonPanel extends JPanel {
                     } else if (!v.isEmpty()) {
                         lbl.setForeground(UIConstants.DANGER);
                     }
+                }
+                if (col == 8 || col == 0) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
                 }
                 return lbl;
             }

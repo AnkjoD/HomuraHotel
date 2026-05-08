@@ -1,9 +1,5 @@
 package ui.panels;
 
-import ui.components.RoundedComponents.*;
-import ui.components.NotificationManager;
-import ui.components.UIConstants;
-import ui.dialogs.DichVuDialog;
 import entity.DichVu;
 import java.awt.*;
 import java.awt.event.*;
@@ -13,8 +9,15 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.*;
 import service.DichVuService;
+import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
-import java.util.ArrayList;
+import ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents.ModernComboBox;
+import ui.components.RoundedComponents.ModernTextField;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.UIConstants;
+import ui.dialogs.DichVuDialog;
 
 public class DichVuPanel extends JPanel {
 
@@ -129,19 +132,19 @@ public class DichVuPanel extends JPanel {
         g.weighty = 0;
 
         txtSearch = new ModernTextField("Tìm tên dịch vụ...");
-        txtSearch.setPreferredSize(new Dimension(220, 40));
+        txtSearch.setPreferredSize(new Dimension(280, 40));
         g.gridx = 0; g.weightx = 0; g.fill = GridBagConstraints.VERTICAL;
         g.anchor = GridBagConstraints.WEST;
         filterCard.add(txtSearch, g);
 
         cboLoai = new ModernComboBox<>(
                 new String[] { "Tất cả loại", "Ăn uống", "Spa & Làm đẹp", "Vận chuyển", "Dịch vụ phòng", "Khác" });
-        cboLoai.setPreferredSize(new Dimension(180, 40));
+        cboLoai.setPreferredSize(new Dimension(200, 40));
         g.gridx = 1; g.weightx = 0; g.fill = GridBagConstraints.VERTICAL;
         filterCard.add(cboLoai, g);
 
         cboTT = new ModernComboBox<>(new String[] { "Tất cả trạng thái", "Hoạt động", "Tạm ngừng" });
-        cboTT.setPreferredSize(new Dimension(160, 40));
+        cboTT.setPreferredSize(new Dimension(180, 40));
         g.gridx = 2; g.weightx = 0; g.insets = new Insets(0, 0, 0, 0);
         filterCard.add(cboTT, g);
 
@@ -160,10 +163,12 @@ public class DichVuPanel extends JPanel {
         table = buildStyledTable(tableModel);
         TableColumn colMa = table.getColumn("_ma");
         table.removeColumn(colMa);
-        TableColumn colStt = table.getColumn("#");
-        colStt.setMinWidth(40);
-        colStt.setMaxWidth(80);
-        colStt.setPreferredWidth(60);
+
+        // Thiết lập chiều rộng cột
+        int[] widths = { 50, 200, 150, 120, 100, 110, 120 };
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
         table.addMouseListener(new MouseAdapter() {
             @Override
@@ -246,10 +251,22 @@ public class DichVuPanel extends JPanel {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setBackground(Color.WHITE);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        t.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        t.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        t.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        t.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        t.getTableHeader().setDefaultRenderer(headerRenderer);
         t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
@@ -259,13 +276,25 @@ public class DichVuPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề
+                if (col == 0 || col == 2 || col == 4 || col == 5 || col == 6) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else if (col == 3) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
                 String v = val != null ? val.toString() : "";
-                if (v.equals("Hoạt động")) {
-                    lbl.setForeground(UIConstants.SUCCESS);
+                if (col == 6) { // Trạng thái
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                } else if (v.equals("Tạm ngừng")) {
-                    lbl.setForeground(UIConstants.WARNING);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    if (v.equals("Hoạt động")) {
+                        lbl.setForeground(UIConstants.SUCCESS);
+                    } else if (v.equals("Tạm ngừng")) {
+                        lbl.setForeground(UIConstants.WARNING);
+                    }
                 }
                 return lbl;
             }

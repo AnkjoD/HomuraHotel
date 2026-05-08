@@ -46,8 +46,12 @@ public class DatePicker extends JPanel {
         this.onDateSelected = onDateSelected;
 
         selectedCal = Calendar.getInstance();
-        if (initialDate != null)
+        if (initialDate != null) {
             selectedCal.setTime(initialDate);
+            isDateNull = false;
+        } else {
+            isDateNull = true;
+        }
 
         buildTextField();
         buildPopup();

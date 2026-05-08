@@ -47,10 +47,15 @@ public class ShiftHistoryPanel extends JPanel {
 
         main.add(buildHeader(), BorderLayout.NORTH);
 
-        JPanel center = new JPanel(new BorderLayout(0, 12));
+        JPanel center = new JPanel(new BorderLayout(0, 20));
         center.setOpaque(false);
+        center.add(buildStats(), BorderLayout.NORTH);
 
-        String[] cols = {"MÃ CA", "NHÂN VIÊN", "BẮT ĐẦU", "KẾT THÚC", "VỐN ĐẦU CA", "THU TIỀN MẶT", "BÀN GIAO", "CHÊNH LỆCH", "TRẠNG THÁI"};
+        JPanel tableWrapper = new JPanel(new BorderLayout(0, 14));
+        tableWrapper.setOpaque(false);
+        tableWrapper.add(buildFilterBar(), BorderLayout.NORTH);
+
+        String[] cols = {"Mã ca", "Nhân viên", "Bắt đầu", "Kết thúc", "Vốn đầu ca", "Thu tiền mặt", "Bàn giao", "Chênh lệch", "Trạng thái"};
         model = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
@@ -99,15 +104,45 @@ public class ShiftHistoryPanel extends JPanel {
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
         footer.add(pagination, BorderLayout.CENTER);
 
-        JPanel tableWrap = new JPanel(new BorderLayout());
-        tableWrap.setOpaque(false);
-        tableWrap.add(scroll, BorderLayout.CENTER);
-        tableWrap.add(footer, BorderLayout.SOUTH);
+        tableWrapper.add(scroll, BorderLayout.CENTER);
+        tableWrapper.add(footer, BorderLayout.SOUTH);
 
-        center.add(tableWrap, BorderLayout.CENTER);
+        center.add(tableWrapper, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
 
         add(main, BorderLayout.CENTER);
+    }
+
+    private JPanel buildStats() {
+        List<GiaoCa> all = service.getHistory();
+        double totalRevenue = all.stream().mapToDouble(GiaoCa::getTienMatThuTrongCa).sum();
+        double totalDiscrepancy = all.stream().mapToDouble(GiaoCa::getTienMatChenhLech).sum();
+        long openShifts = all.stream().filter(gc -> "OPEN".equals(gc.getTrangThai())).count();
+
+        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+        row.setOpaque(false);
+        row.add(statCard("Tổng thu tiền mặt", String.format("%,.0f VNĐ", totalRevenue), UIConstants.PRIMARY));
+        row.add(statCard("Tổng chênh lệch", String.format("%,.0f VNĐ", totalDiscrepancy), UIConstants.WARNING));
+        row.add(statCard("Ca đang hoạt động", openShifts + " ca trực", UIConstants.SUCCESS));
+        return row;
+    }
+
+    private RoundedPanel statCard(String label, String val, Color c) {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+
+        JLabel l1 = new JLabel(label);
+        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setForeground(UIConstants.TEXT_SECONDARY);
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        card.add(l1, BorderLayout.NORTH);
+        card.add(l2, BorderLayout.CENTER);
+        return card;
     }
 
     private JPanel buildHeader() {
@@ -115,7 +150,6 @@ public class ShiftHistoryPanel extends JPanel {
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 5));
 
-        // Title section
         JPanel titlePanel = new JPanel();
         titlePanel.setOpaque(false);
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
@@ -125,35 +159,36 @@ public class ShiftHistoryPanel extends JPanel {
         lblTitle.setForeground(UIConstants.TEXT_PRIMARY);
 
         JLabel lblSubTitle = new JLabel("Theo dõi và đối soát dữ liệu bàn giao ca trực");
-        lblSubTitle.setFont(UIConstants.FONT_SMALL);
-        lblSubTitle.setForeground(UIConstants.TEXT_MUTED);
+        lblSubTitle.setFont(UIConstants.FONT_BODY);
+        lblSubTitle.setForeground(UIConstants.TEXT_SECONDARY);
 
         titlePanel.add(lblTitle);
         titlePanel.add(Box.createVerticalStrut(2));
         titlePanel.add(lblSubTitle);
         p.add(titlePanel, BorderLayout.WEST);
 
-        // Filters section
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        return p;
+    }
+
+    private JPanel buildFilterBar() {
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         filterPanel.setOpaque(false);
 
         txtSearch = new ModernTextField("Tìm nhân viên, mã ca...");
-        txtSearch.setPreferredSize(new Dimension(250, 40));
+        txtSearch.setPreferredSize(new Dimension(300, 40));
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { refresh(); }
             public void removeUpdate(DocumentEvent e) { refresh(); }
             public void changedUpdate(DocumentEvent e) { refresh(); }
         });
 
-        cbStatus = new ModernComboBox<>(new String[]{"Tất cả", "OPEN", "CLOSED"});
-        cbStatus.setPreferredSize(new Dimension(150, 40));
+        cbStatus = new ModernComboBox<>(new String[]{"Tất cả trạng thái", "OPEN", "CLOSED"});
+        cbStatus.setPreferredSize(new Dimension(180, 40));
         cbStatus.addActionListener(e -> refresh());
 
         filterPanel.add(txtSearch);
         filterPanel.add(cbStatus);
-        p.add(filterPanel, BorderLayout.EAST);
-
-        return p;
+        return filterPanel;
     }
 
     private void styleTable() {
@@ -164,13 +199,22 @@ public class ShiftHistoryPanel extends JPanel {
         table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
         table.setSelectionForeground(UIConstants.TEXT_PRIMARY);
 
-        // Table Header
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
 
-        // Custom Zebra Renderer
+        // Custom Zebra Renderer with Alignment
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row, int col) {
@@ -179,22 +223,25 @@ public class ShiftHistoryPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề theo loại dữ liệu
+                if (col >= 4 && col <= 7) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                }
+
                 return lbl;
             }
         });
 
         table.getColumnModel().getColumn(8).setCellRenderer(new ShiftStatusRenderer());
-        
-        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
-        rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
-        for(int i=4; i<=7; i++) {
-            table.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
-        }
     }
 
     public void refresh() {
-        String keyword = txtSearch.getText();
+        String keyword = txtSearch.getText().trim();
         String status = (String) cbStatus.getSelectedItem();
+        if ("Tất cả trạng thái".equals(status)) status = null;
         allHistory = service.searchHistory(keyword, status);
         
         if (pagination != null) {

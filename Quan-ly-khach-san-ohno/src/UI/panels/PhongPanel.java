@@ -14,17 +14,20 @@ import java.util.stream.Collectors;
 import javax.swing.*;
 import javax.swing.table.*;
 import service.PhongService;
+import service.BangGiaService;
 import ui.components.PaginationPanel;
 
 public class PhongPanel extends JPanel {
 
-    private final PhongService service = new PhongService();
-    private final service.BangGiaService bangGiaService = new service.BangGiaService();
+    private final PhongService phongService = new PhongService();
+    private final BangGiaService bangGiaService = new BangGiaService();
 
+    private ModernTextField txtSearch;
+    private ModernComboBox<String> cboTrangThai;
     private DefaultTableModel tableModel;
     private JTable table;
-    private ModernComboBox<String> cboTrangThai;
     private PaginationPanel pagination;
+    private List<Phong> tatCaPhong;
     private List<Phong> filteredList;
 
     public PhongPanel() {
@@ -79,7 +82,7 @@ public class PhongPanel extends JPanel {
     }
 
     private JPanel buildStats() {
-        Map<String, Integer> tt = service.getThongKeTrangThai();
+        Map<String, Integer> tt = phongService.getThongKeTrangThai();
         JPanel row = new JPanel(new GridLayout(1, 5, 12, 0));
         row.setOpaque(false);
         row.add(statCard("Có sẵn", tt.getOrDefault("Có sẵn", 0) + " phòng", UIConstants.SUCCESS));
@@ -110,6 +113,9 @@ public class PhongPanel extends JPanel {
 
     private JPanel buildTableArea() {
         // Filter bar
+        txtSearch = new ModernTextField("Tìm theo số phòng, loại phòng...");
+        txtSearch.setPreferredSize(new Dimension(300, 40));
+
         cboTrangThai = new ModernComboBox<>();
         cboTrangThai.addItem("Tất cả trạng thái");
         cboTrangThai.addItem("Có sẵn");
@@ -117,12 +123,26 @@ public class PhongPanel extends JPanel {
         cboTrangThai.addItem("Đã đặt");
         cboTrangThai.addItem("Vệ sinh");
         cboTrangThai.addItem("Bảo trì");
-        cboTrangThai.setPreferredSize(new Dimension(180, 34));
+        cboTrangThai.setPreferredSize(new Dimension(200, 40));
+
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+        });
         cboTrangThai.addActionListener(e -> loadData());
 
-        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         filterBar.setOpaque(false);
-        filterBar.add(new JLabel("Lọc trạng thái:"));
+        filterBar.add(txtSearch);
         filterBar.add(cboTrangThai);
 
         // Table
@@ -170,7 +190,7 @@ public class PhongPanel extends JPanel {
         wrap.add(filterBar, BorderLayout.NORTH);
         wrap.add(sp, BorderLayout.CENTER);
         wrap.add(footer, BorderLayout.SOUTH);
-        
+
         loadData();
         return wrap;
     }
@@ -202,10 +222,31 @@ public class PhongPanel extends JPanel {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setBackground(Color.WHITE);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        t.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        t.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        t.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        t.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        t.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        // Thiết lập chiều rộng cột
+        int[] widths = { 100, 150, 100, 80, 100, 150, 200, 150 };
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < widths.length; i++) {
+                if (i < t.getColumnModel().getColumnCount()) {
+                    t.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+                }
+            }
+        });
         t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
@@ -215,19 +256,31 @@ public class PhongPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề
+                if (col == 0 || col == 3 || col == 4 || col == 7) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else if (col == 5) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
                 String v = val != null ? val.toString() : "";
-                if (v.contains("Có sẵn")) {
-                    lbl.setForeground(UIConstants.SUCCESS);
+                if (col == 7) { // Trạng thái
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                } else if (v.contains("Đang thuê")) {
-                    lbl.setForeground(UIConstants.PRIMARY);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                } else if (v.contains("Đã đặt")) {
-                    lbl.setForeground(UIConstants.WARNING);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                } else if (v.contains("Bảo trì")) {
-                    lbl.setForeground(UIConstants.DANGER);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    if (v.contains("Có sẵn")) {
+                        lbl.setForeground(UIConstants.SUCCESS);
+                    } else if (v.contains("Đang thuê")) {
+                        lbl.setForeground(UIConstants.PRIMARY);
+                    } else if (v.contains("Đã đặt")) {
+                        lbl.setForeground(UIConstants.WARNING);
+                    } else if (v.contains("Bảo trì")) {
+                        lbl.setForeground(UIConstants.DANGER);
+                    } else if (v.contains("Vệ sinh")) {
+                        lbl.setForeground(new Color(0x06B6D4));
+                    }
                 }
                 return lbl;
             }
@@ -248,24 +301,34 @@ public class PhongPanel extends JPanel {
     }
 
     private void loadData() {
+        String kw = txtSearch != null ? txtSearch.getText().trim().toLowerCase() : "";
         String filterTT = cboTrangThai != null && cboTrangThai.getSelectedIndex() > 0
                 ? cboTrangThai.getSelectedItem().toString()
                 : null;
 
-        java.util.List<Phong> all = service.getAllPhong();
-        filteredList = all.stream().filter(p -> {
-            if (filterTT == null) return true;
-            String ttLabel = UIConstants.getTrangThaiPhongLabel(p.getTrangThai());
-            return ttLabel.contains(filterTT);
+        tatCaPhong = phongService.getAllPhong();
+        filteredList = tatCaPhong.stream().filter(p -> {
+            boolean matchKw = kw.isEmpty() || p.getSoPhong().toLowerCase().contains(kw)
+                    || p.getTenLoaiPhong().toLowerCase().contains(kw);
+
+            boolean matchStatus = true;
+            if (filterTT != null) {
+                String ttLabel = UIConstants.getTrangThaiPhongLabel(p.getTrangThai());
+                matchStatus = ttLabel.contains(filterTT);
+            }
+
+            return matchKw && matchStatus;
         }).collect(Collectors.toList());
 
-        if (pagination != null) pagination.setCurrentPage(1);
+        if (pagination != null)
+            pagination.setCurrentPage(1);
         displayPage();
     }
 
     private void displayPage() {
         tableModel.setRowCount(0);
-        if (filteredList == null) return;
+        if (filteredList == null)
+            return;
 
         int pageSize = 12;
         int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
@@ -273,7 +336,8 @@ public class PhongPanel extends JPanel {
         int totalPages = (int) Math.ceil((double) filteredList.size() / pageSize);
         if (currentPage > totalPages && totalPages > 0) {
             currentPage = totalPages;
-            if (pagination != null) pagination.setCurrentPage(currentPage);
+            if (pagination != null)
+                pagination.setCurrentPage(currentPage);
         }
 
         int start = (currentPage - 1) * pageSize;
@@ -282,16 +346,19 @@ public class PhongPanel extends JPanel {
         for (int i = start; i < end; i++) {
             Phong p = filteredList.get(i);
             String ttLabel = UIConstants.getTrangThaiPhongLabel(p.getTrangThai());
-            
+
             // PRIORITY: Active Price Table > Base Price
-            double giaHienHanh = bangGiaService.layGiaHienHanh(p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "");
-            
+            double giaHienHanh = bangGiaService
+                    .layGiaHienHanh(p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "");
+
             tableModel.addRow(new Object[] {
                     p.getSoPhong(), p.getSoPhong(), p.getTenLoaiPhong(), p.getView(),
                     "Tầng " + p.getTang(),
                     p.getSucChua() + " người",
                     String.format("%,.0fđ", giaHienHanh),
-                    (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED && p.getTenKhachHienTai() != null) ? p.getTenKhachHienTai() : "—",
+                    (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED && p.getTenKhachHienTai() != null)
+                            ? p.getTenKhachHienTai()
+                            : "—",
                     ttLabel
             });
         }
@@ -305,7 +372,7 @@ public class PhongPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0)
             return null;
-        return service.getPhongById((String) tableModel.getValueAt(row, 0));
+        return phongService.getPhongById((String) tableModel.getValueAt(row, 0));
     }
 
     private void showDialog(Phong p) {
@@ -313,8 +380,8 @@ public class PhongPanel extends JPanel {
         PhongDialog dlg = new PhongDialog(owner, p);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            NotificationManager.showSuccess("Thành công", 
-                (p == null ? "Đã thêm phòng mới" : "Đã cập nhật thông tin phòng"));
+            NotificationManager.showSuccess("Thành công",
+                    (p == null ? "Đã thêm phòng mới" : "Đã cập nhật thông tin phòng"));
             refresh();
         }
     }
@@ -335,7 +402,7 @@ public class PhongPanel extends JPanel {
             return;
         }
         String sp = (String) tableModel.getValueAt(row, 0);
-        Phong p = service.getPhongById(sp);
+        Phong p = phongService.getPhongById(sp);
         if (p == null)
             return;
         TrangThaiPhong tt = p.getTrangThai();
@@ -349,7 +416,7 @@ public class PhongPanel extends JPanel {
                 "Xóa phòng " + sp + "?\nHành động này không thể hoàn tác!",
                 "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (ok == JOptionPane.YES_OPTION) {
-            String err = service.xoaPhong(sp);
+            String err = phongService.xoaPhong(sp);
             if (err == null) {
                 NotificationManager.showSuccess("Thành công", "Đã xóa phòng " + p.getSoPhong());
                 refresh();

@@ -75,11 +75,11 @@ public class NhanVienPanel extends JPanel {
         left.add(s);
 
         RoundedButton btnThem = new RoundedButton("+ Thêm nhân viên", UIConstants.PRIMARY, Color.WHITE);
-        btnThem.setPreferredSize(new Dimension(185, 42));
+        btnThem.setPreferredSize(new Dimension(190, 42));
         btnThem.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
         RoundedButton btnExcel = new RoundedButton("Xuất Excel", new Color(0x10B981), Color.WHITE);
-        btnExcel.setPreferredSize(new Dimension(130, 42));
+        btnExcel.setPreferredSize(new Dimension(140, 42));
         btnExcel.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
         btnThem.addActionListener(e -> showDialog(null));
@@ -104,8 +104,10 @@ public class NhanVienPanel extends JPanel {
     }
 
     private JPanel buildStats() {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
+        JPanel row = new JPanel(new GridLayout(1, 3, 20, 0));
         row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 100));
 
         lblTongNV = new JLabel("...");
         lblDangLam = new JLabel("...");
@@ -156,10 +158,10 @@ public class NhanVienPanel extends JPanel {
         card.setShadow(true);
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(16, 20, 10, 20));
-        card.setPreferredSize(new Dimension(240, 95));
+        card.setPreferredSize(new Dimension(200, 95));
 
         JLabel l1 = new JLabel(label);
-        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setFont(UIConstants.FONT_SMALL_BOLD);
         l1.setForeground(UIConstants.TEXT_SECONDARY);
 
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
@@ -202,11 +204,26 @@ public class NhanVienPanel extends JPanel {
         ButtonGroup bg = new ButtonGroup();
         for (int i = 0; i < dbRoles.length; i++) {
             String dbRole = dbRoles[i];
-            JToggleButton btn = new JToggleButton(displayRoles[i]);
+            JToggleButton btn = new JToggleButton(displayRoles[i]) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    if (isSelected()) {
+                        g2.setColor(getBackground());
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    } else {
+                        g2.setColor(new Color(0xF1F5F9));
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    }
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
             btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
             btn.setFocusPainted(false);
             btn.setSelected(dbRole.equals(currentFilter));
-            btn.setPreferredSize(new Dimension(btn.getPreferredSize().width + 10, 40));
+            btn.setPreferredSize(new Dimension(btn.getPreferredSize().width + 16, 40));
             styleTab(btn, dbRole.equals(currentFilter));
             btn.addActionListener(e -> {
                 currentFilter = dbRole;
@@ -235,15 +252,16 @@ public class NhanVienPanel extends JPanel {
     private void styleTab(JToggleButton btn, boolean on) {
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
-        btn.setOpaque(true);
+        btn.setOpaque(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         if (on) {
-            btn.setBackground(new Color(0xE0E7FF)); 
-            btn.setForeground(new Color(0x3730A3)); 
-            btn.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+            btn.setBackground(UIConstants.PRIMARY); 
+            btn.setForeground(Color.WHITE); 
+            btn.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
         } else {
             btn.setBackground(new Color(0xF1F5F9)); 
-            btn.setForeground(new Color(0x64748B));
-            btn.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+            btn.setForeground(UIConstants.TEXT_SECONDARY);
+            btn.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
         }
     }
 
@@ -310,44 +328,59 @@ public class NhanVienPanel extends JPanel {
     }
 
     private void styleTable() {
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xE2E8F0))); 
-        table.setRowHeight(40);
+        table.setFont(UIConstants.FONT_BODY);
+        table.setRowHeight(44);
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(0, 0));
-        table.setBackground(Color.WHITE);
-        table.setSelectionBackground(new Color(0xF8FAFC));
+        table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        table.setSelectionForeground(UIConstants.TEXT_PRIMARY);
+        
+        // Header
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xE2E8F0)));
+                return lbl;
+            }
+        };
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
         
         table.getColumnModel().removeColumn(table.getColumnModel().getColumn(0));
         
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val, boolean sel, boolean foc, int row, int col) {
-                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, val, sel, foc, row, col);
-                
-                lbl.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xF1F5F9)),
-                    BorderFactory.createEmptyBorder(0, 16, 0, 16)
-                ));
-
-                int modelRow = t.convertRowIndexToModel(row);
-                boolean active = "Đang làm".equals(t.getModel().getValueAt(modelRow, 6));
-
-                lbl.setBackground(sel ? new Color(0xF4F6F8) : Color.WHITE);
-                
                 if (col == 5) {
-                    lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-                    if (active) {
-                        lbl.setForeground(new Color(0x10B981)); 
-                        lbl.setText("Đang làm");
-                    } else {
-                        lbl.setForeground(new Color(0x94A3B8)); 
-                        lbl.setText("Đã nghỉ");
-                    }
-                } else {
-                    lbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-                    lbl.setForeground(sel ? new Color(0x0F172A) : new Color(0x334155));
+                    String status = val.toString();
+                    Color bg = status.equals("Đang làm") ? new Color(230, 250, 240) : new Color(245, 247, 250);
+                    Color fg = status.equals("Đang làm") ? new Color(30, 150, 80) : UIConstants.TEXT_MUTED;
+                    StatusBadge badge = new StatusBadge(status, bg, fg);
+                    
+                    JPanel p = new JPanel(new GridBagLayout());
+                    p.setOpaque(true);
+                    p.setBackground(sel ? UIConstants.PRIMARY_LIGHT : Color.WHITE);
+                    p.add(badge);
+                    return p;
                 }
+
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+                lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                lbl.setFont(UIConstants.FONT_BODY);
+
+                // Căn lề
+                if (col == 0 || col == 2 || col == 5) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
                 return lbl;
             }
         });

@@ -17,10 +17,13 @@ public class LoaiPhongPanel extends JPanel {
 
     private final PhongService service = new PhongService();
 
+    private ModernTextField txtSearch;
+    private ModernComboBox<String> cboTrangThai;
     private DefaultTableModel tableModel;
     private JTable table;
     private PaginationPanel pagination;
-    private List<LoaiPhong> fullList;
+    private List<LoaiPhong> tatCaLoaiPhong;
+    private List<LoaiPhong> filteredList;
 
     public LoaiPhongPanel() {
         setOpaque(false);
@@ -35,11 +38,17 @@ public class LoaiPhongPanel extends JPanel {
 
         main.add(buildHeader(), BorderLayout.NORTH);
 
-        JPanel center = new JPanel(new BorderLayout(0, 12));
+        JPanel center = new JPanel(new BorderLayout());
         center.setOpaque(false);
         center.add(buildStats(), BorderLayout.NORTH);
-        center.add(buildTableArea(), BorderLayout.CENTER);
 
+        JPanel bot = new JPanel(new BorderLayout());
+        bot.setOpaque(false);
+        bot.add(Box.createVerticalStrut(14), BorderLayout.NORTH);
+        bot.add(buildFilterBar(), BorderLayout.CENTER);
+        bot.add(buildTableArea(), BorderLayout.SOUTH);
+
+        center.add(bot, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
         add(main, BorderLayout.CENTER);
     }
@@ -76,10 +85,37 @@ public class LoaiPhongPanel extends JPanel {
     private JPanel buildStats() {
         JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
         row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 85));
         row.add(statCard("Tổng loại phòng", service.getAllLoaiPhong().size() + " loại", UIConstants.PRIMARY));
         row.add(statCard("Đang hoạt động", service.countLoaiPhongActive() + " loại", UIConstants.SUCCESS));
         row.add(statCard("Ngừng sử dụng", service.countLoaiPhongNgung() + " loại", UIConstants.WARNING));
         return row;
+    }
+
+    private JPanel buildFilterBar() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        p.setOpaque(false);
+        p.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+
+        txtSearch = new ModernTextField("Tìm theo tên loại phòng...");
+        txtSearch.setPreferredSize(new Dimension(300, 40));
+
+        cboTrangThai = new ModernComboBox<>();
+        cboTrangThai.setPreferredSize(new Dimension(200, 40));
+        cboTrangThai.addItem("Tất cả trạng thái");
+        cboTrangThai.addItem("Hoạt động");
+        cboTrangThai.addItem("Ngừng");
+
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { runFilter(); }
+        });
+        cboTrangThai.addActionListener(e -> runFilter());
+
+        p.add(txtSearch);
+        p.add(cboTrangThai);
+        return p;
     }
 
     private RoundedPanel statCard(String label, String val, Color c) {
@@ -176,10 +212,32 @@ public class LoaiPhongPanel extends JPanel {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setBackground(Color.WHITE);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        t.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        t.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        t.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        t.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        t.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        // Thiết lập chiều rộng cột
+        int[] widths = { 240, 100, 100, 110, 110, 180, 120 };
+        // Chờ bảng được gắn vào scrollpane để thiết lập preferred width
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < widths.length; i++) {
+                if (i < t.getColumnModel().getColumnCount()) {
+                    t.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+                }
+            }
+        });
         t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
@@ -189,13 +247,24 @@ public class LoaiPhongPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề
+                if (col == 1 || col == 2 || col == 6) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else if (col == 3 || col == 4) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
                 String v = val != null ? val.toString() : "";
-                if (v.equals("Hoạt động")) {
-                    lbl.setForeground(UIConstants.SUCCESS);
+                if (col == 6) { // Trạng thái
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                } else if (v.equals("Ngừng")) {
-                    lbl.setForeground(UIConstants.DANGER);
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    if (v.equals("Hoạt động")) {
+                        lbl.setForeground(UIConstants.SUCCESS);
+                    } else if (v.equals("Ngừng")) {
+                        lbl.setForeground(UIConstants.DANGER);
+                    }
                 }
                 return lbl;
             }
@@ -216,43 +285,60 @@ public class LoaiPhongPanel extends JPanel {
     }
 
     private void loadData() {
-        fullList = service.getAllLoaiPhong();
+        tatCaLoaiPhong = service.getAllLoaiPhong();
+        runFilter();
+    }
+
+    private void runFilter() {
+        if (tatCaLoaiPhong == null) return;
+
+        String kw = txtSearch.getText().trim().toLowerCase();
+        int idxStatus = cboTrangThai.getSelectedIndex();
+
+        filteredList = tatCaLoaiPhong.stream()
+                .filter(lp -> {
+                    boolean matchKw = kw.isEmpty() || lp.getTenLoai().toLowerCase().contains(kw);
+                    boolean matchStatus = true;
+                    if (idxStatus == 1) matchStatus = "Hoạt động".equals(lp.getTrangThai());
+                    if (idxStatus == 2) matchStatus = "Ngừng".equals(lp.getTrangThai());
+                    return matchKw && matchStatus;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
         if (pagination != null) pagination.setCurrentPage(1);
         displayPage();
     }
 
     private void displayPage() {
         tableModel.setRowCount(0);
-        if (fullList == null) return;
+        if (filteredList == null) return;
 
         int pageSize = 12;
         int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
 
-        int totalPages = (int) Math.ceil((double) fullList.size() / pageSize);
+        int totalPages = (int) Math.ceil((double) filteredList.size() / pageSize);
         if (currentPage > totalPages && totalPages > 0) {
             currentPage = totalPages;
             if (pagination != null) pagination.setCurrentPage(currentPage);
         }
 
         int start = (currentPage - 1) * pageSize;
-        int end = Math.min(start + pageSize, fullList.size());
+        int end = Math.min(start + pageSize, filteredList.size());
 
         for (int i = start; i < end; i++) {
-            LoaiPhong lp = fullList.get(i);
+            LoaiPhong lp = filteredList.get(i);
             tableModel.addRow(new Object[] {
                     lp.getMaLoai(), lp.getTenLoai(), lp.getDanhMuc(),
                     lp.getSucChua() + " người",
-                    String.format("%,.0f", (double) lp.getGiaThapNhat()),
-                    String.format("%,.0f", (double) lp.getGiaCaoNhat()),
-                    lp.getTiNghi() != null && lp.getTiNghi().length() > 30
-                            ? lp.getTiNghi().substring(0, 30) + "..."
-                            : lp.getTiNghi(),
+                    String.format("%,.0f đ", (double) lp.getGiaThapNhat()),
+                    String.format("%,.0f đ", (double) lp.getGiaCaoNhat()),
+                    lp.getTiNghi(),
                     lp.getTrangThai()
             });
         }
 
         if (pagination != null) {
-            pagination.update(fullList.size(), pageSize, currentPage);
+            pagination.update(filteredList.size(), pageSize, currentPage);
         }
     }
 

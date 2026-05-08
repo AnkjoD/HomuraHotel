@@ -46,11 +46,16 @@ public class KhuyenMaiPanel extends JPanel {
 
         main.add(buildHeader(), BorderLayout.NORTH);
 
-        JPanel center = new JPanel(new BorderLayout(0, 12));
+        JPanel center = new JPanel(new BorderLayout(0, 20));
         center.setOpaque(false);
+        center.add(buildStats(), BorderLayout.NORTH);
 
-        String[] cols = { "MÃ KM", "TÊN CHƯƠNG TRÌNH", "LOẠI", "GIÁ TRỊ", "BẮT ĐẦU", "KẾT THÚC", "TỐI THIỂU", "SỬ DỤNG",
-                "TRẠNG THÁI" };
+        JPanel tableWrapper = new JPanel(new BorderLayout(0, 14));
+        tableWrapper.setOpaque(false);
+        tableWrapper.add(buildFilterBar(), BorderLayout.NORTH);
+
+        String[] cols = { "Mã KM", "Tên chương trình", "Loại", "Giá trị", "Bắt đầu", "Kết thúc", "Tối thiểu", "Sử dụng",
+                "Trạng thái" };
         model = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) {
@@ -130,15 +135,46 @@ public class KhuyenMaiPanel extends JPanel {
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
         footer.add(pagination, BorderLayout.CENTER);
 
-        JPanel tableWrap = new JPanel(new BorderLayout());
-        tableWrap.setOpaque(false);
-        tableWrap.add(scroll, BorderLayout.CENTER);
-        tableWrap.add(footer, BorderLayout.SOUTH);
+        tableWrapper.add(scroll, BorderLayout.CENTER);
+        tableWrapper.add(footer, BorderLayout.SOUTH);
 
-        center.add(tableWrap, BorderLayout.CENTER);
+        center.add(tableWrapper, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
 
         add(main, BorderLayout.CENTER);
+    }
+
+    private JPanel buildStats() {
+        List<KhuyenMai> all = kmDAO.getAll();
+        int total = all.size();
+        
+        long active = all.stream().filter(km -> "HOẠT ĐỘNG".equals(determineStatus(km))).count();
+        long expired = all.stream().filter(km -> "HẾT HẠN".equals(determineStatus(km))).count();
+
+        JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
+        row.setOpaque(false);
+        row.add(statCard("Tổng số chương trình", total + " mã KM", UIConstants.PRIMARY));
+        row.add(statCard("Đang hoạt động", active + " mã đang chạy", UIConstants.SUCCESS));
+        row.add(statCard("Hết hiệu lực", expired + " mã đã dừng", UIConstants.WARNING));
+        return row;
+    }
+
+    private RoundedPanel statCard(String label, String val, Color c) {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        card.setBackground(Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+
+        JLabel l1 = new JLabel(label);
+        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setForeground(UIConstants.TEXT_SECONDARY);
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        card.add(l1, BorderLayout.NORTH);
+        card.add(l2, BorderLayout.CENTER);
+        return card;
     }
 
     private JPanel buildHeader() {
@@ -146,7 +182,6 @@ public class KhuyenMaiPanel extends JPanel {
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
 
-        // Title and Subtitle section
         JPanel titlePanel = new JPanel();
         titlePanel.setOpaque(false);
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
@@ -156,25 +191,13 @@ public class KhuyenMaiPanel extends JPanel {
         lblTitle.setForeground(UIConstants.TEXT_PRIMARY);
 
         JLabel lblSubTitle = new JLabel("Quản lý các chương trình ưu đãi và mã giảm giá toàn hệ thống");
-        lblSubTitle.setFont(UIConstants.FONT_SMALL);
-        lblSubTitle.setForeground(UIConstants.TEXT_MUTED);
+        lblSubTitle.setFont(UIConstants.FONT_BODY);
+        lblSubTitle.setForeground(UIConstants.TEXT_SECONDARY);
 
         titlePanel.add(lblTitle);
         titlePanel.add(Box.createVerticalStrut(2));
         titlePanel.add(lblSubTitle);
         p.add(titlePanel, BorderLayout.WEST);
-
-        // Filter and Action section
-        JPanel rightActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
-        rightActions.setOpaque(false);
-
-        txtSearch = new ModernTextField("Tìm mã KM, tên chương trình...");
-        txtSearch.setPreferredSize(new Dimension(280, 42));
-        txtSearch.addActionListener(e -> loadData());
-
-        cbStatus = new ModernComboBox<>(new String[] { "Tất cả", "Hoạt động", "Tạm dừng", "Hết hạn" });
-        cbStatus.setPreferredSize(new Dimension(160, 42));
-        cbStatus.addActionListener(e -> loadData());
 
         RoundedButton btnAdd = new RoundedButton("+ Thêm khuyến mãi", UIConstants.PRIMARY, Color.WHITE);
         btnAdd.setPreferredSize(new Dimension(180, 42));
@@ -182,13 +205,26 @@ public class KhuyenMaiPanel extends JPanel {
             new KhuyenMaiDialog((Window) SwingUtilities.getWindowAncestor(this), null, false, false).setVisible(true);
             loadData();
         });
-
-        rightActions.add(txtSearch);
-        rightActions.add(cbStatus);
-        rightActions.add(btnAdd);
-        p.add(rightActions, BorderLayout.EAST);
+        p.add(btnAdd, BorderLayout.EAST);
 
         return p;
+    }
+
+    private JPanel buildFilterBar() {
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        filterPanel.setOpaque(false);
+
+        txtSearch = new ModernTextField("Tìm mã KM, tên chương trình...");
+        txtSearch.setPreferredSize(new Dimension(300, 42));
+        txtSearch.addActionListener(e -> loadData());
+
+        cbStatus = new ModernComboBox<>(new String[] { "Tất cả trạng thái", "Hoạt động", "Tạm dừng", "Hết hạn" });
+        cbStatus.setPreferredSize(new Dimension(180, 42));
+        cbStatus.addActionListener(e -> loadData());
+
+        filterPanel.add(txtSearch);
+        filterPanel.add(cbStatus);
+        return filterPanel;
     }
 
     private void styleTable() {
@@ -199,13 +235,22 @@ public class KhuyenMaiPanel extends JPanel {
         table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
         table.setSelectionForeground(UIConstants.TEXT_PRIMARY);
 
-        // Table Header
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        table.getTableHeader().setDefaultRenderer(headerRenderer);
 
-        // Custom Zebra Renderer
+        // Custom Zebra Renderer with Alignment
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
@@ -215,6 +260,16 @@ public class KhuyenMaiPanel extends JPanel {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setFont(UIConstants.FONT_BODY);
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề theo loại dữ liệu
+                if (col == 6) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else if (col == 1) {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                }
+
                 return lbl;
             }
         });
@@ -230,8 +285,9 @@ public class KhuyenMaiPanel extends JPanel {
     }
 
     private void loadData() {
-        String keyword = txtSearch.getText();
-        String status = (String) cbStatus.getSelectedItem();
+        String keyword = txtSearch != null ? txtSearch.getText().trim() : "";
+        String status = cbStatus != null ? (String) cbStatus.getSelectedItem() : "Tất cả trạng thái";
+        if ("Tất cả trạng thái".equals(status)) status = "Tất cả";
         allKhuyenMai = kmDAO.search(keyword, status);
 
         if (pagination != null) {
