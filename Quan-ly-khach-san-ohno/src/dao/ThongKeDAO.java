@@ -71,6 +71,7 @@ public class ThongKeDAO {
         Map<String, Object> stats = new LinkedHashMap<>();
         try {
             Connection conn = getConn();
+            // Current period
             stats.put("doanhThu",     sumRevenueByKy(conn, ky));
             stats.put("doanhThuDV",   sumServiceRevenueByKy(conn, ky));
 
@@ -88,23 +89,159 @@ public class ThongKeDAO {
                  ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Phong WHERE trangThai='OCCUPIED'")) {
                 stats.put("phongDangThue", rs.next() ? rs.getInt(1) : 0);
             }
+
+            // Previous period (for trend comparison)
+            stats.put("doanhThuTruoc", sumRevenuePrevKy(conn, ky));
+            stats.put("doanhThuDVTruoc", sumServiceRevenuePrevKy(conn, ky));
+
+            String sqlLPT = "SELECT COUNT(*) FROM ChiTietDatPhong WHERE ngayNhanThucTe IS NOT NULL AND "
+                          + getPreviousDateFilter("ngayNhanThucTe", ky);
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlLPT)) {
+                stats.put("luotDatPhongTruoc", rs.next() ? rs.getInt(1) : 0);
+            }
+            String sqlKHT = "SELECT COUNT(DISTINCT maKhachHang) FROM DatPhong WHERE "
+                          + getPreviousDateFilter("ngayDat", ky);
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlKHT)) {
+                stats.put("khachMoiTruoc", rs.next() ? rs.getInt(1) : 0);
+            }
+
         } catch (SQLException e) {
             System.err.println(TAG + " ERROR getThongKeKy: " + e.getMessage());
         }
         return stats;
     }
 
-    // ---- Doanh thu theo ngày trong tháng ----
+    // ---- Doanh thu theo ngày/tháng tùy theo kỳ ----
     public List<long[]> getDoanhThuTheoNgay(String ky) {
         List<long[]> result = new ArrayList<>();
-        String sql = "SELECT DAY(ngayLap) AS ngay, ISNULL(SUM(tongThanhToan),0) AS dt " +
+        String dateCol = "ngayLap";
+        
+        // Xác định kiểu group (theo ngày hay theo tháng)
+        boolean groupByMonth = "nam".equals(ky) || "quy".equals(ky);
+        
+        // Nếu là custom, nếu khoảng cách > 60 ngày thì group theo tháng, ngược lại group theo ngày
+        if (ky != null && ky.startsWith("custom:")) {
+            try {
+                String[] parts = ky.split(":");
+                java.time.LocalDate d1 = java.time.LocalDate.parse(parts[1]);
+                java.time.LocalDate d2 = java.time.LocalDate.parse(parts[2]);
+                if (java.time.temporal.ChronoUnit.DAYS.between(d1, d2) > 62) {
+                    groupByMonth = true;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String selectPart = groupByMonth 
+            ? "YEAR(" + dateCol + ") * 100 + MONTH(" + dateCol + ")" 
+            : "YEAR(" + dateCol + ") * 10000 + MONTH(" + dateCol + ") * 100 + DAY(" + dateCol + ")";
+            
+        if ("7ngay".equals(ky)) {
+            selectPart = "CAST(" + dateCol + " AS DATE)";
+        } else if ("thang".equals(ky) || (ky == null || ky.isEmpty())) {
+            selectPart = "DAY(" + dateCol + ")";
+        } else if ("nam".equals(ky) || "quy".equals(ky)) {
+            selectPart = "MONTH(" + dateCol + ")";
+        }
+
+        String sql = "SELECT " + selectPart + " AS unit, ISNULL(SUM(tongThanhToan),0) AS dt " +
                      "FROM HoaDon " +
-                     "WHERE " + getDateFilter("ngayLap", ky) + " " +
-                     "GROUP BY DAY(ngayLap) ORDER BY ngay";
+                     "WHERE " + getDateFilter(dateCol, ky) + " " +
+                     "GROUP BY " + selectPart + " ORDER BY unit";
+        
+        Map<Object, Long> dataMap = new LinkedHashMap<>(); // Use LinkedHashMap to preserve order
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) result.add(new long[]{rs.getLong("ngay"), rs.getLong("dt")});
+            while (rs.next()) {
+                if ("7ngay".equals(ky)) {
+                    dataMap.put(rs.getDate("unit").toString(), rs.getLong("dt"));
+                } else {
+                    dataMap.put(rs.getLong("unit"), rs.getLong("dt"));
+                }
+            }
         } catch (SQLException e) {
             System.err.println(TAG + " WARNING getDoanhThuTheoNgay: " + e.getMessage());
+        }
+
+        // Điền đầy các giá trị thiếu (Zero-filling)
+        Calendar cal = Calendar.getInstance();
+        if ("7ngay".equals(ky)) {
+            for (int i = 6; i >= 0; i--) {
+                Calendar d = (Calendar) cal.clone();
+                d.add(Calendar.DAY_OF_YEAR, -i);
+                String dateStr = new java.text.SimpleDateFormat("yyyy-MM-dd").format(d.getTime());
+                int dayLabel = d.get(Calendar.DAY_OF_MONTH);
+                result.add(new long[]{dayLabel, dataMap.getOrDefault(dateStr, 0L)});
+            }
+        } else if ("thang".equals(ky) || (ky == null || ky.isEmpty())) {
+            int maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+            for (int i = 1; i <= maxDay; i++) {
+                result.add(new long[]{i, dataMap.getOrDefault((long)i, 0L)});
+            }
+        } else if ("nam".equals(ky)) {
+            for (int i = 1; i <= 12; i++) {
+                result.add(new long[]{i, dataMap.getOrDefault((long)i, 0L)});
+            }
+        } else if ("quy".equals(ky)) {
+            int currentMonth = cal.get(Calendar.MONTH) + 1;
+            int startMonth = ((currentMonth - 1) / 3) * 3 + 1;
+            for (int i = startMonth; i < startMonth + 3; i++) {
+                result.add(new long[]{i, dataMap.getOrDefault((long)i, 0L)});
+            }
+        } else {
+            // Custom: Tạo timeline đầy đủ từ ngày bắt đầu đến ngày kết thúc
+            try {
+                String[] parts = ky.split(":");
+                java.time.LocalDate d1 = java.time.LocalDate.parse(parts[1]);
+                java.time.LocalDate d2 = java.time.LocalDate.parse(parts[2]);
+                
+                if (groupByMonth) {
+                    // Timeline theo tháng
+                    java.time.LocalDate current = d1.withDayOfMonth(1);
+                    while (!current.isAfter(d2)) {
+                        long unit = current.getYear() * 100 + current.getMonthValue();
+                        long revenue = dataMap.getOrDefault(unit, 0L);
+                        result.add(new long[]{current.getMonthValue(), revenue, unit});
+                        current = current.plusMonths(1);
+                    }
+                } else {
+                    // Timeline theo ngày
+                    java.time.LocalDate current = d1;
+                    while (!current.isAfter(d2)) {
+                        long unit = current.getYear() * 10000 + current.getMonthValue() * 100 + current.getDayOfMonth();
+                        long revenue = dataMap.getOrDefault(unit, 0L);
+                        result.add(new long[]{current.getDayOfMonth(), revenue, unit});
+                        current = current.plusDays(1);
+                    }
+                }
+            } catch (Exception e) {
+                // Fallback nếu có lỗi parse
+                for (Map.Entry<Object, Long> entry : dataMap.entrySet()) {
+                    long unit = (long) entry.getKey();
+                    long label = (unit > 10000) ? unit % 100 : unit;
+                    result.add(new long[]{label, entry.getValue(), unit});
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    // ---- Doanh thu 7 ngày gần nhất (cho dashboard bar chart) ----
+    public List<long[]> getDoanhThu7Ngay() {
+        List<long[]> result = new ArrayList<>();
+        // dayOffset: 0=hôm nay, 1=hôm qua, ... 6=6 ngày trước — trả về desc để chart vẽ từ cũ→mới
+        String sql =
+            "SELECT DATEDIFF(DAY, ngayLap, GETDATE()) AS dayOffset, " +
+            "       ISNULL(SUM(tongThanhToan), 0) AS dt " +
+            "FROM HoaDon " +
+            "WHERE ngayLap >= DATEADD(DAY, -6, CAST(GETDATE() AS DATE)) " +
+            "GROUP BY DATEDIFF(DAY, ngayLap, GETDATE()) " +
+            "ORDER BY dayOffset DESC";
+        try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                result.add(new long[]{ rs.getLong("dayOffset"), rs.getLong("dt") });
+            }
+        } catch (SQLException e) {
+            System.err.println(TAG + " WARNING getDoanhThu7Ngay: " + e.getMessage());
         }
         return result;
     }
@@ -132,6 +269,25 @@ public class ThongKeDAO {
             case "thang":
             default:
                 return "MONTH(" + dateCol + ")=MONTH(GETDATE()) AND YEAR(" + dateCol + ")=YEAR(GETDATE())";
+        }
+    }
+
+    private String getPreviousDateFilter(String dateCol, String ky) {
+        if (ky != null && ky.startsWith("custom:")) {
+            return "1=0"; // No previous period for custom range
+        }
+        switch (ky != null ? ky : "thang") {
+            case "7ngay":
+                return dateCol + " >= DATEADD(DAY,-14,GETDATE()) AND " + dateCol + " < DATEADD(DAY,-7,GETDATE())";
+            case "quy":
+                return "DATEPART(QUARTER," + dateCol + ")=DATEPART(QUARTER,DATEADD(QUARTER,-1,GETDATE())) " +
+                       "AND YEAR(" + dateCol + ")=YEAR(DATEADD(QUARTER,-1,GETDATE()))";
+            case "nam":
+                return "YEAR(" + dateCol + ")=YEAR(DATEADD(YEAR,-1,GETDATE()))";
+            case "thang":
+            default:
+                return "MONTH(" + dateCol + ")=MONTH(DATEADD(MONTH,-1,GETDATE())) " +
+                       "AND YEAR(" + dateCol + ")=YEAR(DATEADD(MONTH,-1,GETDATE()))";
         }
     }
 
@@ -165,6 +321,28 @@ public class ThongKeDAO {
             if (rs.next()) return rs.getLong(1);
         } catch (SQLException e) {
             System.err.println(TAG + " WARNING sumServiceRevenueByKy: " + e.getMessage());
+        }
+        return 0L;
+    }
+
+    private long sumRevenuePrevKy(Connection conn, String ky) {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                "SELECT ISNULL(SUM(tongThanhToan),0) FROM HoaDon WHERE " + getPreviousDateFilter("ngayLap", ky))) {
+            if (rs.next()) return rs.getLong(1);
+        } catch (SQLException e) {
+            System.err.println(TAG + " WARNING sumRevenuePrevKy: " + e.getMessage());
+        }
+        return 0L;
+    }
+
+    private long sumServiceRevenuePrevKy(Connection conn, String ky) {
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                "SELECT ISNULL(SUM(tongTienDichVu),0) FROM HoaDon WHERE " + getPreviousDateFilter("ngayLap", ky))) {
+            if (rs.next()) return rs.getLong(1);
+        } catch (SQLException e) {
+            System.err.println(TAG + " WARNING sumServiceRevenuePrevKy: " + e.getMessage());
         }
         return 0L;
     }

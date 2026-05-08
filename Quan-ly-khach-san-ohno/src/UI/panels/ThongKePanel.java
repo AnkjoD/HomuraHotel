@@ -61,22 +61,26 @@ public class ThongKePanel extends JPanel {
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
+        content.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
 
         content.add(buildHeader());
-        content.add(Box.createVerticalStrut(20));
+        content.add(Box.createVerticalStrut(16));
         content.add(buildKPIRow());
-        content.add(Box.createVerticalStrut(20));
+        content.add(Box.createVerticalStrut(16));
         content.add(buildChartRow());
-        content.add(Box.createVerticalStrut(20));
+        content.add(Box.createVerticalStrut(16));
         content.add(buildBottomRow());
+        
+        // Final safety: ensure content doesn't exceed viewport unnecessarily
+        content.setMaximumSize(new Dimension(1600, Short.MAX_VALUE));
         return content;
     }
 
     private JPanel buildHeader() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setMaximumSize(new Dimension(Short.MAX_VALUE, 70));
 
         JPanel left = new JPanel();
         left.setOpaque(false);
@@ -85,69 +89,89 @@ public class ThongKePanel extends JPanel {
         title.setFont(UIConstants.FONT_TITLE);
         JLabel sub = new JLabel("Tổng quan hiệu quả kinh doanh khách sạn");
         sub.setFont(UIConstants.FONT_BODY);
-        sub.setForeground(UIConstants.TEXT_SECONDARY);
+        sub.setForeground(UIConstants.TEXT_MUTED);
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         left.add(title);
-        left.add(Box.createVerticalStrut(2));
         left.add(sub);
 
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         right.setOpaque(false);
         String[] kys = { "7 ngày", "Tháng này", "Quý này", "Năm nay" };
         String[] keys = { "7ngay", "thang", "quy", "nam" };
         ButtonGroup kyGroup = new ButtonGroup();
         for (int i = 0; i < kys.length; i++) {
             final String k = keys[i];
-            final String ky = kys[i];
-            JToggleButton btn = new JToggleButton(kys[i]);
+            JToggleButton btn = new JToggleButton(kys[i]) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    if (isSelected()) {
+                        g2.setColor(UIConstants.PRIMARY);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                    } else {
+                        g2.setColor(new Color(0xF1F5F9));
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                    }
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
             btn.setFont(UIConstants.FONT_SMALL_BOLD);
             btn.setFocusPainted(false);
-            btn.setSelected(k.equals(currentKy));
             styleKyBtn(btn, k.equals(currentKy));
             btn.addActionListener(e -> {
                 currentKy = k;
-                for (Component c : right.getComponents()) {
-                    if (c instanceof JToggleButton) {
-                        JToggleButton tb = (JToggleButton) c;
-                        styleKyBtn(tb, tb.getText().equals(ky));
-                    }
-                }
                 refresh();
             });
             kyGroup.add(btn);
             right.add(btn);
         }
 
-        JToggleButton btnCustom = new JToggleButton("Tùy chỉnh \uff00\u0987");
+        JToggleButton btnCustom = new JToggleButton("Tùy chỉnh") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (isSelected()) {
+                    g2.setColor(UIConstants.PRIMARY);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else {
+                    g2.setColor(new Color(0xF1F5F9));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
         btnCustom.setFont(UIConstants.FONT_SMALL_BOLD);
         btnCustom.setFocusPainted(false);
-        btnCustom.setSelected(currentKy.startsWith("custom:"));
         styleKyBtn(btnCustom, currentKy.startsWith("custom:"));
-        btnCustom.addActionListener(e -> {
-            showCustomDateDialog(btnCustom, right);
-        });
+        btnCustom.addActionListener(e -> showCustomDateDialog(btnCustom, right));
         kyGroup.add(btnCustom);
         right.add(btnCustom);
 
-        RoundedButton btnExport = new RoundedButton("↓ Xuất báo cáo", UIConstants.PRIMARY, java.awt.Color.WHITE);
+        RoundedButton btnExport = new RoundedButton("Xuất", UIConstants.PRIMARY, Color.WHITE);
+        btnExport.setPreferredSize(new Dimension(80, 32));
         btnExport.addActionListener(e -> showExportDialog());
         right.add(btnExport);
 
-        panel.add(left, BorderLayout.WEST);
+        panel.add(left, BorderLayout.CENTER);
         panel.add(right, BorderLayout.EAST);
         return panel;
     }
 
     private void styleKyBtn(JToggleButton btn, boolean active) {
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFont(UIConstants.FONT_SMALL_BOLD);
+        btn.setSelected(active);
+        btn.setBorder(BorderFactory.createEmptyBorder(6, 16, 6, 16));
         if (active) {
-            btn.setBackground(UIConstants.TEXT_PRIMARY);
-            btn.setForeground(java.awt.Color.WHITE);
-            btn.setBorder(BorderFactory.createCompoundBorder(
-                    new RoundedBorder(6, UIConstants.TEXT_PRIMARY), BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+            btn.setForeground(Color.WHITE);
         } else {
-            btn.setBackground(java.awt.Color.WHITE);
             btn.setForeground(UIConstants.TEXT_SECONDARY);
-            btn.setBorder(BorderFactory.createCompoundBorder(
-                    new RoundedBorder(6, UIConstants.BORDER), BorderFactory.createEmptyBorder(6, 12, 6, 12)));
         }
     }
 
@@ -163,71 +187,118 @@ public class ThongKePanel extends JPanel {
         int tongPhong = Math.max(1, (int) dashStats.getOrDefault("tongPhong", 1));
         int congSuat = (int) (100.0 * phongDangThue / tongPhong);
 
-        JPanel row = new JPanel(new GridLayout(1, 6, 10, 0));
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
+        // Previous period values for trend
+        long dtTruoc = (long) stats.getOrDefault("doanhThuTruoc", 0L);
+        int luotTruoc = (int) stats.getOrDefault("luotDatPhongTruoc", 0);
+        int khachMoiTruoc = (int) stats.getOrDefault("khachMoiTruoc", 0);
+        long dtDVTruoc = (long) stats.getOrDefault("doanhThuDVTruoc", 0L);
 
-        row.add(buildKpiCard("Doanh thu", String.format("%,.0fđ", (double) dt), "Kỳ " + getTenKy(),
-                UIConstants.PRIMARY));
+        JPanel row = new JPanel(new GridLayout(1, 6, 6, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 110));
+        row.setPreferredSize(new Dimension(800, 110)); // Force a smaller preferred width
+
+        String tk = getTenKy();
+        String displayKy = (tk.length() > 15) ? tk : "Kỳ " + tk;
+
+        row.add(buildKpiCard("Doanh thu", String.format("%,.0fđ", (double) dt), displayKy,
+                UIConstants.PRIMARY, calcTrend(dt, dtTruoc)));
         row.add(buildKpiCard("Công suất phòng", congSuat + "%", phongDangThue + "/" + tongPhong + " phòng",
-                UIConstants.SUCCESS));
-        row.add(buildKpiCard("Khách mới", khachMoi + " KH", "Kỳ " + getTenKy(), UIConstants.INFO));
-        row.add(buildKpiCard("Lượt check-in", luot + " lượt", "Kỳ " + getTenKy(), UIConstants.WARNING));
-        row.add(buildKpiCard("Phòng đang thuê", phongDangThue + " phòng", "Hiện tại", new java.awt.Color(0xF97316)));
-        row.add(buildKpiCard("Dịch vụ bán thêm", String.format("%,.0fđ", (double) dtDV), "Kỳ " + getTenKy(),
-                UIConstants.DANGER));
+                UIConstants.SUCCESS, Integer.MIN_VALUE)); 
+        row.add(buildKpiCard("Khách mới", khachMoi + " KH", displayKy,
+                UIConstants.INFO, calcTrend(khachMoi, khachMoiTruoc)));
+        row.add(buildKpiCard("Lượt check-in", luot + " lượt", displayKy,
+                UIConstants.WARNING, calcTrend(luot, luotTruoc)));
+        row.add(buildKpiCard("Phòng đang thuê", phongDangThue + " phòng", "Hiện tại",
+                new java.awt.Color(0xF97316), Integer.MIN_VALUE)); 
+        row.add(buildKpiCard("Dịch vụ bán thêm", String.format("%,.0fđ", (double) dtDV), displayKy,
+                UIConstants.DANGER, calcTrend(dtDV, dtDVTruoc)));
         return row;
     }
 
-    private RoundedPanel buildKpiCard(String label, String value, String subtitle, java.awt.Color accent) {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
-        card.setBackground(java.awt.Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+    private int calcTrend(long current, long previous) {
+        if (previous == 0) return current > 0 ? 100 : 0;
+        return (int) ((current - previous) * 100 / previous);
+    }
 
-        JPanel topRow = new JPanel(new BorderLayout());
-        topRow.setOpaque(false);
-        JPanel dot = new JPanel() {
+    private RoundedPanel buildKpiCard(String label, String value, String subtitle, java.awt.Color accent, int trendPct) {
+        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS) {
             @Override
             protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(accent);
-                g2.fillOval(0, 4, 8, 8);
+                
+                // Live pulsing dot for real-time
+                if (subtitle.equals("Hiện tại")) {
+                    float alpha = (float) (Math.sin(System.currentTimeMillis() / 400.0) * 0.5 + 0.5);
+                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    g2.setColor(UIConstants.SUCCESS);
+                    g2.fillOval(getWidth()-18, 12, 8, 8);
+                }
+
                 g2.dispose();
             }
         };
-        dot.setOpaque(false);
-        dot.setPreferredSize(new Dimension(12, 16));
+        card.setBackground(java.awt.Color.WHITE);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(12, 12, 10, 12));
+        card.setPreferredSize(new Dimension(120, 110));
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        // Subtitle at top right
         JLabel lblSub = new JLabel(subtitle);
-        lblSub.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblSub.setFont(UIConstants.FONT_SMALL);
         lblSub.setForeground(UIConstants.TEXT_MUTED);
-        topRow.add(dot, BorderLayout.WEST);
-        topRow.add(lblSub, BorderLayout.EAST);
+        lblSub.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        
+        // Push labels down to give space for icon at top left
+        content.add(lblSub);
+        content.add(Box.createVerticalStrut(14));
 
         JLabel lblLabel = new JLabel(label);
         lblLabel.setFont(UIConstants.FONT_SMALL);
         lblLabel.setForeground(UIConstants.TEXT_SECONDARY);
+        lblLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
         JLabel lblVal = new JLabel(value);
-        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblVal.setForeground(UIConstants.TEXT_PRIMARY);
+        lblVal.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel ct = new JPanel();
-        ct.setOpaque(false);
-        ct.setLayout(new BoxLayout(ct, BoxLayout.Y_AXIS));
-        ct.add(topRow);
-        ct.add(Box.createVerticalStrut(2));
-        ct.add(lblLabel);
-        ct.add(lblVal);
+        content.add(lblLabel);
+        content.add(Box.createVerticalStrut(2));
+        content.add(lblVal);
 
-        card.add(ct, BorderLayout.CENTER);
+        if (trendPct != Integer.MIN_VALUE) {
+            String arrow = trendPct > 0 ? "↑" : trendPct < 0 ? "↓" : "—";
+            java.awt.Color trendColor = trendPct > 0 ? UIConstants.SUCCESS
+                    : trendPct < 0 ? UIConstants.DANGER : UIConstants.TEXT_MUTED;
+            String trendText = trendPct == 0 ? "— vs kỳ trước"
+                    : arrow + " " + Math.abs(trendPct) + "% vs kỳ trước";
+            JLabel lblTrend = new JLabel(trendText);
+            lblTrend.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            lblTrend.setForeground(trendColor);
+            lblTrend.setAlignmentX(Component.LEFT_ALIGNMENT);
+            content.add(Box.createVerticalStrut(2));
+            content.add(lblTrend);
+        }
+
+        card.add(content, BorderLayout.CENTER);
         return card;
     }
+
 
     private JPanel buildChartRow() {
         JPanel row = new JPanel(new GridLayout(1, 2, 16, 0));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 300));
         row.add(buildBarChart());
         row.add(buildDonutChart());
         return row;
@@ -240,10 +311,13 @@ public class ThongKePanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
 
-        JLabel title = new JLabel("Doanh thu theo ngày");
+        String unitLabel = ("nam".equals(currentKy) || "quy".equals(currentKy)) ? "tháng" : "ngày";
+        String tk = getTenKy();
+        JLabel title = new JLabel("Doanh thu theo " + unitLabel + " — " + (tk.length() > 25 ? tk.substring(0, 22) + "..." : tk));
+        title.setToolTipText("Doanh thu theo " + unitLabel + " — " + tk);
         title.setFont(UIConstants.FONT_HEADER);
         JLabel unit = new JLabel("Đơn vị: triệu đồng");
-        unit.setFont(UIConstants.FONT_SMALL);
+        unit.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         unit.setForeground(UIConstants.TEXT_MUTED);
         JPanel hdr = new JPanel(new BorderLayout());
         hdr.setOpaque(false);
@@ -251,11 +325,6 @@ public class ThongKePanel extends JPanel {
         hdr.add(unit, BorderLayout.EAST);
 
         java.util.List<long[]> data = service.getDoanhThuTheoNgay(currentKy);
-        if (data.isEmpty()) {
-            Random rnd = new Random(42);
-            for (int d = 1; d <= 25; d++)
-                data.add(new long[] { d, (long) (10 + rnd.nextDouble() * 40) * 1_000_000 });
-        }
 
         card.add(hdr, BorderLayout.NORTH);
         card.add(new ModernBarChart(data), BorderLayout.CENTER);
@@ -292,7 +361,8 @@ public class ThongKePanel extends JPanel {
     private JPanel buildBottomRow() {
         JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 260));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 280));
         row.add(buildTopPhongCard());
         row.add(buildTopDichVuCard());
         row.add(buildNguonDatPhongCard());
@@ -363,15 +433,18 @@ public class ThongKePanel extends JPanel {
                         super.paintComponent(g);
                         Graphics2D g2 = (Graphics2D) g.create();
                         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g2.setColor(new java.awt.Color(0xE2E8F0));
-                        g2.fillRoundRect(0, 4, getWidth(), 6, 6, 6);
-                        g2.setColor(barColor);
-                        g2.fillRoundRect(0, 4, getWidth() * pct / 100, 6, 6, 6);
+                        g2.setColor(new java.awt.Color(0xF1F5F9));
+                        g2.fillRoundRect(0, 4, getWidth(), 10, 10, 10);
+                        
+                        GradientPaint gp = new GradientPaint(0, 0, barColor, getWidth(), 0, 
+                            new java.awt.Color(barColor.getRed(), barColor.getGreen(), barColor.getBlue(), 180));
+                        g2.setPaint(gp);
+                        g2.fillRoundRect(0, 4, getWidth() * pct / 100, 10, 10, 10);
                         g2.dispose();
                     }
                 };
                 bar.setOpaque(false);
-                bar.setPreferredSize(new Dimension(0, 14));
+                bar.setPreferredSize(new Dimension(0, 18));
 
                 item.add(nameRow, BorderLayout.NORTH);
                 item.add(bar, BorderLayout.CENTER);
@@ -515,14 +588,18 @@ public class ThongKePanel extends JPanel {
                 protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new java.awt.Color(0xE2E8F0));
-                    g2.fillRoundRect(0, 4, getWidth(), 6, 6, 6);
-                    g2.setColor(barC);
-                    g2.fillRoundRect(0, 4, (int) (getWidth() * pct / 100.0), 6, 6, 6);
+                    g2.setColor(new java.awt.Color(0xF1F5F9));
+                    g2.fillRoundRect(0, 4, getWidth(), 10, 10, 10);
+                    
+                    GradientPaint gp = new GradientPaint(0, 0, barC, getWidth(), 0, 
+                        new java.awt.Color(barC.getRed(), barC.getGreen(), barC.getBlue(), 180));
+                    g2.setPaint(gp);
+                    g2.fillRoundRect(0, 4, (int) (getWidth() * pct / 100.0), 10, 10, 10);
                     g2.dispose();
                 }
             };
             bar.setOpaque(false);
+            bar.setPreferredSize(new Dimension(0, 18));
             JLabel lPct = new JLabel(nguons[i][1]);
             lPct.setFont(UIConstants.FONT_SMALL_BOLD);
             lPct.setForeground(barC);
@@ -972,15 +1049,43 @@ public class ThongKePanel extends JPanel {
                 g2.setPaint(gp);
                 g2.fill(new RoundRectangle2D.Float(x, y, barW, barH, 6, 6));
 
-                if (data.size() < 15 || i % 5 == 0) {
+                if (data.size() < 15 || (data.size() < 40 && i % 5 == 0) || (data.size() >= 40 && i % 10 == 0) || i == data.size() - 1) {
                     g2.setColor(UIConstants.TEXT_MUTED);
-                    String lbl = String.valueOf(data.get(i)[0]);
+                    long val0 = data.get(i)[0];
+                    String lbl = String.valueOf(val0);
+                    
+                    if ("nam".equals(currentKy) || "quy".equals(currentKy)) {
+                        lbl = "T" + val0;
+                    } else if (currentKy.startsWith("custom:") && data.get(i).length > 2) {
+                        long raw = data.get(i)[2];
+                        if (raw > 10000 && raw < 1000000) { // YYYYMM
+                            lbl = (raw % 100) + "/" + String.valueOf(raw / 100).substring(2);
+                        } else if (raw > 1000000) { // YYYYMMDD
+                            lbl = (raw % 100) + "/" + ((raw / 100) % 100);
+                        }
+                    }
                     g2.drawString(lbl, x + barW / 2 - g2.getFontMetrics().stringWidth(lbl) / 2, h - 6);
                 }
             }
 
             if (hoverIndex != -1 && mousePos != null) {
-                String txt = String.format("%,.0f VNĐ", (double) data.get(hoverIndex)[1]);
+                long[] entry = data.get(hoverIndex);
+                String timeText = "";
+                if (currentKy.startsWith("custom:") && entry.length > 2) {
+                    long raw = entry[2];
+                    if (raw > 1000000) { // YYYYMMDD
+                        String s = String.valueOf(raw);
+                        timeText = s.substring(6, 8) + "/" + s.substring(4, 6) + "/" + s.substring(0, 4);
+                    } else if (raw > 10000) { // YYYYMM
+                        timeText = "Tháng " + (raw % 100) + "/" + (raw / 100);
+                    }
+                } else {
+                    String prefix = ("nam".equals(currentKy) || "quy".equals(currentKy)) ? "Tháng " : "Ngày ";
+                    timeText = prefix + entry[0];
+                }
+                
+                String amount = String.format("%,.0f VNĐ", (double) entry[1]);
+                String txt = timeText + ": " + amount;
                 g2.setFont(UIConstants.FONT_SMALL_BOLD);
                 FontMetrics fm = g2.getFontMetrics();
                 int tw = fm.stringWidth(txt) + 16;

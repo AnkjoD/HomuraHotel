@@ -15,4 +15,5 @@ public class ThongKeService {
     public List<Map<String, Object>> getCheckoutHomNay()       { return dao.getCheckoutHomNay(); }
     public List<Map<String, Object>> getHoatDongGanDay(int n)  { return dao.getHoatDongGanDay(n); }
     public List<Map<String, Object>> getAlerts()               { return dao.getAlerts(); }
+    public List<long[]>              getDoanhThu7Ngay()        { return dao.getDoanhThu7Ngay(); }
 }
