@@ -5,6 +5,7 @@ import entity.NhanVien;
 import entity.enums.VaiTro;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Path2D;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.swing.*;
@@ -22,7 +23,7 @@ public class MainFrame extends JFrame {
     private final java.util.Map<String, Long> lastRefreshAt = new java.util.HashMap<>();
     private final java.util.List<Runnable> menuUpdaters = new java.util.ArrayList<>();
     private static final long REFRESH_COOLDOWN_MS = 2000;
-    private final java.util.Set<String> expandedGroups = new java.util.HashSet<>(java.util.Arrays.asList("qlhethong"));
+    private final java.util.Set<String> expandedGroups = new java.util.HashSet<>();
 
     private TongQuanPanel pTongQuan;
     private ThuePhongPanel pThuePhong;
@@ -210,29 +211,27 @@ public class MainFrame extends JFrame {
 
     /** Dropdown 3 lựa chọn khi click vào avatar / tên */
     private void showUserDropdownMenu(java.awt.Component invoker, NhanVien user) {
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBackground(Color.WHITE);
+        JPopupMenu menu = new JPopupMenu() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+            }
+        };
+        menu.setOpaque(false);
+        menu.setBackground(new Color(0,0,0,0));
         menu.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0xE2E8F0), 1),
+                new ui.components.RoundedComponents.RoundedBorder(12, new Color(0xE2E8F0)),
                 BorderFactory.createEmptyBorder(4, 0, 4, 0)));
 
-        final String ICON_INFO = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/canhan.png";
-        final String ICON_PWD = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/doimk.png";
-        final String ICON_OUT = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/sign_out.png";
-        final String ICON_SHIFT = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/giao_ca.png"; 
-        final String ICON_EXPENSE = "d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/expense.png";
-        
-        JMenuItem miInfo = styledMenuItem("Xem thông tin", new Color(0x1E2337), false);
-        JMenuItem miShift = styledMenuItem("Bàn giao ca", new Color(0x1E2337), false);
-        JMenuItem miExpense = styledMenuItem("Phiếu chi (Petty Cash)", new Color(0x1E2337), false);
-        JMenuItem miPwd = styledMenuItem("Đổi mật khẩu", new Color(0x1E2337), false);
-        JMenuItem miOut = styledMenuItem("Đăng xuất", new Color(0xEF4444), true);
-
-        setMenuIcon(miInfo, ICON_INFO, 18);
-        setMenuIcon(miShift, ICON_SHIFT, 18);
-        setMenuIcon(miExpense, ICON_EXPENSE, 18);
-        setMenuIcon(miPwd, ICON_PWD, 18);
-        setMenuIcon(miOut, ICON_OUT, 18);
+        JMenuItem miInfo = styledMenuItem("Hồ sơ cá nhân", "INFO", new Color(0x1E293B), false);
+        JMenuItem miShift = styledMenuItem("Bàn giao ca", "SHIFT", new Color(0x1E293B), false);
+        JMenuItem miExpense = styledMenuItem("Phiếu chi (Petty Cash)", "EXPENSE", new Color(0x1E293B), false);
+        JMenuItem miPwd = styledMenuItem("Đổi mật khẩu", "PWD", new Color(0x1E293B), false);
+        JMenuItem miOut = styledMenuItem("Đăng xuất hệ thống", "LOGOUT", new Color(0xEF4444), true);
 
         miInfo.addActionListener(e -> showUserProfileDialog(user));
         miShift.addActionListener(e -> new ui.dialogs.HandoverDialog(this).setVisible(true));
@@ -241,29 +240,73 @@ public class MainFrame extends JFrame {
         miOut.addActionListener(e -> doLogout());
 
         menu.add(miInfo);
-        menu.addSeparator();
         menu.add(miShift);
         menu.add(miExpense);
         menu.addSeparator();
         menu.add(miPwd);
-        menu.addSeparator();
         menu.add(miOut);
 
-        // Căn phải: popup xuất hiện ngay dưới invoker, mép phải căn theo mép phải
-        // invoker
-        menu.pack(); // tính preferred size trước
-        int menuW = menu.getPreferredSize().width;
-        menu.show(invoker, invoker.getWidth() - menuW, invoker.getHeight() + 4);
+        menu.pack();
+        int menuW = Math.max(240, menu.getPreferredSize().width);
+        menu.setPreferredSize(new Dimension(menuW, menu.getPreferredSize().height));
+        menu.show(invoker, invoker.getWidth() - menuW, invoker.getHeight() + 8);
     }
 
-    private JMenuItem styledMenuItem(String text, Color fg, boolean bold) {
-        JMenuItem item = new JMenuItem(text);
-        item.setFont(new Font("Segoe UI", bold ? Font.BOLD : Font.PLAIN, 13));
+    private JMenuItem styledMenuItem(String text, String type, Color fg, boolean bold) {
+        JMenuItem item = new JMenuItem(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                ButtonModel model = getModel();
+                if (model.isArmed() || model.isRollover()) {
+                    g2.setColor(new Color(0xF1F5F9));
+                    g2.fillRoundRect(4, 2, getWidth() - 8, getHeight() - 4, 8, 8);
+                }
+                
+                // Draw Vector Icon
+                int size = 18;
+                int x = 16;
+                int y = (getHeight() - size) / 2;
+                g2.setColor(model.isArmed() || model.isRollover() ? fg : new Color(0x64748B));
+                if (type.equals("LOGOUT")) g2.setColor(new Color(0xEF4444));
+                
+                g2.setStroke(new BasicStroke(1.5f));
+                switch(type) {
+                    case "INFO":
+                        g2.drawOval(x+4, y+2, 10, 10);
+                        g2.drawArc(x, y+10, 18, 10, 0, 180);
+                        break;
+                    case "SHIFT":
+                        g2.drawOval(x, y, 16, 16);
+                        g2.drawLine(x+8, y+8, x+8, y+4);
+                        g2.drawLine(x+8, y+8, x+12, y+8);
+                        break;
+                    case "EXPENSE":
+                        g2.drawRect(x, y+2, 18, 12);
+                        g2.drawOval(x+6, y+5, 6, 6);
+                        break;
+                    case "PWD":
+                        g2.drawRect(x+2, y+6, 14, 10);
+                        g2.drawArc(x+5, y+1, 8, 10, 0, 180);
+                        break;
+                    case "LOGOUT":
+                        g2.drawArc(x, y, 16, 16, 120, 300);
+                        g2.drawLine(x+8, y, x+8, y+8);
+                        break;
+                }
+                
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        item.setFont(new Font("Segoe UI", bold ? Font.BOLD : Font.PLAIN, 14));
         item.setForeground(fg);
-        item.setBackground(Color.WHITE);
-        item.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 32));
-        item.setPreferredSize(new Dimension(200, 36));
-        item.setOpaque(true);
+        item.setOpaque(false);
+        item.setContentAreaFilled(false);
+        item.setBorder(BorderFactory.createEmptyBorder(0, 48, 0, 16));
+        item.setPreferredSize(new Dimension(240, 44));
         return item;
     }
 
@@ -728,23 +771,53 @@ public class MainFrame extends JFrame {
         lblText.setFont(new Font("Segoe UI", Font.PLAIN, indent > 0 ? 13 : 15));
         lblText.setForeground(new Color(0xCBD5E1));
 
-        JLabel lblArrow = null;
+        JPanel pnlArrow = null;
         if (isGroup) {
-            lblArrow = new JLabel(expandedGroups.contains(key) ? "\u25BC" : "\u25B6");
-            lblArrow.setForeground(new Color(0x64748B));
-            lblArrow.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            // Removed item.add(lblArrow, BorderLayout.EAST) to fix broken character display
+            pnlArrow = new JPanel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    
+                    boolean active = activeMenu.equals(key) || (key.equals("nhanvien") && activeMenu.equals("taikhoan"));
+                    g2.setColor(active ? Color.WHITE : new Color(0x64748B));
+                    
+                    int w = getWidth(), h = getHeight();
+                    int size = 8;
+                    int x = (w - size) / 2;
+                    int y = (h - size) / 2;
+                    
+                    Path2D path = new Path2D.Double();
+                    if (expandedGroups.contains(key)) {
+                        // Down arrow
+                        path.moveTo(x, y + 2);
+                        path.lineTo(x + size, y + 2);
+                        path.lineTo(x + size / 2.0, y + size);
+                    } else {
+                        // Right arrow
+                        path.moveTo(x + 2, y);
+                        path.lineTo(x + size, y + size / 2.0);
+                        path.lineTo(x + 2, y + size);
+                    }
+                    path.closePath();
+                    g2.fill(path);
+                    g2.dispose();
+                }
+            };
+            pnlArrow.setOpaque(false);
+            pnlArrow.setPreferredSize(new Dimension(30, itemH));
+            item.add(pnlArrow, BorderLayout.EAST);
         }
 
-        final JLabel finalArrow = lblArrow;
+        final JPanel finalArrow = pnlArrow;
         Runnable updateUI = () -> {
             boolean active = activeMenu.equals(key) || (key.equals("nhanvien") && activeMenu.equals("taikhoan"));
             lblText.setForeground(active ? Color.WHITE : (hover[0] ? Color.WHITE : new Color(0xCBD5E1)));
             lblText.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, indent > 0 ? 14 : 15));
             lblIcon.setForeground(active ? Color.WHITE : (hover[0] ? Color.WHITE : new Color(0x94A3B8)));
             if (finalArrow != null) {
-                finalArrow.setText(expandedGroups.contains(key) ? "\u25BC" : "\u25B6");
-                finalArrow.setForeground(active ? Color.WHITE : new Color(0x64748B));
+                finalArrow.repaint();
             }
             item.repaint();
         };
@@ -808,6 +881,10 @@ public class MainFrame extends JFrame {
 
     public DatPhongPanel getDatPhongPanel() {
         return pDatPhong;
+    }
+
+    public ThuePhongPanel getThuePhongPanel() {
+        return pThuePhong;
     }
 
     public HoaDonPanel getHoaDonPanel() {
