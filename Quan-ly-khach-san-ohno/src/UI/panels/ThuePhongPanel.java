@@ -17,7 +17,7 @@ import javax.swing.*;
 
 import service.*;
 
-public class ThuePhongPanel extends JPanel {
+public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
     private static final java.util.logging.Logger LOGGER = java.util.logging.Logger
             .getLogger(ThuePhongPanel.class.getName());
@@ -1089,22 +1089,25 @@ public class ThuePhongPanel extends JPanel {
         itemExtend.setEnabled(p.getTrangThai() == TrangThaiPhong.OCCUPIED);
         itemExtend.addActionListener(e2 -> showExtendStayDialog(p));
 
-        // Gom Bill Đoàn — chỉ hiện nếu phòng thuộc đoàn
-        ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn");
-        itemMasterBill.setEnabled(false);
-        if (p.getTrangThai() == TrangThaiPhong.OCCUPIED) {
-            ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
-            if (tp != null && tp.getDatPhong() != null && "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
-                itemMasterBill.setEnabled(true);
-                itemMasterBill.addActionListener(e2 -> {
-                    java.util.List<ChiTietDatPhong> allRooms = thuePhongService
-                            .getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
-                    showMasterBillDialog(tp.getDatPhong(), allRooms);
-                });
-            }
-        }
+        ModernMenuItem itemMaint = new ModernMenuItem("Đánh dấu bảo trì");
+        itemMaint.setEnabled(p.getTrangThai() == TrangThaiPhong.AVAILABLE || p.getTrangThai() == TrangThaiPhong.CLEANING);
+        itemMaint.addActionListener(e2 -> showMaintenanceDialog(p, true));
+
+        ModernMenuItem itemFinishMaint = new ModernMenuItem("Hoàn tất bảo trì");
+        itemFinishMaint.setEnabled(p.getTrangThai() == TrangThaiPhong.MAINTENANCE);
+        itemFinishMaint.addActionListener(e2 -> showMaintenanceDialog(p, false));
 
         menu.add(itemDetails);
+        
+        if (p.getTrangThai() == TrangThaiPhong.AVAILABLE || p.getTrangThai() == TrangThaiPhong.CLEANING) {
+            menu.addSeparator();
+            menu.add(itemMaint);
+        }
+        
+        if (p.getTrangThai() == TrangThaiPhong.MAINTENANCE) {
+            menu.addSeparator();
+            menu.add(itemFinishMaint);
+        }
         
         if (p.getTrangThai() == TrangThaiPhong.OCCUPIED) {
             menu.addSeparator();
@@ -1114,10 +1117,73 @@ public class ThuePhongPanel extends JPanel {
             menu.add(itemExtend);
             menu.addSeparator();
             menu.add(itemPayment);
-            menu.add(itemMasterBill);
+            
+            // Gom Bill Đoàn — chỉ hiện nếu phòng thuộc đoàn
+            ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
+            if (tp != null && tp.getDatPhong() != null && "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
+                ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn");
+                itemMasterBill.addActionListener(e2 -> {
+                    java.util.List<ChiTietDatPhong> allRooms = thuePhongService
+                            .getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
+                    showMasterBillDialog(tp.getDatPhong(), allRooms);
+                });
+                menu.add(itemMasterBill);
+            }
         }
 
         menu.show(e.getComponent(), e.getX(), e.getY());
+    }
+
+    private void showMaintenanceDialog(Phong p, boolean start) {
+        String title = start ? "Đánh dấu bảo trì" : "Hoàn tất bảo trì";
+        String emoji = start ? "🛠️" : "✅";
+        String msg = start 
+            ? "Bạn muốn chuyển phòng <b>" + p.getSoPhong() + "</b> sang trạng thái bảo trì?"
+            : "Xác nhận phòng <b>" + p.getSoPhong() + "</b> đã bảo trì xong và sẵn sàng đón khách?";
+        
+        JDialog dlg = new JDialog(mainFrame, title, true);
+        dlg.setSize(480, 230);
+        dlg.setLocationRelativeTo(mainFrame);
+        dlg.getContentPane().setBackground(Color.WHITE);
+
+        JPanel main = new JPanel(new BorderLayout(15, 15));
+        main.setBackground(Color.WHITE);
+        main.setBorder(BorderFactory.createEmptyBorder(25, 25, 20, 25));
+
+        JPanel centerPanel = new JPanel(new BorderLayout(15, 0));
+        centerPanel.setOpaque(false);
+
+        JLabel lblIcon = new JLabel(emoji);
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 42));
+        centerPanel.add(lblIcon, BorderLayout.WEST);
+
+        JLabel lblMessage = new JLabel("<html><body style='width: 320px; color: #334155; font-family: Segoe UI;'>"
+            + "<h3 style='margin: 0 0 8px 0; color: #0F172A;'>" + title + "?</h3>"
+            + msg + "</body></html>");
+        centerPanel.add(lblMessage, BorderLayout.CENTER);
+        main.add(centerPanel, BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttons.setBackground(Color.WHITE);
+        RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
+        RoundedButton btnConfirm = new RoundedButton(start ? "Xác nhận bảo trì" : "Hoàn tất & Mở lại", 
+            start ? UIConstants.DANGER : UIConstants.SUCCESS, Color.WHITE);
+
+        btnCancel.addActionListener(e -> dlg.dispose());
+        btnConfirm.addActionListener(e -> {
+            phongService.updateTrangThai(p.getSoPhong(), start ? TrangThaiPhong.MAINTENANCE : TrangThaiPhong.AVAILABLE);
+            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhong() + (start ? " đã được đánh dấu bảo trì" : " đã sẵn sàng đón khách"));
+            refreshGrid();
+            mainFrame.refreshDashboard();
+            dlg.dispose();
+        });
+
+        buttons.add(btnCancel);
+        buttons.add(btnConfirm);
+        main.add(buttons, BorderLayout.SOUTH);
+
+        dlg.setContentPane(main);
+        dlg.setVisible(true);
     }
 
     // ---- Action: Xem chi tiết ----
