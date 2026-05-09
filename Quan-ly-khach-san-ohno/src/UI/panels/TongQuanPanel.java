@@ -1,6 +1,7 @@
 package ui.panels;
 
 import service.*;
+import dao.PhongDAO;
 import ui.MainFrame;
 import ui.components.UIConstants;
 import ui.components.RoundedComponents.*;
@@ -56,6 +57,8 @@ public class TongQuanPanel extends JPanel {
 
     private volatile boolean isRefreshing = false;
     private final Set<String> pushedAlertIds = new HashSet<>();
+    private int hoverIdx = -1;
+    private final Set<String> reservedRoomNums = new HashSet<>();
 
     // ─────────────────────────────────────────────────────────────────────────
     public TongQuanPanel(MainFrame mainFrame) {
@@ -109,6 +112,7 @@ public class TongQuanPanel extends JPanel {
         if (isRefreshing)
             return;
         isRefreshing = true;
+        final PhongDAO pdao = new PhongDAO();
 
         SwingWorker<DashboardData, Void> worker = new SwingWorker<DashboardData, Void>() {
 
@@ -122,6 +126,7 @@ public class TongQuanPanel extends JPanel {
                 data.alerts = thongKeService.getAlerts();
                 data.rooms = phongService.getAllPhong();
                 data.revenue7 = thongKeService.getDoanhThu7Ngay();
+                data.reservedRooms = pdao.getReservedRoomsForDate(java.time.LocalDateTime.now());
                 return data;
             }
 
@@ -169,6 +174,10 @@ public class TongQuanPanel extends JPanel {
 
         // ── 2. Room Grid ─────────────────────────────────────────────────────
         allRooms = data.rooms != null ? data.rooms : new ArrayList<>();
+        reservedRoomNums.clear();
+        if (data.reservedRooms != null) {
+            reservedRoomNums.addAll(data.reservedRooms.keySet());
+        }
         filterAndRenderGrid(curFloor);
 
         // ── 3. Revenue chart ─────────────────────────────────────────────────
@@ -188,6 +197,7 @@ public class TongQuanPanel extends JPanel {
             pnlGauge.repaint();
 
         // ── 3. Check-in list ─────────────────────────────────────────────────
+        reservedRoomNums.clear();
         if (lblCheckinCount != null)
             lblCheckinCount.setText(data.checkins.size() + " lượt");
         if (pnlCheckinList != null) {
@@ -360,17 +370,10 @@ public class TongQuanPanel extends JPanel {
     private JLabel addStatCard(JPanel parent, String label, String initialValue, String icon, Color accent) {
         RoundedPanel card = new RoundedPanel(14);
         card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout(8, 0));
-        card.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        card.setLayout(new BorderLayout(12, 0));
+        card.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        card.setPreferredSize(new Dimension(140, 80));
-
-        // Accent bar ở trên cùng
-        JPanel accentBar = new JPanel();
-        accentBar.setBackground(accent);
-        accentBar.setPreferredSize(new Dimension(Integer.MAX_VALUE, 3));
-        card.add(accentBar, BorderLayout.NORTH);
+        card.setPreferredSize(new Dimension(160, 90));
 
         // Icon Container - Thay icon lỗi bằng hình tròn màu đậm
         Color bgLight = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 30);
@@ -398,29 +401,16 @@ public class TongQuanPanel extends JPanel {
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
 
         JLabel lblLabel = new JLabel(label);
-        lblLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblLabel.setForeground(UIConstants.TEXT_SECONDARY);
 
         JLabel lblValue = new JLabel(initialValue);
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblValue.setForeground(UIConstants.TEXT_PRIMARY);
 
         textPanel.add(lblLabel);
         textPanel.add(Box.createVerticalStrut(2));
         textPanel.add(lblValue);
-
-        // Hover effect
-        card.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                card.setBackground(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 8));
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                card.setBackground(Color.WHITE);
-            }
-        });
 
         card.add(iconContainer, BorderLayout.WEST);
         card.add(textPanel, BorderLayout.CENTER);
@@ -448,9 +438,8 @@ public class TongQuanPanel extends JPanel {
     private JPanel buildRoomGridCard() {
         RoundedPanel card = new RoundedPanel(12);
         card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout(0, 6));
-        card.setBorder(BorderFactory.createEmptyBorder(14, 16, 10, 16));
+        card.setLayout(new BorderLayout(0, 10));
+        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 14, 18));
 
         JPanel hdr = new JPanel(new BorderLayout());
         hdr.setOpaque(false);
@@ -572,43 +561,67 @@ public class TongQuanPanel extends JPanel {
     }
 
     private JPanel createRoomChip(Phong r) {
-        Color c = UIConstants.getTrangThaiPhongColor(r.getTrangThai());
+        entity.enums.TrangThaiPhong physicalStatus = r.getTrangThai();
+        boolean isReservedToday = reservedRoomNums.contains(r.getSoPhong());
+        
+        Color c;
+        String st;
+        
+        if (physicalStatus == entity.enums.TrangThaiPhong.AVAILABLE && isReservedToday) {
+            c = UIConstants.WARNING; // Orange for reserved
+            st = "ĐĐặt"; // Short for Đặt trước
+        } else {
+            c = UIConstants.getTrangThaiPhongColor(physicalStatus);
+            st = UIConstants.getTrangThaiPhongLabel(physicalStatus);
+            if (st.startsWith("Có") || st.startsWith("Không"))
+                st = "Trống";
+            else if (st.startsWith("Đang"))
+                st = "ĐỞ";
+            else if (st.startsWith("Vệ"))
+                st = "Dọn";
+            else if (st.startsWith("Bảo"))
+                st = "BT";
+        }
+
         Color bg = new Color(c.getRed(), c.getGreen(), c.getBlue(), 20);
-        String st = UIConstants.getTrangThaiPhongLabel(r.getTrangThai());
-        if (st.startsWith("Có") || st.startsWith("Không"))
-            st = "Trống";
-        else if (st.startsWith("Đang"))
-            st = "ĐỞ";
-        else if (st.startsWith("Vệ"))
-            st = "Dọn";
-        else if (st.startsWith("Bảo"))
-            st = "BT";
         JPanel chip = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                
+                // Light background from UIConstants
+                Color bgChip = UIConstants.getTrangThaiPhongBg(physicalStatus);
+                if (physicalStatus == entity.enums.TrangThaiPhong.AVAILABLE && isReservedToday) {
+                    bgChip = UIConstants.WARNING_LIGHT;
+                }
+                
+                g2.setColor(bgChip);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                
+                // Thin border
                 g2.setColor(c);
-                g2.setStroke(new BasicStroke(1.2f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                g2.setStroke(new BasicStroke(1.0f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
                 g2.dispose();
             }
         };
         chip.setOpaque(false);
         chip.setLayout(new BoxLayout(chip, BoxLayout.Y_AXIS));
-        chip.setPreferredSize(new Dimension(52, 46));
-        chip.setBorder(BorderFactory.createEmptyBorder(3, 2, 3, 2));
+        chip.setPreferredSize(new Dimension(54, 48));
+        chip.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
         chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
         JLabel lNum = new JLabel(r.getSoPhong(), SwingConstants.CENTER);
-        lNum.setFont(new Font("Segoe UI", Font.BOLD, 10));
-        lNum.setForeground(c);
+        lNum.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lNum.setForeground(c.darker());
         lNum.setAlignmentX(0.5f);
+        
         JLabel lSt = new JLabel(st, SwingConstants.CENTER);
-        lSt.setFont(new Font("Segoe UI", Font.PLAIN, 9));
-        lSt.setForeground(c);
+        lSt.setFont(new Font("Segoe UI", Font.BOLD, 10));
+        lSt.setForeground(c.darker());
         lSt.setAlignmentX(0.5f);
+        
         chip.add(Box.createVerticalGlue());
         chip.add(lNum);
         chip.add(lSt);
@@ -622,7 +635,6 @@ public class TongQuanPanel extends JPanel {
     private JPanel buildRevenueChartCard() {
         RoundedPanel card = new RoundedPanel(12);
         card.setBackground(Color.WHITE);
-        card.setShadow(true);
         card.setLayout(new BorderLayout(0, 8));
         card.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
 
@@ -647,43 +659,138 @@ public class TongQuanPanel extends JPanel {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                String[] days = { "T2", "T3", "T4", "T5", "T6", "T7", "CN" };
+                g2.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+                
+                // Dynamic day labels (6 days ago -> today)
+                String[] dayLabels = new String[7];
+                String[] dow = {"CN", "T2", "T3", "T4", "T5", "T6", "T7"};
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.DATE, -6);
+                for(int i=0; i<7; i++) {
+                    dayLabels[i] = dow[cal.get(Calendar.DAY_OF_WEEK)-1];
+                    cal.add(Calendar.DATE, 1);
+                }
+
                 long[] vals = new long[7];
-                // Fill from revenue7 (dayOffset 6..0 = index 0..6)
                 for (long[] row : revenue7) {
                     int idx = (int) (6 - row[0]);
-                    if (idx >= 0 && idx < 7)
-                        vals[idx] = row[1];
+                    if (idx >= 0 && idx < 7) vals[idx] = row[1];
                 }
-                long maxVal = 1;
-                for (long v : vals)
-                    if (v > maxVal)
-                        maxVal = v;
+                
+                long maxVal = 1000000; // Default scale 1M
+                for (long v : vals) if (v > maxVal) maxVal = v;
+                
                 int w = getWidth(), h = getHeight();
-                int padL = 8, padR = 8, padT = 10, padB = 28;
-                int barW = (w - padL - padR) / 7;
+                int padL = 40, padR = 10, padT = 30, padB = 25; // Increased padL for Y-axis
+                int chartW = w - padL - padR;
                 int chartH = h - padT - padB;
-                g2.setFont(new Font("Segoe UI", Font.PLAIN, 9));
-                g2.setColor(UIConstants.TEXT_MUTED);
+                int barW = chartW / 7;
+
+                // Draw Y-axis grid lines
+                g2.setStroke(new BasicStroke(0.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{2}, 0));
+                g2.setColor(new Color(0xE2E8F0));
+                for (int i = 0; i <= 4; i++) {
+                    int gy = padT + chartH - (chartH * i / 4);
+                    g2.drawLine(padL, gy, w - padR, gy);
+                    
+                    // Y labels
+                    g2.setColor(UIConstants.TEXT_MUTED);
+                    long val = maxVal * i / 4;
+                    String label = val >= 1000000 ? String.format("%.1fM", val/1000000.0) : String.format("%.0fK", val/1000.0);
+                    g2.drawString(label, 5, gy + 4);
+                    g2.setColor(new Color(0xE2E8F0));
+                }
+
                 for (int i = 0; i < 7; i++) {
                     int barH = (int) (chartH * vals[i] / maxVal);
-                    int bx = padL + i * barW + 2;
+                    if (vals[i] > 0 && barH < 4) barH = 4; 
+
+                    int bx = padL + i * barW + 6;
                     int by = padT + (chartH - barH);
-                    int bw = barW - 4;
-                    // Today's bar is accent color
-                    boolean isToday = (i == 6); // last = today
-                    g2.setColor(isToday ? UIConstants.PRIMARY : new Color(0x93C5FD));
-                    g2.fillRoundRect(bx, by, bw, barH, 6, 6);
-                    // Day label
-                    g2.setColor(isToday ? UIConstants.PRIMARY : UIConstants.TEXT_MUTED);
+                    int bw = barW - 12;
+                    
+                    boolean isToday = (i == 6);
+                    boolean isHover = (i == hoverIdx);
+                    Color baseColor = isToday ? UIConstants.PRIMARY : new Color(0x93C5FD);
+                    
+                    if (isHover) {
+                        g2.setColor(baseColor.brighter());
+                        g2.fillRoundRect(bx, by, bw, barH, 6, 6);
+                        
+                        // Draw value on top
+                        g2.setColor(UIConstants.TEXT_PRIMARY);
+                        g2.setFont(new Font("Segoe UI", Font.BOLD, 10));
+                        String valStr = String.format("%,d", vals[i]);
+                        FontMetrics fm = g2.getFontMetrics();
+                        g2.drawString(valStr, bx + (bw - fm.stringWidth(valStr)) / 2, by - 8);
+                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+                    } else {
+                        g2.setColor(baseColor);
+                        g2.fillRoundRect(bx, by, bw, barH, 6, 6);
+                    }
+                    
+                    // Label
+                    g2.setColor((isToday || isHover) ? UIConstants.PRIMARY : UIConstants.TEXT_MUTED);
                     FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString(days[i], bx + (bw - fm.stringWidth(days[i])) / 2, h - 6);
+                    g2.drawString(dayLabels[i], bx + (bw - fm.stringWidth(dayLabels[i])) / 2, h - 6);
                 }
                 g2.dispose();
             }
         };
         pnlRevenueChart.setOpaque(false);
+        MouseAdapter chartAdapter = new MouseAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int w = pnlRevenueChart.getWidth();
+                int padL = 40, padR = 10;
+                int chartW = w - padL - padR;
+                int barW = chartW / 7;
+                int x = e.getX();
+                if (x >= padL && x < w - padR) {
+                    int idx = (x - padL) / barW;
+                    if (idx >= 0 && idx < 7) {
+                        long val = 0;
+                        for (long[] row : revenue7) {
+                            if ((int) (6 - row[0]) == idx) {
+                                val = row[1];
+                                break;
+                            }
+                        }
+                        
+                        // Dynamic day names for tooltip
+                        String[] dayNames = new String[7];
+                        String[] fullDow = {"Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
+                        Calendar c = Calendar.getInstance();
+                        c.add(Calendar.DATE, -6);
+                        for(int i=0; i<7; i++) {
+                            dayNames[i] = fullDow[c.get(Calendar.DAY_OF_WEEK)-1];
+                            c.add(Calendar.DATE, 1);
+                        }
+
+                        pnlRevenueChart.setToolTipText(String.format("<html><b>%s</b><br>Doanh thu: %,d VNĐ</html>", 
+                                dayNames[idx], val));
+                        if (hoverIdx != idx) {
+                            hoverIdx = idx;
+                            pnlRevenueChart.repaint();
+                        }
+                        return;
+                    }
+                }
+                if (hoverIdx != -1) {
+                    hoverIdx = -1;
+                    pnlRevenueChart.repaint();
+                }
+                pnlRevenueChart.setToolTipText(null);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                hoverIdx = -1;
+                pnlRevenueChart.repaint();
+            }
+        };
+        pnlRevenueChart.addMouseListener(chartAdapter);
+        pnlRevenueChart.addMouseMotionListener(chartAdapter);
         card.add(pnlRevenueChart, BorderLayout.CENTER);
         return card;
     }
@@ -692,9 +799,8 @@ public class TongQuanPanel extends JPanel {
     private JPanel buildOccupancyCard() {
         RoundedPanel card = new RoundedPanel(12);
         card.setBackground(Color.WHITE);
-        card.setShadow(true);
-        card.setLayout(new BorderLayout(0, 8));
-        card.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        card.setLayout(new BorderLayout(0, 10));
+        card.setBorder(BorderFactory.createEmptyBorder(16, 18, 14, 18));
 
         JPanel hdr = new JPanel(new BorderLayout());
         hdr.setOpaque(false);
@@ -1190,5 +1296,6 @@ public class TongQuanPanel extends JPanel {
         public List<Map<String, Object>> alerts = new ArrayList<>();
         public List<Phong> rooms = new ArrayList<>();
         public List<long[]> revenue7 = new ArrayList<>();
+        public Map<String, String[]> reservedRooms = new HashMap<>();
     }
 }

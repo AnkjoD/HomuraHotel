@@ -1,6 +1,20 @@
 package ui;
 
-import ui.panels.*;
+import ui.panels.TongQuanPanel;
+import ui.panels.ThuePhongPanel;
+import ui.panels.KhachHangPanel;
+import ui.panels.LoaiPhongPanel;
+import ui.panels.PhongPanel;
+import ui.panels.DichVuPanel;
+import ui.panels.BangGiaPanel;
+import ui.panels.ThongKePanel;
+import ui.panels.NhanVienPanel;
+import ui.panels.DatPhongPanel;
+import ui.panels.HoaDonPanel;
+import ui.panels.KhuyenMaiPanel;
+import ui.panels.LogPanel;
+import ui.panels.ShiftHistoryPanel;
+import ui.panels.ResettableFilter;
 import entity.NhanVien;
 import entity.enums.VaiTro;
 import java.awt.*;
@@ -11,6 +25,7 @@ import java.util.Date;
 import javax.swing.*;
 import service.AuthService;
 import ui.components.NotificationManager;
+import ui.components.UIConstants;
 
 public class MainFrame extends JFrame {
 
@@ -63,7 +78,7 @@ public class MainFrame extends JFrame {
 
     private void initUI() {
         JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(new Color(245, 246, 250));
+        root.setBackground(UIConstants.BG_MAIN);
 
         JPanel contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.setOpaque(false);
@@ -85,18 +100,23 @@ public class MainFrame extends JFrame {
             try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if (!line.trim().isEmpty()) dismissedAlertIds.add(line.trim());
+                    if (!line.trim().isEmpty())
+                        dismissedAlertIds.add(line.trim());
                 }
-            } catch (java.io.IOException e) { e.printStackTrace(); }
+            } catch (java.io.IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void saveDismissedAlerts() {
         try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(DISMISSED_ALERTS_FILE))) {
-            for (String id : dismissedAlertIds) writer.println(id);
-        } catch (java.io.IOException e) { e.printStackTrace(); }
+            for (String id : dismissedAlertIds)
+                writer.println(id);
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+        }
     }
-
 
     // ===== HEADER =====
     private JPanel buildHeader() {
@@ -222,7 +242,7 @@ public class MainFrame extends JFrame {
             }
         };
         menu.setOpaque(false);
-        menu.setBackground(new Color(0,0,0,0));
+        menu.setBackground(new Color(0, 0, 0, 0));
         menu.setBorder(BorderFactory.createCompoundBorder(
                 new ui.components.RoundedComponents.RoundedBorder(12, new Color(0xE2E8F0)),
                 BorderFactory.createEmptyBorder(4, 0, 4, 0)));
@@ -258,45 +278,46 @@ public class MainFrame extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
+
                 ButtonModel model = getModel();
                 if (model.isArmed() || model.isRollover()) {
                     g2.setColor(new Color(0xF1F5F9));
                     g2.fillRoundRect(4, 2, getWidth() - 8, getHeight() - 4, 8, 8);
                 }
-                
+
                 // Draw Vector Icon
                 int size = 18;
                 int x = 16;
                 int y = (getHeight() - size) / 2;
                 g2.setColor(model.isArmed() || model.isRollover() ? fg : new Color(0x64748B));
-                if (type.equals("LOGOUT")) g2.setColor(new Color(0xEF4444));
-                
+                if (type.equals("LOGOUT"))
+                    g2.setColor(new Color(0xEF4444));
+
                 g2.setStroke(new BasicStroke(1.5f));
-                switch(type) {
+                switch (type) {
                     case "INFO":
-                        g2.drawOval(x+4, y+2, 10, 10);
-                        g2.drawArc(x, y+10, 18, 10, 0, 180);
+                        g2.drawOval(x + 4, y + 2, 10, 10);
+                        g2.drawArc(x, y + 10, 18, 10, 0, 180);
                         break;
                     case "SHIFT":
                         g2.drawOval(x, y, 16, 16);
-                        g2.drawLine(x+8, y+8, x+8, y+4);
-                        g2.drawLine(x+8, y+8, x+12, y+8);
+                        g2.drawLine(x + 8, y + 8, x + 8, y + 4);
+                        g2.drawLine(x + 8, y + 8, x + 12, y + 8);
                         break;
                     case "EXPENSE":
-                        g2.drawRect(x, y+2, 18, 12);
-                        g2.drawOval(x+6, y+5, 6, 6);
+                        g2.drawRect(x, y + 2, 18, 12);
+                        g2.drawOval(x + 6, y + 5, 6, 6);
                         break;
                     case "PWD":
-                        g2.drawRect(x+2, y+6, 14, 10);
-                        g2.drawArc(x+5, y+1, 8, 10, 0, 180);
+                        g2.drawRect(x + 2, y + 6, 14, 10);
+                        g2.drawArc(x + 5, y + 1, 8, 10, 0, 180);
                         break;
                     case "LOGOUT":
                         g2.drawArc(x, y, 16, 16, 120, 300);
-                        g2.drawLine(x+8, y, x+8, y+8);
+                        g2.drawLine(x + 8, y, x + 8, y + 8);
                         break;
                 }
-                
+
                 g2.dispose();
                 super.paintComponent(g);
             }
@@ -639,7 +660,8 @@ public class MainFrame extends JFrame {
                 continue;
 
             if ("SEP".equals(key)) {
-                if (!authSvc.isManager()) continue; // Hide System separator for Staff
+                if (!authSvc.isManager())
+                    continue; // Hide System separator for Staff
                 menuContainer.add(Box.createVerticalStrut(20));
                 JLabel lbl = new JLabel(label);
                 lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -779,15 +801,16 @@ public class MainFrame extends JFrame {
                     super.paintComponent(g);
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    
-                    boolean active = activeMenu.equals(key) || (key.equals("nhanvien") && activeMenu.equals("taikhoan"));
+
+                    boolean active = activeMenu.equals(key)
+                            || (key.equals("nhanvien") && activeMenu.equals("taikhoan"));
                     g2.setColor(active ? Color.WHITE : new Color(0x64748B));
-                    
+
                     int w = getWidth(), h = getHeight();
                     int size = 8;
                     int x = (w - size) / 2;
                     int y = (h - size) / 2;
-                    
+
                     Path2D path = new Path2D.Double();
                     if (expandedGroups.contains(key)) {
                         // Down arrow
@@ -977,7 +1000,7 @@ public class MainFrame extends JFrame {
                     pThuePhong = new ThuePhongPanel(this);
                     contentArea.add(pThuePhong, key);
                 } else if (refreshData) {
-                    pThuePhong.resetFilters(); 
+                    pThuePhong.resetFilters();
                 }
                 break;
             case "khachhang":
@@ -985,42 +1008,42 @@ public class MainFrame extends JFrame {
                     pKhachHang = new KhachHangPanel(this);
                     contentArea.add(pKhachHang, key);
                 } else if (refreshData)
-                    pKhachHang.refresh();
+                    pKhachHang.resetFilters();
                 break;
             case "loaiphong":
                 if (pLoaiPhong == null) {
                     pLoaiPhong = new LoaiPhongPanel();
                     contentArea.add(pLoaiPhong, key);
                 } else if (refreshData)
-                    pLoaiPhong.refresh();
+                    pLoaiPhong.resetFilters();
                 break;
             case "phong":
                 if (pPhong == null) {
                     pPhong = new PhongPanel();
                     contentArea.add(pPhong, key);
                 } else if (refreshData)
-                    pPhong.refresh();
+                    pPhong.resetFilters();
                 break;
             case "dichvu":
                 if (pDichVu == null) {
                     pDichVu = new DichVuPanel();
                     contentArea.add(pDichVu, key);
                 } else if (refreshData)
-                    pDichVu.refresh();
+                    pDichVu.resetFilters();
                 break;
             case "banggia":
                 if (pBangGia == null) {
                     pBangGia = new BangGiaPanel();
                     contentArea.add(pBangGia, key);
                 } else if (refreshData)
-                    pBangGia.refresh();
+                    pBangGia.resetFilters();
                 break;
             case "thongke":
                 if (pThongKe == null) {
                     pThongKe = new ThongKePanel(this);
                     contentArea.add(pThongKe, key);
                 } else if (refreshData)
-                    pThongKe.refresh();
+                    pThongKe.resetFilters();
                 break;
             case "nhatky":
                 contentArea.add(new LogPanel(), key);
@@ -1033,7 +1056,7 @@ public class MainFrame extends JFrame {
                     pNhanVien = new NhanVienPanel(this);
                     contentArea.add(pNhanVien, key);
                 } else if (refreshData) {
-                    pNhanVien.refresh();
+                    pNhanVien.resetFilters();
                 }
                 break;
             case "datphong":
@@ -1041,19 +1064,21 @@ public class MainFrame extends JFrame {
                     pDatPhong = new DatPhongPanel(this);
                     contentArea.add(pDatPhong, key);
                 } else if (refreshData)
-                    pDatPhong.refresh();
+                    pDatPhong.resetFilters();
                 break;
             case "hoadon":
                 if (pHoaDon == null) {
                     pHoaDon = new HoaDonPanel(this);
                     contentArea.add(pHoaDon, key);
                 } else if (refreshData)
-                    pHoaDon.refresh();
+                    pHoaDon.resetFilters();
                 break;
             case "khuyenmai":
                 if (pKhuyenMai == null) {
                     pKhuyenMai = new KhuyenMaiPanel();
                     contentArea.add(pKhuyenMai, key);
+                } else if (refreshData && pKhuyenMai instanceof ResettableFilter) {
+                    ((ResettableFilter) pKhuyenMai).resetFilters();
                 }
                 break;
         }
@@ -1074,10 +1099,12 @@ public class MainFrame extends JFrame {
         lastRefreshAt.put("thongke", 0L);
         lastRefreshAt.put("hoadon", 0L);
         lastRefreshAt.put("thuephong", 0L);
-        
+
         // Nếu đang ở màn hình chính, refresh ngay lập tức
-        if ("tongquan".equals(activeMenu) && pTongQuan != null) pTongQuan.refresh();
-        if ("thongke".equals(activeMenu) && pThongKe != null) pThongKe.refresh();
+        if ("tongquan".equals(activeMenu) && pTongQuan != null)
+            pTongQuan.refresh();
+        if ("thongke".equals(activeMenu) && pThongKe != null)
+            pThongKe.refresh();
         if ("thuephong".equals(activeMenu) && pThuePhong != null) {
             pThuePhong.rebuildFilter();
             pThuePhong.refreshGrid();
@@ -1094,14 +1121,15 @@ public class MainFrame extends JFrame {
     private void doLogout() {
         if (AuthService.getInstance().getCurrentShift() != null) {
             int confirmShift = JOptionPane.showConfirmDialog(this,
-                "Bạn đang trong ca làm việc chưa bàn giao.\nBạn có muốn thực hiện bàn giao ngay không?",
-                "Cảnh báo bàn giao ca",
-                JOptionPane.YES_NO_CANCEL_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-            
+                    "Bạn đang trong ca làm việc chưa bàn giao.\nBạn có muốn thực hiện bàn giao ngay không?",
+                    "Cảnh báo bàn giao ca",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+
             if (confirmShift == JOptionPane.YES_OPTION) {
                 new ui.dialogs.HandoverDialog(this).setVisible(true);
-                if (AuthService.getInstance().getCurrentShift() != null) return; // Nếu vẫn chưa bàn giao thì ko logout
+                if (AuthService.getInstance().getCurrentShift() != null)
+                    return; // Nếu vẫn chưa bàn giao thì ko logout
             } else if (confirmShift == JOptionPane.CANCEL_OPTION) {
                 return;
             }
@@ -1427,28 +1455,31 @@ public class MainFrame extends JFrame {
     }
 
     public void refreshNotifications() {
-        if (notificationBell == null) return;
+        if (notificationBell == null)
+            return;
 
         new Thread(() -> {
             try {
                 java.util.List<ui.components.GlobalNotificationBell.AlertItem> items = new java.util.ArrayList<>();
-                
+
                 // 1. Lấy cảnh báo từ Thống kê (Vận hành)
                 java.util.List<java.util.Map<String, Object>> ops = ts.getAlerts();
                 for (java.util.Map<String, Object> op : ops) {
                     String id = String.valueOf(op.getOrDefault("id", "op_" + System.currentTimeMillis()));
-                    if (dismissedAlertIds.contains(id)) continue;
+                    if (dismissedAlertIds.contains(id))
+                        continue;
 
                     String title = String.valueOf(op.getOrDefault("title", ""));
                     String desc = String.valueOf(op.getOrDefault("desc", ""));
                     String type = String.valueOf(op.getOrDefault("type", "warning"));
-                    
+
                     Runnable action = null;
                     if (title.contains("P.")) {
                         action = () -> navigateTo("thuephong");
                     }
-                    
-                    ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(id, title, desc, type, action);
+
+                    ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                            id, title, desc, type, action);
                     item.onDismiss = () -> {
                         dismissedAlertIds.add(id);
                         saveDismissedAlerts();
@@ -1461,14 +1492,17 @@ public class MainFrame extends JFrame {
                 java.util.List<entity.DatPhong> noShows = ds.getNoShowBookings(2);
                 for (entity.DatPhong dp : noShows) {
                     String id = "noshow_" + dp.getMaDatPhong();
-                    if (dismissedAlertIds.contains(id)) continue;
+                    if (dismissedAlertIds.contains(id))
+                        continue;
 
                     ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
-                        id,
-                        "P." + (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty() ? dp.getDsChiTiet().get(0).getPhong().getSoPhong() : "??") + " quá hạn check-in",
-                        "Đơn " + dp.getMaDatPhong() + " (" + (dp.getKhachHang() != null ? dp.getKhachHang().getHoTen() : "Khách") + ")",
-                        "danger", () -> navigateTo("datphong")
-                    );
+                            id,
+                            "P." + (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()
+                                    ? dp.getDsChiTiet().get(0).getPhong().getSoPhong()
+                                    : "??") + " quá hạn check-in",
+                            "Đơn " + dp.getMaDatPhong() + " ("
+                                    + (dp.getKhachHang() != null ? dp.getKhachHang().getHoTen() : "Khách") + ")",
+                            "danger", () -> navigateTo("datphong"));
                     item.onDismiss = () -> {
                         dismissedAlertIds.add(id);
                         saveDismissedAlerts();
@@ -1477,16 +1511,83 @@ public class MainFrame extends JFrame {
                     items.add(item);
                 }
 
+                // 2.1 Cảnh báo phòng chưa sẵn sàng (Dirty room for arrivals)
+                java.util.List<entity.DatPhong> upcomingToday = ds.getUpcomingArrivals(4);
+                for (entity.DatPhong dp : upcomingToday) {
+                    boolean needsCleaning = false;
+                    String roomNum = "";
+                    if (dp.getDsChiTiet() != null) {
+                        for (entity.ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                            if (ct.getPhong() != null
+                                    && (ct.getPhong().getTrangThai() == entity.enums.TrangThaiPhong.CLEANING || ct
+                                            .getPhong().getTrangThai() == entity.enums.TrangThaiPhong.MAINTENANCE)) {
+                                needsCleaning = true;
+                                roomNum = ct.getPhong().getSoPhong();
+                                break;
+                            }
+                        }
+                    }
+                    if (needsCleaning) {
+                        String id = "dirty_" + dp.getMaDatPhong();
+                        if (!dismissedAlertIds.contains(id)) {
+                            ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                                    id, "P." + roomNum + " chưa dọn dẹp",
+                                    "Khách sắp đến nhận phòng nhưng phòng vẫn đang bẩn.",
+                                    "warning", () -> navigateTo("thuephong"));
+                            item.onDismiss = () -> {
+                                dismissedAlertIds.add(id);
+                                saveDismissedAlerts();
+                                refreshNotifications();
+                            };
+                            items.add(item);
+                        }
+                    }
+                }
+
+                // 2.2 Cảnh báo hạn nộp cọc
+                java.util.List<entity.DatPhong> overdueDep = ds.getOverdueDepositBookings();
+                for (entity.DatPhong dp : overdueDep) {
+                    String id = "overdue_dep_" + dp.getMaDatPhong();
+                    if (!dismissedAlertIds.contains(id)) {
+                        ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                                id, "⚠️ Quá hạn nộp cọc",
+                                "Đơn " + dp.getMaDatPhong() + " (" + dp.getTenKhachHang() + ") đã quá hạn cọc.",
+                                "danger", () -> navigateTo("datphong"));
+                        item.onDismiss = () -> {
+                            dismissedAlertIds.add(id);
+                            saveDismissedAlerts();
+                            refreshNotifications();
+                        };
+                        items.add(item);
+                    }
+                }
+
+                java.util.List<entity.DatPhong> nearDep = ds.getUpcomingDepositDeadlines(12);
+                for (entity.DatPhong dp : nearDep) {
+                    String id = "near_dep_" + dp.getMaDatPhong();
+                    if (!dismissedAlertIds.contains(id)) {
+                        ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
+                                id, "⏳ Sắp đến hạn cọc",
+                                "Đơn " + dp.getMaDatPhong() + " của " + dp.getTenKhachHang() + " sắp hết hạn cọc.",
+                                "warning", () -> navigateTo("datphong"));
+                        item.onDismiss = () -> {
+                            dismissedAlertIds.add(id);
+                            saveDismissedAlerts();
+                            refreshNotifications();
+                        };
+                        items.add(item);
+                    }
+                }
+
                 java.util.List<entity.DatPhong> pending = ds.getLongPendingBookings(24);
                 if (!pending.isEmpty()) {
                     String id = "pending_group_" + pending.size();
                     if (!dismissedAlertIds.contains(id)) {
                         ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
-                            id,
-                            pending.size() + " đơn đặt phòng chưa duyệt",
-                            "Có các đơn đặt > 24h chưa được xác nhận",
-                            "warning", () -> navigateTo("datphong")
-                        );
+                                id,
+                                pending.size() + " đơn đặt phòng chưa duyệt",
+                                "Có các đơn đặt > 24h chưa được xác nhận",
+                                "warning", () -> navigateTo("datphong"));
                         item.onDismiss = () -> {
                             dismissedAlertIds.add(id);
                             saveDismissedAlerts();
@@ -1502,4 +1603,11 @@ public class MainFrame extends JFrame {
             }
         }).start();
     }
+
+    public void refreshDashboard() {
+        if (pTongQuan != null) {
+            pTongQuan.refresh();
+        }
+    }
+
 }

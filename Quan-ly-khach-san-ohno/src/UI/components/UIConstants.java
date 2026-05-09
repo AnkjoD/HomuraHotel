@@ -8,31 +8,31 @@ import java.awt.*;
  */
 public class UIConstants {
 
-    // ---- Màu chính ----
-    public static final Color PRIMARY       = new Color(0x2563EB);   // Xanh dương chính
-    public static final Color PRIMARY_LIGHT = new Color(0xEFF6FF);   // Xanh nhạt
-    public static final Color PRIMARY_DARK  = new Color(0x1D4ED8);   // Xanh đậm (hover)
+    // ---- Màu chính (Vibrant Blue) ----
+    public static final Color PRIMARY       = new Color(0x4361EE);   
+    public static final Color PRIMARY_LIGHT = new Color(0xF0F3FF);   
+    public static final Color PRIMARY_DARK  = new Color(0x3046C9);   
 
-    // ---- Màu nền ----
-    public static final Color BG_MAIN       = new Color(0xF8FAFC);   // Nền tổng
-    public static final Color BG_SIDEBAR    = new Color(0xFFFFFF);   // Sidebar trắng
-    public static final Color BG_CARD       = new Color(0xFFFFFF);   // Card trắng
-    public static final Color BG_TABLE_HEADER = new Color(0xF1F5F9); // Header bảng
+    // ---- Màu nền (Soft Modern Background) ----
+    public static final Color BG_MAIN       = new Color(0xF4F7FE);   
+    public static final Color BG_SIDEBAR    = new Color(0xFFFFFF);   
+    public static final Color BG_CARD       = new Color(0xFFFFFF);   
+    public static final Color BG_TABLE_HEADER = new Color(0xF8FAFC); 
 
     // ---- Màu chữ ----
-    public static final Color TEXT_PRIMARY   = new Color(0x0F172A);  // Đen đậm
-    public static final Color TEXT_SECONDARY = new Color(0x64748B);  // Xám
-    public static final Color TEXT_MUTED     = new Color(0x94A3B8);  // Xám nhạt
+    public static final Color TEXT_PRIMARY   = new Color(0x1B2559);  
+    public static final Color TEXT_SECONDARY = new Color(0xA3AED0);  
+    public static final Color TEXT_MUTED     = new Color(0xCBD5E1);  
 
-    // ---- Màu trạng thái ----
-    public static final Color SUCCESS        = new Color(0x10B981);
-    public static final Color SUCCESS_LIGHT  = new Color(0xD1FAE5);
-    public static final Color WARNING        = new Color(0xF59E0B);
-    public static final Color WARNING_LIGHT  = new Color(0xFEF3C7);
-    public static final Color DANGER         = new Color(0xEF4444);
-    public static final Color DANGER_LIGHT   = new Color(0xFEE2E2);
-    public static final Color INFO           = new Color(0x8B5CF6);
-    public static final Color INFO_LIGHT     = new Color(0xEDE9FE);
+    // ---- Màu trạng thái (Modern Palette) ----
+    public static final Color SUCCESS        = new Color(0x05CD99);  // Teal-Green
+    public static final Color SUCCESS_LIGHT  = new Color(0xE6F9F4);
+    public static final Color WARNING        = new Color(0xFFB547);  // Soft Amber
+    public static final Color WARNING_LIGHT  = new Color(0xFFF7EC);
+    public static final Color DANGER         = new Color(0xEE5D50);  // Soft Red
+    public static final Color DANGER_LIGHT   = new Color(0xFFF2F1);
+    public static final Color INFO           = new Color(0x7551FF);  // Purple-Indigo
+    public static final Color INFO_LIGHT     = new Color(0xF4F2FF);
     public static final Color ORANGE         = new Color(0xF97316);
     public static final Color ORANGE_LIGHT   = new Color(0xFED7AA);
 
