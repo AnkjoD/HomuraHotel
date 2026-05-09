@@ -29,7 +29,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class HoaDonPanel extends JPanel {
+public class HoaDonPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboThoiGian != null) cboThoiGian.setSelectedIndex(0);
+        if (dpTuNgay != null) dpTuNgay.setDate(null);
+        if (dpDenNgay != null) dpDenNgay.setDate(null);
+        if (cboTrangThai != null) cboTrangThai.setSelectedIndex(0);
+        runFilter();
+    }
 
     private static final java.util.logging.Logger LOGGER = java.util.logging.Logger
             .getLogger(HoaDonPanel.class.getName());

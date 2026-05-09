@@ -21,7 +21,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-public class KhuyenMaiPanel extends JPanel {
+public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cbStatus != null) cbStatus.setSelectedIndex(0);
+        loadData();
+    }
 
     private final KhuyenMaiDAO kmDAO = new KhuyenMaiDAO();
     private JTable table;

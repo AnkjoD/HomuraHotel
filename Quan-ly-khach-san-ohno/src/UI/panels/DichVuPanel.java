@@ -19,7 +19,15 @@ import ui.components.RoundedComponents.RoundedPanel;
 import ui.components.UIConstants;
 import ui.dialogs.DichVuDialog;
 
-public class DichVuPanel extends JPanel {
+public class DichVuPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboLoai != null) cboLoai.setSelectedIndex(0);
+        if (cboTT != null) cboTT.setSelectedIndex(0);
+        loadData();
+    }
 
     private final DichVuService service = new DichVuService();
 

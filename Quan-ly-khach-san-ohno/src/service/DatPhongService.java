@@ -395,10 +395,29 @@ public class DatPhongService {
         List<DatPhong> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
         for (DatPhong dp : datPhongDAO.getAll()) {
-            if (dp.getTrangThai() == TrangThaiDatPhong.PENDING && 
-                dp.getTienDatCoc() <= 0 && // Chưa cọc
+            boolean isPendingOrWaitlist = dp.getTrangThai() == TrangThaiDatPhong.PENDING || dp.getTrangThai() == TrangThaiDatPhong.WAITLIST;
+            if (isPendingOrWaitlist && 
                 dp.getHanNopCoc() != null && 
                 dp.getHanNopCoc().isBefore(now)) {
+                result.add(dp);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Lấy danh sách các đơn đặt phòng PENDING có hạn nộp cọc trong vòng hoursAhead tiếng tới.
+     */
+    public List<DatPhong> getUpcomingDepositDeadlines(int hoursAhead) {
+        List<DatPhong> result = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime limit = now.plusHours(hoursAhead);
+        for (DatPhong dp : datPhongDAO.getAll()) {
+            boolean isPendingOrWaitlist = dp.getTrangThai() == TrangThaiDatPhong.PENDING || dp.getTrangThai() == TrangThaiDatPhong.WAITLIST;
+            if (isPendingOrWaitlist && 
+                dp.getHanNopCoc() != null && 
+                dp.getHanNopCoc().isAfter(now) && 
+                dp.getHanNopCoc().isBefore(limit)) {
                 result.add(dp);
             }
         }

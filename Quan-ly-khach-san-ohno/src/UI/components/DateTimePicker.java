@@ -407,6 +407,16 @@ public class DateTimePicker extends JPanel {
         listeners.add(l);
     }
 
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        if (txtDisplay != null) {
+            txtDisplay.setEnabled(enabled);
+            // Change background of wrapper via txtDisplay background
+            txtDisplay.getParent().setBackground(enabled ? Color.WHITE : new Color(0xF1F5F9));
+        }
+    }
+
     private void fireStateChanged() {
         ChangeEvent ce = new ChangeEvent(this);
         for (ChangeListener l : listeners) l.stateChanged(ce);

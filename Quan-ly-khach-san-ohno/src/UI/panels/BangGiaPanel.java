@@ -15,7 +15,14 @@ import service.BangGiaService;
 import ui.components.PaginationPanel;
 import java.util.ArrayList;
 
-public class BangGiaPanel extends JPanel {
+public class BangGiaPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboTrangThai != null) cboTrangThai.setSelectedIndex(0);
+        runFilter();
+    }
 
     private final BangGiaService service = new BangGiaService();
 

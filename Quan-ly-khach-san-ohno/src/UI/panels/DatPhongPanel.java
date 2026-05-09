@@ -25,12 +25,41 @@ import java.text.*;
 import java.util.*;
 import java.awt.event.*;
 
-public class DatPhongPanel extends JPanel {
+public class DatPhongPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearchList != null) txtSearchList.setText("");
+        if (cboFilterStatus != null) cboFilterStatus.setSelectedIndex(0);
+        
+        // Reset Search Card filters too
+        if (txtNgayNhan != null) {
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.set(java.util.Calendar.HOUR_OF_DAY, 14);
+            c.set(java.util.Calendar.MINUTE, 0);
+            c.set(java.util.Calendar.SECOND, 0);
+            txtNgayNhan.setDate(c.getTime());
+            
+            c.add(java.util.Calendar.DAY_OF_YEAR, 1);
+            c.set(java.util.Calendar.HOUR_OF_DAY, 12);
+            c.set(java.util.Calendar.MINUTE, 0);
+            c.set(java.util.Calendar.SECOND, 0);
+            txtNgayTra.setDate(c.getTime());
+        }
+        if (spnSoKhach != null) spnSoKhach.setValue(1);
+        if (cboTang != null) cboTang.setSelectedIndex(0);
+        if (cboView != null) cboView.setSelectedIndex(0);
+        if (cboLoaiPhong != null) cboLoaiPhong.setSelectedIndex(0);
+        
+        showResultPlaceholder();
+        filterListTable();
+    }
 
     private final DatPhongService datPhongService = new DatPhongService();
     private final KhachHangService khService = new KhachHangService();
     private final PhongService phongService = new PhongService();
     private final BangGiaService bangGiaService = new BangGiaService();
+    private final MainFrame mainFrame;
 
     private CardLayout cardLayout;
     private JPanel cardContainer;
@@ -61,6 +90,7 @@ public class DatPhongPanel extends JPanel {
     private static final String CARD_SEARCH = "SEARCH";
 
     private KhachHang prefilledKhachHang;
+    private JPanel pnlBell;
 
     public void prefillKhachHang(KhachHang kh) {
         this.prefilledKhachHang = kh;
@@ -80,9 +110,17 @@ public class DatPhongPanel extends JPanel {
     }
 
     public DatPhongPanel(MainFrame mainFrame) {
+        this.mainFrame = mainFrame;
         setOpaque(false);
         setLayout(new BorderLayout());
         buildUI();
+        startBellTimer();
+    }
+
+    private javax.swing.Timer bellTimer;
+    private void startBellTimer() {
+        bellTimer = new javax.swing.Timer(30000, e -> refreshNotificationBell());
+        bellTimer.start();
     }
 
     private void buildUI() {
@@ -124,7 +162,10 @@ public class DatPhongPanel extends JPanel {
 
         JPanel rightHdr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         rightHdr.setOpaque(false);
-        rightHdr.add(buildAlertBell());
+        pnlBell = new JPanel(new BorderLayout());
+        pnlBell.setOpaque(false);
+        pnlBell.add(buildAlertBell());
+        rightHdr.add(pnlBell);
         RoundedButton btnDatPhong = new RoundedButton("+ Đặt phòng", UIConstants.PRIMARY, Color.WHITE);
         btnDatPhong.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnDatPhong.setPreferredSize(new Dimension(150, 38));
@@ -191,6 +232,8 @@ public class DatPhongPanel extends JPanel {
         };
         tableDatPhong = new JTable(modelDatPhong);
         styleListTable();
+        pagination = new PaginationPanel();
+        pagination.setPageChangeListener(page -> displayDatPhongPage());
         loadDatPhongTable();
 
         tableDatPhong.getColumnModel().removeColumn(tableDatPhong.getColumnModel().getColumn(0));
@@ -230,9 +273,6 @@ public class DatPhongPanel extends JPanel {
 
         JScrollPane sp = new JScrollPane(tableDatPhong);
         sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
-
-        pagination = new PaginationPanel();
-        pagination.setPageChangeListener(page -> displayDatPhongPage());
 
         JPanel footer = new JPanel(new BorderLayout());
         footer.setBackground(Color.WHITE);
@@ -1174,9 +1214,11 @@ public class DatPhongPanel extends JPanel {
             java.util.List<DatPhong> noShows,
             java.util.List<DatPhong> upcoming,
             java.util.List<DatPhong> longPending,
-            java.util.List<DatPhong> overdueDeposit) {
+            java.util.List<DatPhong> overdueDeposit,
+            java.util.List<DatPhong> needPrep,
+            java.util.List<DatPhong> nearDeadline) {
 
-        int total = noShows.size() + upcoming.size() + longPending.size() + overdueDeposit.size();
+        int total = noShows.size() + upcoming.size() + longPending.size() + overdueDeposit.size() + needPrep.size() + nearDeadline.size();
         Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
 
         JDialog dlg = new JDialog(parent, "Trung tâm cảnh báo", true);
@@ -1279,18 +1321,6 @@ public class DatPhongPanel extends JPanel {
             empty.add(okMsg);
             body.add(empty);
         } else {
-            if (!overdueDeposit.isEmpty()) {
-                body.add(alertGroupHeader("Quá hạn nộp cọc", overdueDeposit.size(), new Color(0xFEF2F2),
-                        new Color(0xEF4444)));
-                for (DatPhong dp : overdueDeposit) {
-                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444),
-                            "Hạn nộp cọc: " + (dp.getHanNopCoc() != null ? dp.getHanNopCoc().format(fmt) : "--"),
-                            "Xem chi tiết", () -> {
-                                dlg.dispose();
-                                viewDetails(dp.getMaDatPhong());
-                            }));
-                }
-            }
             if (!noShows.isEmpty()) {
                 body.add(alertGroupHeader("Quá hạn nhận phòng (Khách không đến)", noShows.size(), new Color(0xFEF2F2),
                         new Color(0xEF4444)));
@@ -1299,6 +1329,40 @@ public class DatPhongPanel extends JPanel {
                             () -> {
                                 dlg.dispose();
                                 doMarkNoShow(dp.getMaDatPhong(), dp.getTenKhachHang());
+                            }));
+                }
+            }
+            if (!needPrep.isEmpty()) {
+                body.add(alertGroupHeader("Phòng chưa sẵn sàng cho khách sắp đến", needPrep.size(), new Color(0xFEF2F2),
+                        new Color(0xEF4444)));
+                for (DatPhong dp : needPrep) {
+                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444), "Phòng " + dp.getDanhSachTenPhong() + " chưa sẵn sàng (Bẩn/Bảo trì)", "Chuẩn bị ngay", () -> {
+                        dlg.dispose();
+                        if (mainFrame != null) mainFrame.navigateTo("thuephong"); 
+                    }));
+                }
+            }
+            if (!overdueDeposit.isEmpty()) {
+                body.add(alertGroupHeader("Đã quá hạn nộp cọc (Ưu tiên xử lý)", overdueDeposit.size(), new Color(0xFEF2F2),
+                        new Color(0xEF4444)));
+                for (DatPhong dp : overdueDeposit) {
+                    body.add(alertItemRow(dp, fmt, new Color(0xEF4444),
+                            "Hạn nộp cọc: " + (dp.getHanNopCoc() != null ? dp.getHanNopCoc().format(fmt) : "--"),
+                            "Hủy đơn", () -> {
+                                dlg.dispose();
+                                doCancel(dp.getMaDatPhong(), dp.getTenKhachHang());
+                            }));
+                }
+            }
+            if (!nearDeadline.isEmpty()) {
+                body.add(alertGroupHeader("Sắp đến hạn nộp cọc", nearDeadline.size(), new Color(0xFFFBEB),
+                        new Color(0xF59E0B)));
+                for (DatPhong dp : nearDeadline) {
+                    body.add(alertItemRow(dp, fmt, new Color(0xF59E0B),
+                            "Hết hạn lúc: " + (dp.getHanNopCoc() != null ? dp.getHanNopCoc().format(fmt) : "--"),
+                            "Xem đơn", () -> {
+                                dlg.dispose();
+                                viewDetails(dp.getMaDatPhong());
                             }));
                 }
             }
@@ -1625,13 +1689,46 @@ public class DatPhongPanel extends JPanel {
         NotificationManager.showWarning("Cảnh báo", msg);
     }
 
+    private void refreshNotificationBell() {
+        if (pnlBell != null) {
+            pnlBell.removeAll();
+            pnlBell.add(buildAlertBell());
+            pnlBell.revalidate();
+            pnlBell.repaint();
+        }
+        // Sync with global bell if possible
+        Window w = SwingUtilities.getWindowAncestor(this);
+        if (w instanceof MainFrame) {
+            ((MainFrame) w).refreshNotifications();
+        }
+    }
+
     private JComponent buildAlertBell() {
         List<DatPhong> noShows = datPhongService.getNoShowBookings(4);
         List<DatPhong> upcoming = datPhongService.getUpcomingArrivals(6);
         List<DatPhong> longPending = datPhongService.getLongPendingBookings(12);
         List<DatPhong> overdue = datPhongService.getOverdueDepositBookings();
+        List<DatPhong> nearDeadline = datPhongService.getUpcomingDepositDeadlines(12);
 
-        int count = noShows.size() + upcoming.size() + longPending.size() + overdue.size();
+        // BUSINESS LOGIC: Check for rooms needing preparation
+        List<DatPhong> needPrep = new ArrayList<>();
+        for (DatPhong dp : upcoming) {
+            boolean hasDirty = false;
+            if (dp.getDsChiTiet() != null) {
+                for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                    if (ct.getPhong() != null) {
+                        entity.enums.TrangThaiPhong tt = ct.getPhong().getTrangThai();
+                        if (tt == entity.enums.TrangThaiPhong.CLEANING || tt == entity.enums.TrangThaiPhong.MAINTENANCE) {
+                            hasDirty = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (hasDirty) needPrep.add(dp);
+        }
+
+        int count = noShows.size() + upcoming.size() + longPending.size() + overdue.size() + nearDeadline.size() + needPrep.size();
 
         JButton btnBell = new JButton() {
             @Override
@@ -1647,7 +1744,9 @@ public class DatPhongPanel extends JPanel {
 
                 // Bell Icon
                 g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
-                g2.setColor(count > 0 ? UIConstants.DANGER : UIConstants.TEXT_MUTED);
+                // Use orange for generic alerts, red for danger (no-shows)
+                Color bellColor = count > 0 ? (noShows.isEmpty() ? new Color(0xF59E0B) : UIConstants.DANGER) : UIConstants.TEXT_MUTED;
+                g2.setColor(bellColor);
                 g2.drawString("🔔", 10, 28);
 
                 // Notification Badge
@@ -1656,7 +1755,7 @@ public class DatPhongPanel extends JPanel {
                     int bx = getWidth() - badgeSize - 2;
                     int by = 2;
 
-                    g2.setColor(UIConstants.DANGER);
+                    g2.setColor(bellColor);
                     g2.fillOval(bx, by, badgeSize, badgeSize);
 
                     g2.setColor(Color.WHITE);
@@ -1677,7 +1776,7 @@ public class DatPhongPanel extends JPanel {
         btnBell.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         btnBell.addActionListener(e -> {
-            showAlertDialog(noShows, upcoming, longPending, overdue);
+            showAlertDialog(noShows, upcoming, longPending, overdue, needPrep, nearDeadline);
         });
 
         return btnBell;
@@ -1746,5 +1845,6 @@ public class DatPhongPanel extends JPanel {
         if (cboFilterStatus != null)
             cboFilterStatus.setSelectedIndex(0);
         loadDatPhongTable();
+        refreshNotificationBell();
     }
 }

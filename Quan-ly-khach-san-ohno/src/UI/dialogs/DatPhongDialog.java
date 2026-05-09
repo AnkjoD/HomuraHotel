@@ -345,7 +345,13 @@ public class DatPhongDialog extends JDialog {
         // Hạn nộp cọc
         ui.components.DateTimePicker txtHanCoc = new ui.components.DateTimePicker(
                 new Date(System.currentTimeMillis() + 86400000));
+        txtHanCoc.setEnabled(false); // Default disabled because "Không đặt cọc" is selected
         ModernTextField txtVoucher = new ModernTextField("Mã voucher...");
+
+        cboCoc.addActionListener(e -> {
+            boolean hasCoc = cboCoc.getSelectedIndex() > 0;
+            txtHanCoc.setEnabled(hasCoc);
+        });
 
         g.gridy = rowIdx;
         g.gridx = 0;

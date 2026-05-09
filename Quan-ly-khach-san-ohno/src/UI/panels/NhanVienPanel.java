@@ -19,7 +19,14 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
 
-public class NhanVienPanel extends JPanel {
+public class NhanVienPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        currentFilter = "Tất cả";
+        loadTable();
+    }
 
     private final NhanVienService service = new NhanVienService();
     private final boolean canEdit = AuthService.getInstance().canEdit("nhanvien");

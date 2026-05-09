@@ -13,7 +13,14 @@ import service.PhongService;
 import ui.components.PaginationPanel;
 import java.util.List;
 
-public class LoaiPhongPanel extends JPanel {
+public class LoaiPhongPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboTrangThai != null) cboTrangThai.setSelectedIndex(0);
+        runFilter();
+    }
 
     private final PhongService service = new PhongService();
 

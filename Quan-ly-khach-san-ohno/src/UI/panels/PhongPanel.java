@@ -17,7 +17,14 @@ import service.PhongService;
 import service.BangGiaService;
 import ui.components.PaginationPanel;
 
-public class PhongPanel extends JPanel {
+public class PhongPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboTrangThai != null) cboTrangThai.setSelectedIndex(0);
+        loadData();
+    }
 
     private final PhongService phongService = new PhongService();
     private final BangGiaService bangGiaService = new BangGiaService();

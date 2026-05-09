@@ -26,7 +26,13 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 
-public class ThongKePanel extends JPanel {
+public class ThongKePanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        currentKy = "thang";
+        refresh();
+    }
 
     private final ThongKeService service = new ThongKeService();
     private final ThongKeDAO thongKeDAO = new ThongKeDAO();

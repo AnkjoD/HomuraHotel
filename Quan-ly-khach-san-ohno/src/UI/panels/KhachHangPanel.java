@@ -18,7 +18,16 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.*;
 import service.KhachHangService;
 
-public class KhachHangPanel extends JPanel {
+public class KhachHangPanel extends JPanel implements ResettableFilter {
+    
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboGioiTinh != null) cboGioiTinh.setSelectedIndex(0);
+        if (cboQuocTich != null) cboQuocTich.setSelectedIndex(0);
+        if (cboHang != null) cboHang.setSelectedIndex(0);
+        runFilter();
+    }
 
     private static final java.util.logging.Logger LOGGER = java.util.logging.Logger
             .getLogger(KhachHangPanel.class.getName());
