@@ -1552,6 +1552,14 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             menu.add(mnuEdit);
         }
 
+        // 2.2 Thu tiền cọc (Quick action)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
+            JMenuItem mnuDeposit = createMenuItem("Thu tiền cọc", new Color(0xF59E0B));
+            mnuDeposit.setFont(UIConstants.FONT_BODY_BOLD);
+            mnuDeposit.addActionListener(e -> doNopCoc(ma, ten));
+            menu.add(mnuDeposit);
+        }
+
         // 3. Xác nhận (PENDING hoặc WAITLIST)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
             JMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
@@ -1673,6 +1681,43 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         }
     }
 
+    private void doNopCoc(String ma, String ten) {
+        DatPhong dp = datPhongService.getById(ma);
+        if (dp == null) return;
+
+        JPanel p = new JPanel(new BorderLayout(0, 10));
+        p.setOpaque(false);
+        p.add(new JLabel("<html>Khách hàng: <b>" + ten + "</b><br>Nhập số tiền cọc thu được (VNĐ):</html>"), BorderLayout.NORTH);
+
+        ModernTextField txtCoc = new ModernTextField("Ví dụ: 500000");
+        txtCoc.setPreferredSize(new Dimension(250, 40));
+        if (dp.getTienDatCoc() > 0) {
+            txtCoc.setText(String.format("%.0f", dp.getTienDatCoc()));
+        }
+        p.add(txtCoc, BorderLayout.CENTER);
+
+        int result = JOptionPane.showConfirmDialog(this, p, "Thu tiền cọc & Xác nhận đơn", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                double amount = Double.parseDouble(txtCoc.getText().replace(",", ""));
+                dp.setTienDatCoc(amount);
+                dp.setTrangThai(TrangThaiDatPhong.CONFIRMED);
+                if (datPhongService.suaDatPhong(dp) == null) {
+                    Window w = SwingUtilities.getWindowAncestor(this);
+                    if (w instanceof MainFrame) {
+                        ((MainFrame) w).notifyDataChanged();
+                    }
+                    refresh();
+                    NotificationManager.showSuccess("Thành công", "Đã thu cọc " + String.format("%,.0f đ", amount) + " và xác nhận đơn!");
+                } else {
+                    showError("Lỗi khi cập nhật cơ sở dữ liệu!");
+                }
+            } catch (NumberFormatException ex) {
+                showError("Số tiền không hợp lệ!");
+            }
+        }
+    }
+
     private void doConfirmWaitlist(String ma, String ten) {
         int ok = JOptionPane.showConfirmDialog(this, "Xác nhận đặt phòng cho \"" + ten + "\" từ danh sách chờ?",
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
@@ -1776,7 +1821,30 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         btnBell.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         btnBell.addActionListener(e -> {
-            showAlertDialog(noShows, upcoming, longPending, overdue, needPrep, nearDeadline);
+            List<DatPhong> currentNoShows = datPhongService.getNoShowBookings(4);
+            List<DatPhong> currentUpcoming = datPhongService.getUpcomingArrivals(6);
+            List<DatPhong> currentLongPending = datPhongService.getLongPendingBookings(12);
+            List<DatPhong> currentOverdue = datPhongService.getOverdueDepositBookings();
+            List<DatPhong> currentNearDeadline = datPhongService.getUpcomingDepositDeadlines(12);
+
+            List<DatPhong> currentNeedPrep = new ArrayList<>();
+            for (DatPhong dp : currentUpcoming) {
+                boolean hasDirty = false;
+                if (dp.getDsChiTiet() != null) {
+                    for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                        if (ct.getPhong() != null) {
+                            entity.enums.TrangThaiPhong tt = ct.getPhong().getTrangThai();
+                            if (tt == entity.enums.TrangThaiPhong.CLEANING || tt == entity.enums.TrangThaiPhong.MAINTENANCE) {
+                                hasDirty = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (hasDirty) currentNeedPrep.add(dp);
+            }
+
+            showAlertDialog(currentNoShows, currentUpcoming, currentLongPending, currentOverdue, currentNeedPrep, currentNearDeadline);
         });
 
         return btnBell;
