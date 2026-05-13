@@ -584,7 +584,7 @@ public class HoaDonDialog extends JDialog {
         btnPrint.setBorderPainted(false);
         btnPrint.setContentAreaFilled(false);
         btnPrint.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnPrint.addActionListener(e -> printHoaDon());
+        btnPrint.addActionListener(e -> exportToPDF());
 
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         btns.setOpaque(false);
@@ -769,369 +769,123 @@ public class HoaDonDialog extends JDialog {
         }
     }
 
-    // ---- PRINT ----
-    private void printHoaDon() {
-        // Tạo panel in
-        JPanel printPanel = buildPrintPanel();
-        
-        // Kích hoạt Layout Manager chìm bằng 1 frame ảo để load các Sub-Panel
-        JWindow dummyWindow = new JWindow();
-        dummyWindow.getContentPane().add(printPanel);
-        dummyWindow.pack();
-
-        PrinterJob job = PrinterJob.getPrinterJob();
-        job.setJobName("HoaDon_" + thuePhong.getSoPhong());
-
-        job.setPrintable((graphics, pageFormat, pageIndex) -> {
-            if (pageIndex > 0)
-                return Printable.NO_SUCH_PAGE;
-            Graphics2D g2 = (Graphics2D) graphics;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            // Scale to fit page
-            double scaleX = pageFormat.getImageableWidth() / printPanel.getPreferredSize().getWidth();
-            double scaleY = pageFormat.getImageableHeight() / printPanel.getPreferredSize().getHeight();
-            double scale = Math.min(scaleX, scaleY);
-            g2.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
-            g2.scale(scale, scale);
+    // ---- PDF EXPORT (MISA STYLE) ----
+    private void exportToPDF() {
+        try {
+            // 1. Prepare temporary HoaDon object
+            HoaDon hd = new HoaDon();
+            String maHD = "HD-" + new java.text.SimpleDateFormat("yyyyMMdd").format(new java.util.Date()) + "-" + thuePhong.getSoPhong();
+            hd.setMaHoaDon(maHD);
+            hd.setNgayLap(java.time.LocalDateTime.now());
             
-            printPanel.printAll(g2);
-            return Printable.PAGE_EXISTS;
-        });
-
-        if (job.printDialog()) {
-            try {
-                job.print();
-            } catch (PrinterException ex) {
-                ui.components.NotificationManager.showError("Lỗi in", ex.getMessage());
+            // Calculate totals
+            long soNgay = tinhSoNgayHieuLuc();
+            service.PhongService ps = new service.PhongService();
+            Phong phong = ps.getPhongById(thuePhong.getSoPhong());
+            service.BangGiaService bgs = new service.BangGiaService();
+            double policyPrice = bgs.layGiaHienHanh(phong != null && phong.getLoaiPhong() != null ? phong.getLoaiPhong().getMaLoaiPhong() : "");
+            double donGiaRoom = policyPrice > 0 ? policyPrice : (thuePhong.getGiaThucTeChot() > 0 ? thuePhong.getGiaThucTeChot() : (phong != null ? phong.getGiaTheoNgay() : 0.0));
+            
+            double tienPhong = donGiaRoom * soNgay;
+            
+            service.StandardRoomCalculator calc = new service.StandardRoomCalculator();
+            java.time.LocalDateTime ngayNhanR = resolveNgayNhan();
+            double phiCheckinOut = (ngayNhanR != null) ? calc.tinhPhuPhi(thuePhong, ngayNhanR, java.time.LocalDateTime.now()) : 0;
+            
+            java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByChiTiet(thuePhong.getMaChiTiet());
+            double tienDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
+            
+            double subTotal = tienPhong + phiCheckinOut + thuePhong.getPhuPhiPhatSinh() + tienDV;
+            
+            double tienGiam = 0;
+            String vc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getMaKhuyenMai() : null;
+            if (vc != null && !vc.isBlank()) {
+                dao.KhuyenMaiDAO kmDAO = new dao.KhuyenMaiDAO();
+                KhuyenMai km = kmDAO.getByVoucherCode(vc.trim());
+                if (km != null && km.kiemTraHopLe(subTotal)) tienGiam = km.tinhSoTienGiam(subTotal);
             }
-        }
-        
-        dummyWindow.dispose();
-    }
-
-    private JPanel buildPrintPanel() {
-        JPanel panel = new JPanel();
-        panel.setBackground(Color.WHITE);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setPreferredSize(new Dimension(550, 800)); // Slightly wider for better table layout
-        panel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
-
-        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        KhachHang kh = thuePhong.resolveKhachHang();
-        Phong phong = phongService.getPhongById(thuePhong.getSoPhong());
-        
-        // 1. BRANDING HEADER
-        panel.add(buildPrintHeader());
-        panel.add(Box.createVerticalStrut(15));
-        
-        // 2. INVOICE TITLE & META
-        JLabel lblTitle = new JLabel("HÓA ĐƠN THANH TOÁN", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblTitle.setForeground(new Color(0x1E293B));
-        panel.add(lblTitle);
-        
-        String maHD = "HD-" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + "-" + thuePhong.getSoPhong();
-        JLabel lblMa = new JLabel("Số HĐ: " + maHD, SwingConstants.CENTER);
-        lblMa.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblMa.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblMa.setForeground(new Color(0x64748B));
-        panel.add(lblMa);
-        
-        JLabel lblDate = new JLabel("Ngày lập: " + sdf.format(new Date()), SwingConstants.CENTER);
-        lblDate.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblDate.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblDate.setForeground(new Color(0x64748B));
-        panel.add(lblDate);
-        panel.add(Box.createVerticalStrut(20));
-
-        // 3. SECTIONS: CUSTOMER & STAY INFO
-        JPanel infoGrid = new JPanel(new GridLayout(1, 2, 20, 0));
-        infoGrid.setOpaque(false);
-        infoGrid.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-        
-        // Left Column: Customer
-        JPanel custCol = new JPanel();
-        custCol.setOpaque(false);
-        custCol.setLayout(new BoxLayout(custCol, BoxLayout.Y_AXIS));
-        custCol.add(printSectionHeader("THÔNG TIN KHÁCH HÀNG"));
-        custCol.add(printLine("Khách hàng:", kh != null ? kh.getHoTen() : "—"));
-        custCol.add(printLine("SĐT:", kh != null && kh.getSoDienThoai() != null ? kh.getSoDienThoai() : "—"));
-        custCol.add(printLine("CCCD:", kh != null && kh.getCccd() != null ? kh.getCccd() : "—"));
-        infoGrid.add(custCol);
-        
-        // Right Column: Stay
-        JPanel stayCol = new JPanel();
-        stayCol.setOpaque(false);
-        stayCol.setLayout(new BoxLayout(stayCol, BoxLayout.Y_AXIS));
-        stayCol.add(printSectionHeader("CHI TIẾT LƯU TRÚ"));
-        stayCol.add(printLine("Phòng:", thuePhong.getSoPhong() + " - " + (thuePhong.getTenLoaiPhong() != null ? thuePhong.getTenLoaiPhong() : "")));
-        stayCol.add(printLine("Nhận phòng:", resolveNgayNhan_Date() != null ? sdf.format(resolveNgayNhan_Date()) : "—"));
-        stayCol.add(printLine("Trả phòng:", sdf.format(new Date())));
-        infoGrid.add(stayCol);
-        
-        panel.add(infoGrid);
-        panel.add(Box.createVerticalStrut(25));
-
-        // 4. BILLING TABLE
-        panel.add(printSectionHeader("CHI TIẾT THANH TOÁN"));
-        panel.add(Box.createVerticalStrut(8));
-        
-        // Table Header
-        panel.add(buildPrintTableHeader());
-        
-        // Table Rows
-        double donGiaThang = thuePhong.getGiaThucTeChot() > 0 ? thuePhong.getGiaThucTeChot()
-                : (phong != null ? phong.getGiaTheoNgay() : 0.0);
-        long soNgay = tinhSoNgayHieuLuc();
-        double tienPhong = donGiaThang * soNgay;
-        
-        panel.add(buildPrintTableRow("01", "Tiền phòng (" + soNgay + " đêm)", String.format("%,.0f", donGiaThang), String.valueOf(soNgay), String.format("%,.0f đ", tienPhong)));
-        
-        int stt = 2;
-        service.StandardRoomCalculator calc = new service.StandardRoomCalculator();
-        java.util.List<SuDungDichVu> dsDichVu = thuePhongService.getDichVuByChiTiet(thuePhong.getMaChiTiet());
-        
-        // Surcharges
-        java.time.LocalDateTime ngayNhanP = resolveNgayNhan();
-        double phiCheckinOut = (ngayNhanP != null) ? calc.tinhPhuPhi(thuePhong, ngayNhanP, java.time.LocalDateTime.now()) : 0;
-        if (phiCheckinOut > 0) {
-            panel.add(buildPrintTableRow(String.format("%02d", stt++), "Phụ thu (Nhận sớm / Trả trễ)", "—", "—", String.format("%,.0f đ", phiCheckinOut)));
-        }
-        
-        double phiKhac = thuePhong.getPhuPhiPhatSinh();
-        if (phiKhac > 0) {
-             panel.add(buildPrintTableRow(String.format("%02d", stt++), "Phí phát sinh khác", "—", "—", String.format("%,.0f đ", phiKhac)));
-        }
-
-        // Services
-        for (SuDungDichVu sddv : dsDichVu) {
-            panel.add(buildPrintTableRow(String.format("%02d", stt++), sddv.getTenDichVu(), String.format("%,.0f", (double) sddv.getDonGia()), String.valueOf(sddv.getSoLuong()), String.format("%,.0f đ", (double) sddv.tinhThanhTien())));
-        }
-        
-        panel.add(Box.createVerticalGlue()); // Push rest to bottom
-        
-        // 5. SUMMARY
-        double totalDV = dsDichVu.stream().mapToDouble(SuDungDichVu::tinhThanhTien).sum();
-        double subTotal = tienPhong + phiCheckinOut + phiKhac + totalDV;
-        
-        double tienGiam = 0;
-        String vc = thuePhong.getDatPhong() != null ? thuePhong.getDatPhong().getMaKhuyenMai() : null;
-        if (vc != null && !vc.isBlank()) {
-            KhuyenMai km = new dao.KhuyenMaiDAO().getByVoucherCode(vc.trim());
-            if (km != null && km.kiemTraHopLe(subTotal)) tienGiam = km.tinhSoTienGiam(subTotal);
-        }
-        
-        double tongFinal = subTotal - tienGiam;
-        double dpCoc = 0;
-        if (thuePhong.getDatPhong() != null) {
-            java.util.List<ChiTietDatPhong> realDs = thuePhongService.getChiTietByDatPhong(thuePhong.getDatPhong().getMaDatPhong());
-            boolean isGroup = realDs != null && realDs.size() > 1;
-            double maxCoc = thuePhong.getDatPhong().getTienDatCoc();
-            if (customDeductedDeposit >= 0) {
-                dpCoc = Math.min(customDeductedDeposit, maxCoc);
-            } else if (!isGroup) {
-                dpCoc = maxCoc;
+            
+            double dpCoc = 0;
+            if (thuePhong.getDatPhong() != null) {
+                java.util.List<ChiTietDatPhong> realDs = thuePhongService.getChiTietByDatPhong(thuePhong.getDatPhong().getMaDatPhong());
+                boolean isGroup = realDs != null && realDs.size() > 1;
+                double maxCoc = thuePhong.getDatPhong().getTienDatCoc();
+                if (customDeductedDeposit >= 0) dpCoc = Math.min(customDeductedDeposit, maxCoc);
+                else if (!isGroup) dpCoc = maxCoc;
             }
+
+            hd.setTongTienPhong(tienPhong + phiCheckinOut + thuePhong.getPhuPhiPhatSinh());
+            hd.setTongTienDichVu(tienDV);
+            hd.setTienGiamKhuyenMai(tienGiam);
+            hd.setTongThanhToan(Math.max(0, subTotal - tienGiam - dpCoc));
+            hd.setPhuongThucThanhToan((String) cboHinhThuc.getSelectedItem());
+            hd.setDatPhong(thuePhong.getDatPhong());
+            hd.setKhachHang(thuePhong.resolveKhachHang());
+
+            // 2. Prepare detail list
+            java.util.List<ChiTietHoaDon> details = new java.util.ArrayList<>();
+            
+            // Room
+            ChiTietHoaDon ctRoom = new ChiTietHoaDon();
+            ctRoom.setNoiDung("Tiền phòng (" + soNgay + " đêm) - " + thuePhong.getSoPhong());
+            ctRoom.setDonViTinh("Đêm");
+            ctRoom.setSoLuong((int)soNgay);
+            ctRoom.setDonGia(donGiaRoom);
+            ctRoom.setThanhTien(tienPhong);
+            details.add(ctRoom);
+
+            // Surcharges
+            if (phiCheckinOut > 0) {
+                ChiTietHoaDon ctSur = new ChiTietHoaDon();
+                ctSur.setNoiDung("Phụ thu (Nhận sớm / Trả trễ)");
+                ctSur.setDonViTinh("Lần");
+                ctSur.setSoLuong(1);
+                ctSur.setDonGia(phiCheckinOut);
+                ctSur.setThanhTien(phiCheckinOut);
+                details.add(ctSur);
+            }
+            if (thuePhong.getPhuPhiPhatSinh() > 0) {
+                ChiTietHoaDon ctOther = new ChiTietHoaDon();
+                ctOther.setNoiDung("Phí phát sinh khác");
+                ctOther.setDonViTinh("Lần");
+                ctOther.setSoLuong(1);
+                ctOther.setDonGia(thuePhong.getPhuPhiPhatSinh());
+                ctOther.setThanhTien(thuePhong.getPhuPhiPhatSinh());
+                details.add(ctOther);
+            }
+
+            // Services
+            for (SuDungDichVu sddv : dsDichVu) {
+                ChiTietHoaDon ct = new ChiTietHoaDon();
+                ct.setNoiDung(sddv.getTenDichVu());
+                ct.setDonViTinh("Lần");
+                ct.setSoLuong(sddv.getSoLuong());
+                ct.setDonGia(sddv.getDonGia());
+                ct.setThanhTien((double)sddv.tinhThanhTien());
+                details.add(ct);
+            }
+
+            // Deposit (as a negative row if needed, but MISA layout doesn't explicitly have it in table, 
+            // we'll add it as a "Service" with negative value to show in the list)
+            if (dpCoc > 0) {
+                ChiTietHoaDon ctCoc = new ChiTietHoaDon();
+                ctCoc.setNoiDung("Khấu trừ tiền cọc");
+                ctCoc.setDonViTinh("Lần");
+                ctCoc.setSoLuong(1);
+                ctCoc.setDonGia(-dpCoc);
+                ctCoc.setThanhTien(-dpCoc);
+                details.add(ctCoc);
+            }
+
+            // 3. Export
+            util.PDFExporter.exportHoaDon(this, hd, details);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            ui.components.NotificationManager.showError("Lỗi xuất PDF", ex.getMessage());
         }
-        double tongSauCoc = Math.max(0, tongFinal - dpCoc);
-        
-        panel.add(printSep());
-        panel.add(Box.createVerticalStrut(10));
-        
-        JPanel summaryBox = new JPanel(new BorderLayout());
-        summaryBox.setOpaque(false);
-        summaryBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-        
-        JPanel rightSummary = new JPanel(new GridLayout(4, 1, 0, 5));
-        rightSummary.setOpaque(false);
-        rightSummary.add(printSummaryLine("Tổng tiền dịch vụ:", String.format("%,.0f đ", totalDV + phiCheckinOut + phiKhac)));
-        if (tienGiam > 0) rightSummary.add(printSummaryLine("Giảm giá (Voucher):", String.format("-%,.0f đ", tienGiam)));
-        if (dpCoc > 0)   rightSummary.add(printSummaryLine("Tiền cọc đã đặt:",     String.format("-%,.0f đ", dpCoc)));
-
-        JLabel lblTongFinal = new JLabel("TỔNG CỘNG:   " + String.format("%,.0f đ", tongSauCoc));
-        lblTongFinal.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblTongFinal.setForeground(new Color(0x1E293B));
-        lblTongFinal.setHorizontalAlignment(SwingConstants.RIGHT);
-        rightSummary.add(lblTongFinal);
-        
-        summaryBox.add(rightSummary, BorderLayout.EAST);
-        panel.add(summaryBox);
-        
-        panel.add(Box.createVerticalStrut(30));
-        
-        // 6. SIGNATURE AREAS
-        panel.add(buildSignatureArea());
-        
-        panel.add(Box.createVerticalStrut(30));
-        JLabel thanks = new JLabel("Cảm ơn quý khách! Hẹn gặp lại.", SwingConstants.CENTER);
-        thanks.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        thanks.setForeground(new Color(0x64748B));
-        thanks.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(thanks);
-        
-        return panel;
     }
 
-    private JPanel buildPrintHeader() {
-        JPanel h = new JPanel(new BorderLayout());
-        h.setOpaque(false);
-        h.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-        
-        JPanel left = new JPanel();
-        left.setOpaque(false);
-        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
-        
-        JLabel hotelName = new JLabel("HOTEL OHNO");
-        hotelName.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        hotelName.setForeground(new Color(0x2563EB));
-        
-        JLabel hotelAddr = new JLabel("12 Quang Trung, Gò Vấp, TP. HCM");
-        hotelAddr.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        hotelAddr.setForeground(new Color(0x64748B));
-        
-        JLabel hotelContact = new JLabel("SĐT: 028.1234.5678 | Email: contact@ohno.com");
-        hotelContact.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        hotelContact.setForeground(new Color(0x64748B));
-
-        left.add(hotelName);
-        left.add(hotelAddr);
-        left.add(hotelContact);
-        
-        h.add(left, BorderLayout.WEST);
-        return h;
-    }
-
-    private JPanel printSectionHeader(String title) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(new Color(0xF1F5F9));
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-        p.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
-        JLabel lbl = new JLabel(title);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lbl.setForeground(new Color(0x334155));
-        p.add(lbl, BorderLayout.WEST);
-        return p;
-    }
-
-    private JPanel printLine(String label, String value) {
-        JPanel p = new JPanel(new BorderLayout(5, 0));
-        p.setOpaque(false);
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
-        p.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 0));
-        JLabel l = new JLabel(label);
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        l.setForeground(new Color(0x64748B));
-        l.setPreferredSize(new Dimension(100, 18));
-        JLabel v = new JLabel(value);
-        v.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        v.setForeground(new Color(0x334155));
-        p.add(l, BorderLayout.WEST);
-        p.add(v, BorderLayout.CENTER);
-        return p;
-    }
-
-    private JPanel buildPrintTableHeader() {
-        JPanel h = new JPanel(new GridBagLayout());
-        h.setBackground(new Color(0x334155));
-        h.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
-        
-        String[] headers = {"STT", "Nội dung", "Đơn giá", "SL", "Thành tiền"};
-        double[] weights = {0.08, 0.47, 0.15, 0.10, 0.20};
-        
-        for (int i = 0; i < headers.length; i++) {
-            gbc.weightx = weights[i];
-            JLabel lbl = new JLabel(headers[i], SwingConstants.CENTER);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
-            lbl.setForeground(Color.WHITE);
-            lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 0, i == headers.length - 1 ? 0 : 1, Color.GRAY));
-            h.add(lbl, gbc);
-        }
-        return h;
-    }
-
-    private JPanel buildPrintTableRow(String stt, String content, String price, String qty, String total) {
-        JPanel r = new JPanel(new GridBagLayout());
-        r.setBackground(Color.WHITE);
-        r.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-        r.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xF1F5F9)));
-        
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
-        
-        String[] vals = {stt, content, price, qty, total};
-        double[] weights = {0.08, 0.47, 0.15, 0.10, 0.20};
-        int[] aligns = {SwingConstants.CENTER, SwingConstants.LEFT, SwingConstants.RIGHT, SwingConstants.CENTER, SwingConstants.RIGHT};
-        
-        for (int i = 0; i < vals.length; i++) {
-            gbc.weightx = weights[i];
-            JLabel lbl = new JLabel(vals[i], aligns[i]);
-            lbl.setFont(new Font("Segoe UI", i == 1 ? Font.BOLD : Font.PLAIN, 11));
-            lbl.setForeground(new Color(0x334155));
-            lbl.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
-            r.add(lbl, gbc);
-        }
-        return r;
-    }
-
-    private JPanel printSummaryLine(String label, String value) {
-        JPanel p = new JPanel(new BorderLayout(10, 0));
-        p.setOpaque(false);
-        p.setPreferredSize(new Dimension(250, 20));
-        JLabel l = new JLabel(label);
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        l.setForeground(new Color(0x64748B));
-        JLabel v = new JLabel(value, SwingConstants.RIGHT);
-        v.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        v.setForeground(new Color(0x334155));
-        p.add(l, BorderLayout.WEST);
-        p.add(v, BorderLayout.CENTER);
-        return p;
-    }
-
-    private JPanel buildSignatureArea() {
-        JPanel s = new JPanel(new GridLayout(1, 2));
-        s.setOpaque(false);
-        s.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
-        
-        s.add(buildSignatureBlock("Khách hàng", "(Ký và ghi rõ họ tên)"));
-        s.add(buildSignatureBlock("Thủ quỹ / Lễ tân", "(Ký và ghi rõ họ tên)"));
-        
-        return s;
-    }
-
-    private JPanel buildSignatureBlock(String title, String sub) {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        
-        JLabel t = new JLabel(title);
-        t.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        t.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
-        JLabel s = new JLabel(sub);
-        s.setFont(new Font("Segoe UI", Font.ITALIC, 10));
-        s.setForeground(Color.GRAY);
-        s.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
-        p.add(t);
-        p.add(s);
-        p.add(Box.createVerticalStrut(50)); // Signature space
-        
-        return p;
-    }
-
-    private JSeparator printSep() {
-        JSeparator sep = new JSeparator();
-        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        sep.setForeground(new Color(0xCBD5E1));
-        return sep;
-    }
 
     public boolean isConfirmed() {
         return confirmed;

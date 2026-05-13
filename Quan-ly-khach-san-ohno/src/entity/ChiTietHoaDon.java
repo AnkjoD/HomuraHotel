@@ -6,6 +6,7 @@ public class ChiTietHoaDon {
     private String maChiTietHoaDon;
     private LoaiChiTietHoaDon loaiChiTiet;
     private String noiDung;
+    private String donViTinh; // e.g., "Lần", "Ngày", "Lon", "Đĩa"
     private int soLuong;
     private double donGia;
     private double thanhTien;
@@ -18,9 +19,10 @@ public class ChiTietHoaDon {
     public String getMaChiTietHoaDon() { return maChiTietHoaDon; }
     public void setMaChiTietHoaDon(String maChiTietHoaDon) { this.maChiTietHoaDon = maChiTietHoaDon; }
 
-    public ChiTietHoaDon(LoaiChiTietHoaDon loaiChiTiet, String noiDung, int soLuong, double donGia, double thanhTien, HoaDon hoaDon) {
+    public ChiTietHoaDon(LoaiChiTietHoaDon loaiChiTiet, String noiDung, String donViTinh, int soLuong, double donGia, double thanhTien, HoaDon hoaDon) {
         this.loaiChiTiet = loaiChiTiet;
         this.noiDung = noiDung;
+        this.donViTinh = donViTinh;
         this.soLuong = soLuong;
         this.donGia = donGia;
         this.thanhTien = thanhTien;
@@ -33,6 +35,9 @@ public class ChiTietHoaDon {
 
     public String getNoiDung() { return noiDung; }
     public void setNoiDung(String noiDung) { this.noiDung = noiDung; }
+
+    public String getDonViTinh() { return donViTinh; }
+    public void setDonViTinh(String donViTinh) { this.donViTinh = donViTinh; }
 
     public int getSoLuong() { return soLuong; }
     public void setSoLuong(int soLuong) { this.soLuong = soLuong; }
