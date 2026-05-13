@@ -43,7 +43,7 @@ public class CheckinDialog extends JDialog {
     private boolean confirmed = false;
 
     // Step inputs
-    private JTextField txtTenKH, txtSDT, txtCCCD, txtEmail;
+    private JTextField txtTenKH, txtSDT, txtCCCD, txtEmail, txtKhachCungPhong;
     private ModernComboBox<String> cboQuocTich;
     private JLabel errTenKH, errSDT, errCCCD, errEmail, errQuocTich;
     private DateTimePicker pickerNgayNhan, pickerNgayTra;
@@ -420,6 +420,7 @@ public class CheckinDialog extends JDialog {
         txtTenKH = styledFieldFocus("VD: Nguyen Van A");
         txtSDT = styledFieldFocus("VD: 0901234567");
         txtEmail = styledFieldFocus("VD: email@gmail.com");
+        txtKhachCungPhong = styledFieldFocus("VD: Trần Thị B, Nguyễn Văn C");
 
         errCCCD = inlineErr();
         errTenKH = inlineErr();
@@ -527,6 +528,9 @@ public class CheckinDialog extends JDialog {
         g.gridy++;
 
         formCard.add(fieldBlock("Địa chỉ Email", txtEmail, errEmail, null, false), g);
+        g.gridy++;
+
+        formCard.add(fieldBlock("Danh sách khách ở cùng (nếu có)", txtKhachCungPhong, null, hint("Nhập tên những người lưu trú chung phòng này"), false), g);
         g.gridy++;
 
         // --- Identity Verification (Image) section ---
@@ -1576,6 +1580,19 @@ public class CheckinDialog extends JDialog {
                 NotificationManager.showError("Lỗi", "Lỗi cập nhật trạng thái đơn đặt: " + errDp);
                 return;
             }
+        }
+
+        // --- Cập nhật ghi chú: Lưu tên khách ở cùng ---
+        String dsKhachCungPhong = txtKhachCungPhong != null ? txtKhachCungPhong.getText().trim() : "";
+        if (!dsKhachCungPhong.isEmpty()) {
+            String note = "Khách cùng P." + selectedPhong.getSoPhong() + ": " + dsKhachCungPhong;
+            String oldGhiChu = selectedDatPhong.getGhiChu();
+            if (oldGhiChu == null || oldGhiChu.isBlank()) {
+                selectedDatPhong.setGhiChu(note);
+            } else if (!oldGhiChu.contains(note)) {
+                selectedDatPhong.setGhiChu(oldGhiChu + "\n" + note);
+            }
+            datPhongService.sua(selectedDatPhong); // Update again with note
         }
 
         ct.setDatPhong(selectedDatPhong);
