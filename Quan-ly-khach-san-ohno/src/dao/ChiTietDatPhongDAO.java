@@ -209,4 +209,25 @@ public class ChiTietDatPhongDAO {
             return false;
         }
     }
+
+    /** Lấy danh sách các phòng đang được thuê thuộc cùng 1 đơn đặt phòng (Đoàn/Group) */
+    public java.util.Map<String, String> getActiveGroupRoomsMap() {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        String sql = "SELECT ct.maPhong, ct.maDatPhong FROM ChiTietDatPhong ct " +
+                     "WHERE ct.ngayTraThucTe IS NULL AND ct.ngayNhanThucTe IS NOT NULL " +
+                     "AND ct.maDatPhong IN ( " +
+                     "  SELECT maDatPhong FROM ChiTietDatPhong " +
+                     "  WHERE ngayTraThucTe IS NULL AND ngayNhanThucTe IS NOT NULL " +
+                     "  GROUP BY maDatPhong HAVING COUNT(maPhong) > 1 " +
+                     ")";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                map.put(rs.getString("maPhong"), rs.getString("maDatPhong"));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error", e);
+        }
+        return map;
+    }
 }

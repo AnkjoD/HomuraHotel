@@ -36,6 +36,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
     private RoundedPanel filterTabsPanel;
     // ★ Map phòng đã đặt trước: maPhong -> [maDatPhong, tenKH, ngayNhan]
     private Map<String, String[]> reservedRooms = new HashMap<>();
+    // ★ Map phòng đang thuê thuộc đoàn: maPhong -> maDatPhong
+    private Map<String, String> activeGroupRooms = new HashMap<>();
     private javax.swing.Timer countdownTimer;
 
     public ThuePhongPanel(MainFrame mainFrame) {
@@ -408,8 +410,10 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         // ★ Load reservation data for today
         try {
             reservedRooms = new PhongDAO().getReservedRoomsForDate(LocalDateTime.now());
+            activeGroupRooms = thuePhongService.getActiveGroupRoomsMap();
         } catch (Exception e) {
             reservedRooms = new HashMap<>();
+            activeGroupRooms = new HashMap<>();
         }
 
         // Group by floor, apply filter
@@ -562,6 +566,23 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         lblView.setFont(UIConstants.FONT_TINY);
         lblView.setForeground(UIConstants.TEXT_MUTED);
 
+        // Group indicator for occupied rooms
+        boolean isGroup = tt == TrangThaiPhong.OCCUPIED && activeGroupRooms.containsKey(p.getSoPhong());
+        if (isGroup) {
+            String groupCode = activeGroupRooms.get(p.getSoPhong());
+            String shortCode = groupCode.substring(Math.max(0, groupCode.length() - 4));
+            JLabel lblGroup = new JLabel("🔗 ĐOÀN-" + shortCode);
+            lblGroup.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            lblGroup.setForeground(new Color(0x6366F1)); // Indigo
+            lblGroup.setOpaque(true);
+            lblGroup.setBackground(new Color(0xE0E7FF));
+            lblGroup.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+            lblGroup.setToolTipText("Thuộc đoàn " + groupCode);
+            lblType.setText(""); // Hide type text to save space for group badge
+            lblType.setIcon(null);
+            card.putClientProperty("groupBadge", lblGroup);
+        }
+
         JLabel lblGuest = new JLabel();
         lblGuest.setFont(UIConstants.FONT_SMALL);
 
@@ -620,7 +641,14 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         lblType.setAlignmentX(Component.LEFT_ALIGNMENT);
         lblView.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        center.add(lblType);
+        JComponent groupBadge = (JComponent) card.getClientProperty("groupBadge");
+        if (groupBadge != null) {
+            groupBadge.setAlignmentX(Component.LEFT_ALIGNMENT);
+            center.add(groupBadge);
+            center.add(Box.createVerticalStrut(2));
+        } else {
+            center.add(lblType);
+        }
         center.add(Box.createVerticalStrut(1));
         center.add(lblView);
         center.add(Box.createVerticalStrut(3));
@@ -826,6 +854,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             RoundedButton btnCancel = new RoundedButton("Huỷ bỏ", new Color(0xF1F5F9), new Color(0x64748B));
             RoundedButton btnRoute = new RoundedButton("Treo nợ Đoàn", new Color(0xEFF6FF), new Color(0x3B82F6));
             RoundedButton btnPay = new RoundedButton("Thanh toán riêng", UIConstants.PRIMARY, Color.WHITE);
+            RoundedButton btnMaster = new RoundedButton("Thanh toán Cả đoàn", UIConstants.SUCCESS, Color.WHITE);
 
             // Hack to get values out of lambda without an array
             final int[] resultArr = { -1 };
@@ -841,10 +870,15 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 resultArr[0] = 0;
                 dlg.dispose();
             });
+            btnMaster.addActionListener(e -> {
+                resultArr[0] = 3;
+                dlg.dispose();
+            });
 
             buttons.add(btnCancel);
             buttons.add(btnRoute);
             buttons.add(btnPay);
+            buttons.add(btnMaster);
 
             root.add(buttons, BorderLayout.SOUTH);
             dlg.setContentPane(root);
@@ -852,8 +886,11 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
             choice = resultArr[0];
 
-            if (choice == 1) {
-                if (choice == 1) {
+            if (choice == 3) {
+                // Thanh toán toàn bộ đoàn ngay lập tức
+                showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
+                return;
+            } else if (choice == 1) {
                     // Treo nợ đoàn (Master Folio Routing)
                     int[] confirmResult = { -1 };
                     JDialog confirmDlg = new JDialog(mainFrame, "", true);
@@ -947,7 +984,6 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                         }
                     }
                     return;
-                }
             } else if (choice == 2 || choice == JOptionPane.CLOSED_OPTION) {
                 return;
             }
@@ -1118,16 +1154,17 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             menu.addSeparator();
             menu.add(itemPayment);
             
-            // Gom Bill Đoàn — chỉ hiện nếu phòng thuộc đoàn
+            // Gom Bill Đoàn — hiển thị nếu phòng thuộc đoàn (nhiều hơn 1 phòng)
             ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
-            if (tp != null && tp.getDatPhong() != null && "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
-                ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn");
-                itemMasterBill.addActionListener(e2 -> {
-                    java.util.List<ChiTietDatPhong> allRooms = thuePhongService
-                            .getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
-                    showMasterBillDialog(tp.getDatPhong(), allRooms);
-                });
-                menu.add(itemMasterBill);
+            if (tp != null && tp.getDatPhong() != null) {
+                java.util.List<ChiTietDatPhong> allRooms = thuePhongService.getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
+                if (allRooms.size() > 1 || "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
+                    ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn (Master Bill)");
+                    itemMasterBill.addActionListener(e2 -> {
+                        showMasterBillDialog(tp.getDatPhong(), allRooms);
+                    });
+                    menu.add(itemMasterBill);
+                }
             }
         }
 

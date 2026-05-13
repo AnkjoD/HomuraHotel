@@ -553,6 +553,7 @@ public class ThuePhongService {
     public List<ChiTietDatPhong> getChiTietByDatPhong(String ma) { return ctdpDAO.getByDatPhong(ma); }
     public List<SuDungDichVu> getDichVuByChiTiet(String ma) { return sddvDAO.getByChiTietDatPhong(ma); }
     public ChiTietDatPhong getActiveByPhong(String p) { return ctdpDAO.getActiveStayByPhong(p); }
+    public Map<String, String> getActiveGroupRoomsMap() { return ctdpDAO.getActiveGroupRoomsMap(); }
 
     public String updateRepresentative(String maDP, KhachHang newKh, String room) {
         if (newKh == null) return "Dữ liệu khách hàng không hợp lệ!";
