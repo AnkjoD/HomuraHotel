@@ -46,6 +46,7 @@ public class TongQuanPanel extends JPanel {
     // ── Room grid ────────────────────────────────────────────────────────────
     private List<Phong> allRooms = new ArrayList<>();
     private String curFloor = "all";
+    private JPanel pnlRoomTabs;
 
     // ── Revenue chart ────────────────────────────────────────────────────────
     private JPanel pnlRevenueChart;
@@ -84,7 +85,8 @@ public class TongQuanPanel extends JPanel {
         scroll.setBorder(null);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+        JScrollBar vBarMain = scroll.getVerticalScrollBar();
+        vBarMain.setPreferredSize(new Dimension(8, vBarMain.getPreferredSize().height));
         add(scroll, BorderLayout.CENTER);
     }
 
@@ -178,6 +180,7 @@ public class TongQuanPanel extends JPanel {
         if (data.reservedRooms != null) {
             reservedRoomNums.addAll(data.reservedRooms.keySet());
         }
+        rebuildRoomTabs();
         filterAndRenderGrid(curFloor);
 
         // ── 3. Revenue chart ─────────────────────────────────────────────────
@@ -426,7 +429,7 @@ public class TongQuanPanel extends JPanel {
         JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
         row.setOpaque(false);
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 360));
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 400));
         row.add(buildRoomGridCard());
         row.add(buildRevenueChartCard());
         row.add(buildOccupancyCard());
@@ -457,33 +460,29 @@ public class TongQuanPanel extends JPanel {
         hdr.add(btnMore, BorderLayout.EAST);
         card.add(hdr, BorderLayout.NORTH);
 
-        JPanel tabBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        tabBar.setOpaque(false);
-        String[] tNames = { "Tất cả", "Tầng 1", "Tầng 2", "Tầng 3", "Tầng 4" };
-        String[] tFilts = { "all", "1", "2", "3", "4" };
-        ButtonGroup bg = new ButtonGroup();
-        for (int i = 0; i < tNames.length; i++) {
-            final String f = tFilts[i];
-            JToggleButton tb = makeTab(tNames[i], i == 0);
-            bg.add(tb);
-            tb.addActionListener(e -> {
-                curFloor = f;
-                filterAndRenderGrid(f);
-            });
-            tabBar.add(tb);
-        }
+        pnlRoomTabs = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        pnlRoomTabs.setOpaque(false);
+        // Khởi tạo tab mặc định (sau này sẽ được rebuild trong applyDataToUI)
+        rebuildRoomTabs();
 
-        pnlMiniGrid = new JPanel(new WrapLayout(FlowLayout.LEFT, 8, 8));
+        pnlMiniGrid = new ScrollablePanel(new WrapLayout(FlowLayout.LEFT, 8, 8));
         pnlMiniGrid.setOpaque(false);
         JScrollPane gs = new JScrollPane(pnlMiniGrid);
         gs.setOpaque(false);
         gs.getViewport().setOpaque(false);
         gs.setBorder(null);
         gs.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        gs.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS); // Thay đổi thành ALWAYS để ép hiện thanh cuộn
+        gs.getVerticalScrollBar().setUnitIncrement(16);
+        gs.setPreferredSize(new Dimension(200, 225)); // Giới hạn chiều cao để kích hoạt thanh cuộn
+        
+        JScrollBar vBar = gs.getVerticalScrollBar();
+        vBar.setPreferredSize(new Dimension(8, 0)); // Dùng kích thước mặc định hoặc lớn hơn xíu để chắc chắn vẽ được thumb
+        vBar.setOpaque(true);
 
         JPanel center = new JPanel(new BorderLayout(0, 5));
         center.setOpaque(false);
-        center.add(tabBar, BorderLayout.NORTH);
+        center.add(pnlRoomTabs, BorderLayout.NORTH);
         center.add(gs, BorderLayout.CENTER);
         card.add(center, BorderLayout.CENTER);
 
@@ -498,30 +497,58 @@ public class TongQuanPanel extends JPanel {
         return card;
     }
 
-    private JToggleButton makeTab(String text, boolean sel) {
-        JToggleButton tb = new JToggleButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(isSelected() ? UIConstants.PRIMARY : new Color(0xF1F5F9));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(isSelected() ? Color.WHITE : UIConstants.TEXT_SECONDARY);
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
-                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-                g2.dispose();
+    private void rebuildRoomTabs() {
+        if (pnlRoomTabs == null) return;
+        pnlRoomTabs.removeAll();
+        
+        Set<String> floors = new TreeSet<>();
+        for (Phong p : allRooms) {
+            String num = p.getSoPhong() != null ? p.getSoPhong().replaceAll("[^0-9]", "") : "";
+            if (num.length() > 0) floors.add(String.valueOf(num.charAt(0)));
+        }
+        
+        // Nếu không có data, dùng mặc định
+        if (floors.isEmpty()) {
+            floors.addAll(Arrays.asList("1", "2", "3", "4"));
+        }
+        
+        List<String> items = new ArrayList<>();
+        items.add("Tất cả");
+        for (String f : floors) {
+            items.add("Tầng " + f);
+        }
+        
+        ModernComboBox<String> cboFloor = new ModernComboBox<>(items.toArray(new String[0]));
+        cboFloor.setPreferredSize(new Dimension(140, 32));
+        
+        boolean foundCurFloor = "all".equals(curFloor);
+        if ("all".equals(curFloor)) {
+            cboFloor.setSelectedItem("Tất cả");
+        } else if (floors.contains(curFloor)) {
+            cboFloor.setSelectedItem("Tầng " + curFloor);
+            foundCurFloor = true;
+        }
+        
+        if (!foundCurFloor) {
+            cboFloor.setSelectedItem("Tất cả");
+            curFloor = "all";
+        }
+        
+        cboFloor.addActionListener(e -> {
+            String sel = (String) cboFloor.getSelectedItem();
+            if ("Tất cả".equals(sel)) {
+                curFloor = "all";
+            } else if (sel != null) {
+                curFloor = sel.replace("Tầng ", "");
             }
-        };
-        tb.setSelected(sel);
-        tb.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        tb.setPreferredSize(new Dimension(56, 24));
-        tb.setBorderPainted(false);
-        tb.setContentAreaFilled(false);
-        tb.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return tb;
+            filterAndRenderGrid(curFloor);
+        });
+        
+        pnlRoomTabs.add(cboFloor);
+        pnlRoomTabs.revalidate();
+        pnlRoomTabs.repaint();
     }
+
 
     private JPanel mkDot(String text, Color color) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -1297,5 +1324,44 @@ public class TongQuanPanel extends JPanel {
         public List<Phong> rooms = new ArrayList<>();
         public List<long[]> revenue7 = new ArrayList<>();
         public Map<String, String[]> reservedRooms = new HashMap<>();
+    }
+
+    // ── Inner Component: Scrollable Panel for Grid ───────────────────────────
+    private static class ScrollablePanel extends JPanel implements Scrollable {
+        public ScrollablePanel(LayoutManager layout) {
+            super(layout);
+            setOpaque(false);
+            addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    revalidate();
+                }
+            });
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 24;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 100;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

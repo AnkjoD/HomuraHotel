@@ -76,7 +76,7 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
         content.add(buildChartRow());
         content.add(Box.createVerticalStrut(16));
         content.add(buildBottomRow());
-        
+
         // Final safety: ensure content doesn't exceed viewport unnecessarily
         content.setMaximumSize(new Dimension(1600, Short.MAX_VALUE));
         return content;
@@ -211,37 +211,39 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
         row.add(buildKpiCard("Doanh thu", String.format("%,.0fđ", (double) dt), displayKy,
                 UIConstants.PRIMARY, calcTrend(dt, dtTruoc)));
         row.add(buildKpiCard("Công suất phòng", congSuat + "%", phongDangThue + "/" + tongPhong + " phòng",
-                UIConstants.SUCCESS, Integer.MIN_VALUE)); 
+                UIConstants.SUCCESS, Integer.MIN_VALUE));
         row.add(buildKpiCard("Khách mới", khachMoi + " KH", displayKy,
                 UIConstants.INFO, calcTrend(khachMoi, khachMoiTruoc)));
         row.add(buildKpiCard("Lượt check-in", luot + " lượt", displayKy,
                 UIConstants.WARNING, calcTrend(luot, luotTruoc)));
         row.add(buildKpiCard("Phòng đang thuê", phongDangThue + " phòng", "Hiện tại",
-                new java.awt.Color(0xF97316), Integer.MIN_VALUE)); 
+                new java.awt.Color(0xF97316), Integer.MIN_VALUE));
         row.add(buildKpiCard("Dịch vụ bán thêm", String.format("%,.0fđ", (double) dtDV), displayKy,
                 UIConstants.DANGER, calcTrend(dtDV, dtDVTruoc)));
         return row;
     }
 
     private int calcTrend(long current, long previous) {
-        if (previous == 0) return current > 0 ? 100 : 0;
+        if (previous == 0)
+            return current > 0 ? 100 : 0;
         return (int) ((current - previous) * 100 / previous);
     }
 
-    private RoundedPanel buildKpiCard(String label, String value, String subtitle, java.awt.Color accent, int trendPct) {
+    private RoundedPanel buildKpiCard(String label, String value, String subtitle, java.awt.Color accent,
+            int trendPct) {
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
+
                 // Live pulsing dot for real-time
                 if (subtitle.equals("Hiện tại")) {
                     float alpha = (float) (Math.sin(System.currentTimeMillis() / 400.0) * 0.5 + 0.5);
                     g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
                     g2.setColor(UIConstants.SUCCESS);
-                    g2.fillOval(getWidth()-18, 12, 8, 8);
+                    g2.fillOval(getWidth() - 18, 12, 8, 8);
                 }
 
                 g2.dispose();
@@ -262,7 +264,7 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
         lblSub.setFont(UIConstants.FONT_SMALL);
         lblSub.setForeground(UIConstants.TEXT_MUTED);
         lblSub.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        
+
         // Push labels down to give space for icon at top left
         content.add(lblSub);
         content.add(Box.createVerticalStrut(14));
@@ -271,7 +273,7 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
         lblLabel.setFont(UIConstants.FONT_SMALL);
         lblLabel.setForeground(UIConstants.TEXT_SECONDARY);
         lblLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        
+
         JLabel lblVal = new JLabel(value);
         lblVal.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblVal.setForeground(UIConstants.TEXT_PRIMARY);
@@ -299,7 +301,6 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
         return card;
     }
 
-
     private JPanel buildChartRow() {
         JPanel row = new JPanel(new GridLayout(1, 2, 16, 0));
         row.setOpaque(false);
@@ -319,7 +320,8 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
 
         String unitLabel = ("nam".equals(currentKy) || "quy".equals(currentKy)) ? "tháng" : "ngày";
         String tk = getTenKy();
-        JLabel title = new JLabel("Doanh thu theo " + unitLabel + " — " + (tk.length() > 25 ? tk.substring(0, 22) + "..." : tk));
+        JLabel title = new JLabel(
+                "Doanh thu theo " + unitLabel + " — " + (tk.length() > 25 ? tk.substring(0, 22) + "..." : tk));
         title.setToolTipText("Doanh thu theo " + unitLabel + " — " + tk);
         title.setFont(UIConstants.FONT_HEADER);
         JLabel unit = new JLabel("Đơn vị: triệu đồng");
@@ -441,9 +443,9 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
                         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                         g2.setColor(new java.awt.Color(0xF1F5F9));
                         g2.fillRoundRect(0, 4, getWidth(), 10, 10, 10);
-                        
-                        GradientPaint gp = new GradientPaint(0, 0, barColor, getWidth(), 0, 
-                            new java.awt.Color(barColor.getRed(), barColor.getGreen(), barColor.getBlue(), 180));
+
+                        GradientPaint gp = new GradientPaint(0, 0, barColor, getWidth(), 0,
+                                new java.awt.Color(barColor.getRed(), barColor.getGreen(), barColor.getBlue(), 180));
                         g2.setPaint(gp);
                         g2.fillRoundRect(0, 4, getWidth() * pct / 100, 10, 10, 10);
                         g2.dispose();
@@ -596,9 +598,9 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2.setColor(new java.awt.Color(0xF1F5F9));
                     g2.fillRoundRect(0, 4, getWidth(), 10, 10, 10);
-                    
-                    GradientPaint gp = new GradientPaint(0, 0, barC, getWidth(), 0, 
-                        new java.awt.Color(barC.getRed(), barC.getGreen(), barC.getBlue(), 180));
+
+                    GradientPaint gp = new GradientPaint(0, 0, barC, getWidth(), 0,
+                            new java.awt.Color(barC.getRed(), barC.getGreen(), barC.getBlue(), 180));
                     g2.setPaint(gp);
                     g2.fillRoundRect(0, 4, (int) (getWidth() * pct / 100.0), 10, 10, 10);
                     g2.dispose();
@@ -1055,11 +1057,12 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
                 g2.setPaint(gp);
                 g2.fill(new RoundRectangle2D.Float(x, y, barW, barH, 6, 6));
 
-                if (data.size() < 15 || (data.size() < 40 && i % 5 == 0) || (data.size() >= 40 && i % 10 == 0) || i == data.size() - 1) {
+                if (data.size() < 15 || (data.size() < 40 && i % 5 == 0) || (data.size() >= 40 && i % 10 == 0)
+                        || i == data.size() - 1) {
                     g2.setColor(UIConstants.TEXT_MUTED);
                     long val0 = data.get(i)[0];
                     String lbl = String.valueOf(val0);
-                    
+
                     if ("nam".equals(currentKy) || "quy".equals(currentKy)) {
                         lbl = "T" + val0;
                     } else if (currentKy.startsWith("custom:") && data.get(i).length > 2) {
@@ -1089,7 +1092,7 @@ public class ThongKePanel extends JPanel implements ResettableFilter {
                     String prefix = ("nam".equals(currentKy) || "quy".equals(currentKy)) ? "Tháng " : "Ngày ";
                     timeText = prefix + entry[0];
                 }
-                
+
                 String amount = String.format("%,.0f VNĐ", (double) entry[1]);
                 String txt = timeText + ": " + amount;
                 g2.setFont(UIConstants.FONT_SMALL_BOLD);

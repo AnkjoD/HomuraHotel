@@ -372,12 +372,12 @@ public class LoginFrame extends JFrame {
     /** Bắt đầu đếm ngược khóa */
     private void startLockout() {
         isLockedOut = true;
-        
+
         if (lockoutRemaining <= 0) {
             lockoutRemaining = LOCKOUT_SECONDS;
             lockoutEndTime = System.currentTimeMillis() + (LOCKOUT_SECONDS * 1000);
         }
-        
+
         saveLockoutState();
 
         btnLogin.setEnabled(false);
@@ -573,7 +573,8 @@ public class LoginFrame extends JFrame {
 
     private void loadLockoutState() {
         java.io.File file = new java.io.File(LOCKOUT_FILE);
-        if (!file.exists()) return;
+        if (!file.exists())
+            return;
 
         try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.FileInputStream(file))) {
             failedAttempts = in.readInt();

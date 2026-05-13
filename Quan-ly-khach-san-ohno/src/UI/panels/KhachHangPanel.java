@@ -23,7 +23,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     @Override
     public void resetFilters() {
         if (txtSearch != null) txtSearch.setText("");
-        if (cboGioiTinh != null) cboGioiTinh.setSelectedIndex(0);
         if (cboQuocTich != null) cboQuocTich.setSelectedIndex(0);
         if (cboHang != null) cboHang.setSelectedIndex(0);
         runFilter();
@@ -36,7 +35,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     private final KhachHangService service = new KhachHangService();
 
     private ModernTextField txtSearch;
-    private ModernComboBox<String> cboGioiTinh;
     private ModernComboBox<String> cboQuocTich;
     private ModernComboBox<String> cboHang;
     private JTable table;
@@ -46,7 +44,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     private List<KhachHang> tatCaKhachHang;
     private List<KhachHang> filteredList;
 
-    private JLabel lblTongKH, lblKhachNam, lblKhachNu, lblQuocTe;
+    private JLabel lblTongKH, lblKhachVIP, lblKhachQuen, lblQuocTe;
 
     public KhachHangPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
@@ -123,14 +121,14 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
 
         lblTongKH = new JLabel("...");
-        lblKhachNam = new JLabel("...");
-        lblKhachNu = new JLabel("...");
+        lblKhachVIP = new JLabel("...");
+        lblKhachQuen = new JLabel("...");
         lblQuocTe = new JLabel("...");
 
         row.add(statCard("Tổng khách hàng", lblTongKH, UIConstants.PRIMARY));
-        row.add(statCard("Nam giới", lblKhachNam, new Color(0x3B82F6)));
-        row.add(statCard("Nữ giới", lblKhachNu, new Color(0xEC4899)));
-        row.add(statCard("Khách quốc tế", lblQuocTe, new Color(0xF59E0B)));
+        row.add(statCard("Khách VIP", lblKhachVIP, new Color(0xF59E0B))); // Gold
+        row.add(statCard("Khách quay lại", lblKhachQuen, new Color(0x3B82F6))); // Blue
+        row.add(statCard("Khách quốc tế", lblQuocTe, new Color(0x10B981))); // Emerald
 
         return row;
     }
@@ -161,12 +159,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
 
         txtSearch = new ModernTextField("Tìm Mã, Họ Tên, SĐT, CCCD...");
         txtSearch.setPreferredSize(new Dimension(280, 40));
-
-        cboGioiTinh = new ModernComboBox<>();
-        cboGioiTinh.setPreferredSize(new Dimension(160, 40));
-        cboGioiTinh.addItem("Giới tính (Tất cả)");
-        cboGioiTinh.addItem("Nam");
-        cboGioiTinh.addItem("Nữ");
 
         cboQuocTich = new ModernComboBox<>();
         cboQuocTich.setPreferredSize(new Dimension(185, 40));
@@ -200,12 +192,10 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         txtSearch.getDocument().addDocumentListener(dl);
 
         ActionListener al = e -> runFilter();
-        cboGioiTinh.addActionListener(al);
         cboQuocTich.addActionListener(al);
         cboHang.addActionListener(al);
 
         p.add(txtSearch);
-        p.add(cboGioiTinh);
         p.add(cboQuocTich);
         p.add(cboHang);
         return p;
@@ -426,14 +416,14 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         if (tatCaKhachHang == null)
             return;
         int total = tatCaKhachHang.size();
-        long nam = tatCaKhachHang.stream().filter(k -> "Nam".equalsIgnoreCase(k.getGioiTinh())).count();
-        long nu = tatCaKhachHang.stream().filter(k -> "Nữ".equalsIgnoreCase(k.getGioiTinh())).count();
+        long vip = tatCaKhachHang.stream().filter(k -> k.getHangKhachHang() != null && k.getHangKhachHang().contains("VIP")).count();
+        long quen = tatCaKhachHang.stream().filter(k -> k.getSoLanO() > 1).count();
         long qte = tatCaKhachHang.stream()
                 .filter(k -> k.getQuocTich() != null && !k.getQuocTich().equalsIgnoreCase("Việt Nam")).count();
 
         lblTongKH.setText(String.format("%,d", total));
-        lblKhachNam.setText(String.format("%,d", nam));
-        lblKhachNu.setText(String.format("%,d", nu));
+        lblKhachVIP.setText(String.format("%,d", vip));
+        lblKhachQuen.setText(String.format("%,d", quen));
         lblQuocTe.setText(String.format("%,d", qte));
     }
 
@@ -445,7 +435,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         if (kw.equals("tìm mã, họ tên, sđt, cccd..."))
             kw = "";
 
-        int idxGt = cboGioiTinh.getSelectedIndex();
         int idxQt = cboQuocTich.getSelectedIndex();
 
         final String finalKw = kw;
@@ -457,12 +446,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                             (kh.getHoTen() != null && kh.getHoTen().toLowerCase().contains(finalKw)) ||
                             (kh.getSdt() != null && kh.getSdt().contains(finalKw)) ||
                             (kh.getCccd() != null && kh.getCccd().contains(finalKw));
-
-                    boolean matchGt = true;
-                    if (idxGt == 1 && !"Nam".equalsIgnoreCase(kh.getGioiTinh()))
-                        matchGt = false;
-                    if (idxGt == 2 && !"Nữ".equalsIgnoreCase(kh.getGioiTinh()))
-                        matchGt = false;
 
                     boolean matchQt = true;
                     boolean isVN = "Việt Nam".equalsIgnoreCase(kh.getQuocTich()) || kh.getQuocTich() == null
@@ -479,7 +462,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                     if (idxHang == 2 && !hang.contains("Thân thiết")) matchHang = false;
                     if (idxHang == 3 && !hang.contains("VIP")) matchHang = false;
 
-                    return matchKw && matchGt && matchQt && matchHang;
+                    return matchKw && matchQt && matchHang;
                 })
                 .collect(Collectors.toList());
 
