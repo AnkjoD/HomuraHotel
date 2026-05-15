@@ -1,0 +1,38 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Trị Viên|
+start
+:Chọn nhân viên từ bảng;
+:Chuột phải chọn Khóa nhân viên này;
+|Hệ thống|
+if (Tự khóa tài khoản của chính mình?) then (Có)
+  :Báo lỗi: Không thể tự khóa tài khoản của mình!;
+  |Quản Trị Viên|
+  stop
+else (Không)
+  :Hiển thị hộp thoại cảnh báo xác nhận YES/NO;
+endif
+|Quản Trị Viên|
+:Chọn YES xác nhận đổi trạng thái hoạt động;
+|Hệ thống|
+:Khóa/Mở khóa tài khoản nhân viên trong DB;
+:Tải lại bảng nhân viên và thông báo thành công;
+|Quản Trị Viên|
+stop
+@enduml

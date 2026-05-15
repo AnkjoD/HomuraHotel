@@ -1,0 +1,43 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản lý / Admin|
+start
+:Truy cập giao diện thống kê báo cáo;
+|Hệ thống|
+:Tải KPI tổng hợp và vẽ các biểu đồ mặc định;
+|Quản lý / Admin|
+:Chọn kỳ báo cáo mong muốn (tháng, năm, khoảng ngày);
+|Hệ thống|
+:Lấy dữ liệu doanh thu, phòng, dịch vụ và vẽ lại biểu đồ;
+|Quản lý / Admin|
+:Nhấn nút Xuất báo cáo Excel;
+|Hệ thống|
+:Hiển thị hộp thoại chọn các nội dung sheet cần xuất;
+|Quản lý / Admin|
+:Tích chọn các sheet nội dung và nhấn OK;
+|Hệ thống|
+:Hiển thị hộp thoại chọn đường dẫn lưu file Excel;
+|Quản lý / Admin|
+:Chọn thư mục, đặt tên tệp Excel và nhấn Save;
+|Hệ thống|
+:Khởi tạo workbook, đổ dữ liệu, vẽ đồ thị và ghi xuống đĩa;
+:Hiển thị thông báo Xuất Excel thành công;
+|Quản lý / Admin|
+stop
+@enduml

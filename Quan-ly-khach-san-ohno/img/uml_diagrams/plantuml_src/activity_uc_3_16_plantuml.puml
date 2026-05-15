@@ -1,0 +1,44 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Lý / Admin|
+start
+:Nhấn nút Thêm phòng mới;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin phòng;
+while (Số phòng hợp lệ?) is (Chưa)
+  |Quản Lý / Admin|
+  :Nhập số phòng, chọn loại phòng,\nhướng nhìn và tầng;
+  |Hệ thống|
+  :Tự động tải sức chứa và giá\ntheo loại phòng đã chọn;
+  :Hiển thị thông tin giá hiện hành\ncủa bảng giá đang áp dụng;
+  |Quản Lý / Admin|
+  :Nhấn nút Lưu phòng;
+  |Hệ thống|
+  if (Số phòng đã tồn tại trong CSDL?) then (Có)
+    :Báo lỗi số phòng bị trùng lặp;
+  else (Không)
+    break
+  endif
+endwhile (Hợp lệ)
+:Lưu thông tin phòng vào cơ sở dữ liệu;
+:Tải lại bảng danh sách phòng và báo thành công;
+|Quản Lý / Admin|
+:Đóng hộp thoại và kết thúc;
+stop
+@enduml

@@ -1,0 +1,47 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chọn chức năng quản lý khách hàng;
+|Hệ thống|
+:Hiển thị giao diện quản lý khách hàng;
+|Nhân Viên|
+:Chọn chức năng thêm thông tin khách hàng;
+|Hệ thống|
+:Hiển thị form nhập thông tin khách hàng;
+while (Dữ liệu hợp lệ?) is (Chưa)
+  |Nhân Viên|
+  :Nhập thông tin khách hàng và nhấn Lưu;
+  |Hệ thống|
+  if (Ràng buộc dữ liệu hợp lệ (Ten/Phone/CCCD)?) then (Có)
+    if (Quy tắc nghiệp vụ khách hàng hợp lệ?) then (Có)
+      break
+    else (Không)
+      :Thông báo lỗi nghiệp vụ;
+    endif
+  else (Không)
+    :Thông báo lỗi ràng buộc;
+  endif
+endwhile (Có)
+:Lưu thông tin khách hàng vào cơ sở dữ liệu;
+:Hiển thị lại danh sách khách hàng;
+:Thông báo thêm khách hàng thành công;
+|Nhân Viên|
+stop
+@enduml

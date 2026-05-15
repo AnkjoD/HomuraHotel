@@ -1,0 +1,42 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Lễ tân / Quản lý|
+start
+:Truy cập giao diện lịch sử hóa đơn;
+|Hệ thống|
+:Tải và hiển thị danh sách hóa đơn từ cơ sở dữ liệu;
+|Lễ tân / Quản lý|
+:Nhập mã HD/tên khách hoặc chọn khoảng ngày lọc;
+|Hệ thống|
+:Lọc dữ liệu trên bảng và cập nhật tổng doanh thu;
+|Lễ tân / Quản lý|
+:Chọn hóa đơn và nhấn Xem chi tiết;
+|Hệ thống|
+:Tải chi tiết hóa đơn và hiển thị giao diện xem;
+|Lễ tân / Quản lý|
+:Nhấn nút In hóa đơn;
+|Hệ thống|
+:Xuất hóa đơn thành tệp PDF và tự động mở hiển thị;
+|Lễ tân / Quản lý|
+:Nhấn Đóng hộp thoại;
+|Hệ thống|
+:Đóng hộp thoại và quay về danh sách hóa đơn;
+|Lễ tân / Quản lý|
+stop
+@enduml

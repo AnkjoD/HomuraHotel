@@ -1,0 +1,42 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản lý / Admin|
+start
+:Nhấn nút Thêm mới dịch vụ;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin dịch vụ trống;
+while (Thông tin dịch vụ hợp lệ?) is (Chưa)
+  |Quản lý / Admin|
+  :Nhập Tên, Đơn vị, Giá, SL tối thiểu và nhấn Lưu;
+  |Hệ thống|
+  if (Tên hoặc đơn vị trống / sai định dạng?) then (Có)
+    :Báo lỗi định dạng trường nhập liệu;
+  else (Không)
+    if (Giá trị hoặc số lượng là số âm?) then (Có)
+      :Báo lỗi: Giá và số lượng phải lớn hơn hoặc bằng 0;
+    else (Không)
+      break
+    endif
+  endif
+endwhile (Hợp lệ)
+:Sinh mã tự động và lưu dịch vụ vào DB;
+:Tải lại bảng dịch vụ và báo thành công;
+|Quản lý / Admin|
+stop
+@enduml

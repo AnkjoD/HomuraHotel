@@ -1,0 +1,38 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Lý / Admin|
+start
+:Chọn khách hàng từ bảng;
+:Chuột phải chọn Vô hiệu hóa hồ sơ;
+|Hệ thống|
+if (Người dùng có quyền Quản lý?) then (Không)
+  :Ẩn/Báo lỗi: Chỉ Quản lý mới được quyền!;
+  |Quản Lý / Admin|
+  stop
+else (Có)
+  :Hiển thị cảnh báo xác nhận YES/NO;
+endif
+|Quản Lý / Admin|
+:Nhấn chọn YES xác nhận;
+|Hệ thống|
+:Cập nhật trạng thái vô hiệu hóa trong DB;
+:Tải lại bảng khách hàng và thông báo thành công;
+|Quản Lý / Admin|
+stop
+@enduml

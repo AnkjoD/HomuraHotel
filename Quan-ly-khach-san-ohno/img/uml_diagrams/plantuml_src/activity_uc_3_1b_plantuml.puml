@@ -1,0 +1,28 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chọn chức năng Đăng xuất từ Menu;
+|Hệ thống|
+:Xóa phiên làm việc hiện tại;
+:Ghi nhật ký đăng xuất;
+:Đóng Giao diện chính,\nmở lại Giao diện đăng nhập;
+|Nhân Viên|
+stop
+@enduml

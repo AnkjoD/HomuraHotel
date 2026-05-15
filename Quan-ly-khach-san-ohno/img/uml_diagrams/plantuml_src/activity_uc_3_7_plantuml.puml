@@ -1,0 +1,51 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chuột phải vào phòng đang bận, chọn Gia hạn phòng;
+|Hệ thống|
+:Hiển thị hộp thoại gia hạn, điền sẵn ngày trả hiện tại;
+while (Xác nhận gia hạn thành công?) is (Chưa)
+  |Nhân Viên|
+  :Chọn ngày giờ đi dự kiến mới;
+  |Hệ thống|
+  if (Ngày trả mới sớm hơn ngày trả hiện tại?) then (Có)
+    :Báo lỗi: Ngày trả mới phải sau ngày trả hiện tại;
+  else (Không)
+    :Kiểm tra xung đột lịch đặt phòng\ntrong khoảng thời gian gia hạn;
+    if (Phòng đã có khách đặt trước?) then (Có)
+      :Cảnh báo xung đột lịch đặt\nvà gợi ý đổi phòng;
+    else (Không)
+      |Nhân Viên|
+      if (Nhấn Xác nhận gia hạn?) then (Có)
+        break
+      else (Hủy)
+        stop
+      endif
+    endif
+  endif
+endwhile (Hợp lệ)
+|Hệ thống|
+:Cập nhật ngayTraDuKien mới vào DatPhong;
+:Ghi nhật ký hệ thống;
+:Thông báo gia hạn thành công;
+|Nhân Viên|
+:Đóng hộp thoại và kết thúc;
+stop
+@enduml

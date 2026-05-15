@@ -1,0 +1,51 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Trị Viên|
+start
+:Nhấn nút Thêm nhân viên;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin nhân viên trống;
+while (Thông tin nhân viên hợp lệ?) is (Chưa)
+  |Quản Trị Viên|
+  :Nhập các thông tin cá nhân bắt buộc\n(Họ tên, SĐT, CCCD, Ngày sinh, Chức vụ, Mật khẩu);
+  |Hệ thống|
+  :Đồng bộ Chức vụ với Vai trò hệ thống;
+  |Quản Trị Viên|
+  :Nhấn nút Thêm nhân viên trên form;
+  |Hệ thống|
+  if (Thông tin nhập liệu hợp lệ\n(Name/Phone/Email/CCCD)?) then (Không)
+    :Hiển thị báo lỗi định dạng tương ứng;
+  else (Có)
+    if (Nhân viên chưa đủ 18 tuổi?) then (Có)
+      :Báo lỗi: Ngày sinh không hợp lệ (Phải từ 18 tuổi);
+    else (Không)
+      if (SĐT hoặc CCCD bị trùng trong CSDL?) then (Có)
+        :Thông báo trùng dữ liệu nhân sự;
+      else (Không)
+        break
+      endif
+    endif
+  endif
+endwhile (Hợp lệ)
+:Lưu NhanVien và TaiKhoan\nbằng Transaction;
+:Làm mới danh sách bảng và báo thành công;
+|Quản Trị Viên|
+:Đóng hộp thoại và hoàn tất;
+stop
+@enduml

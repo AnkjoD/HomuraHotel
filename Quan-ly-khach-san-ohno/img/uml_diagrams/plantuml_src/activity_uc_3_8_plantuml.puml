@@ -1,0 +1,58 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chuột phải phòng bận, chọn Trả phòng & Thanh toán;
+|Hệ thống|
+:Hiển thị giao diện hóa đơn điền sẵn chi phí tạm tính;
+while (Thanh toán thành công?) is (Chưa)
+  |Nhân Viên|
+  :Có thể thêm dịch vụ phát sinh hoặc chỉnh sửa cọc khấu trừ;
+  :Lựa chọn phương thức thanh toán;
+  |Hệ thống|
+  if (Tích chọn Ghi nợ (Thanh toán sau)?) then (Có)
+    :Vô hiệu hóa phương thức thanh toán;
+  else (Không)
+    if (Phương thức thanh toán?) then (Tiền mặt)
+      :Hiển thị trường Nhập tiền khách đưa;
+      |Nhân Viên|
+      :Nhập số tiền khách đưa;
+      |Hệ thống|
+      :Tính toán và hiển thị tiền thừa;
+    else (Chuyển khoản)
+      :Hiển thị mã QR thanh toán động;
+    endif
+  endif
+  |Nhân Viên|
+  :Nhấn nút Xác nhận và in hóa đơn;
+  |Hệ thống|
+  if (Là Tiền mặt và tiền khách đưa < tổng cộng?) then (Có)
+    :Báo lỗi: Tiền khách đưa chưa đủ để thanh toán;
+  else (Không)
+    break
+  endif
+endwhile (Đồng ý)
+:Thực hiện giao dịch Thanh toán CSDL;
+:Cập nhật trạng thái phòng thành CLEANING;
+:Xuất hóa đơn thành tệp PDF;
+:Tải lại sơ đồ phòng và báo thanh toán thành công;
+|Nhân Viên|
+:Giao hóa đơn cho khách và hoàn tất;
+stop
+@enduml

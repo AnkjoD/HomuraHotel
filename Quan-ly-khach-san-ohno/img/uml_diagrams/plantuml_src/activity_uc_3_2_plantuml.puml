@@ -1,0 +1,70 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Nhập ngày đến, ngày đi,\nloại phòng và nhấn Tìm phòng trống;
+|Hệ thống|
+:Truy vấn danh sách phòng trống\nkhông bị trùng lịch (PhongDAO);
+if (Có phòng trống?) then (Không)
+  :Thông báo không có phòng phù hợp;
+  |Nhân Viên|
+  stop
+else (Có)
+  :Hiển thị danh sách phòng khả dụng;
+endif
+|Nhân Viên|
+:Chọn phòng và nhấn Tạo phiếu đặt phòng;
+|Hệ thống|
+:Hiển thị hộp thoại đặt phòng;
+while (Thông tin đặt phòng hợp lệ?) is (Chưa)
+  |Nhân Viên|
+  :Nhập SĐT/CCCD khách hàng đại diện;
+  |Hệ thống|
+  if (Khách đã có trong CSDL?) then (Có)
+    :Tự động điền thông tin khách;
+    if (Khách thuộc Blacklist?) then (Có)
+      :Hiển thị cảnh báo Blacklist;
+    else (Không)
+    endif
+  else (Chưa)
+    :Để trống, nhân viên nhập thủ công;
+  endif
+  |Nhân Viên|
+  :Nhập Họ tên, CCCD, số khách,\ntiền cọc, ghi chú và nhấn Xác nhận;
+  |Hệ thống|
+  if (Dữ liệu hợp lệ (Tên/SĐT/CCCD)?) then (Không)
+    :Hiển thị lỗi định dạng;
+  else (Có)
+    if (Số khách vượt sức chứa tối đa?) then (Có)
+      :Báo lỗi vượt sức chứa;
+    else (Không)
+      break
+    endif
+  endif
+endwhile (Hợp lệ)
+if (Khách hàng chưa có trong CSDL?) then (Có)
+  :Tự động insert khách hàng mới;
+else (Không)
+endif
+:Lưu DatPhong + ChiTietDatPhong\nvào CSDL bằng Transaction;
+:Tải lại bảng và thông báo\nđặt phòng thành công;
+|Nhân Viên|
+:Đóng hộp thoại và kết thúc;
+stop
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản lý / Admin|
+start
+:Chọn phòng trên bảng và nhấn Xóa;
+|Hệ thống|
+:Hiển thị popup xác nhận;
+|Quản lý / Admin|
+:Nhấn Đồng ý xác nhận xóa;
+|Hệ thống|
+if (Phòng đang có khách lưu trú?) then (Có)
+  :Báo lỗi: Phòng đang có khách, không thể xóa!;
+else (Không)
+  :Xóa/ẩn phòng trong cơ sở dữ liệu;
+  :Thông báo xóa phòng thành công và tải lại bảng;
+endif
+|Quản lý / Admin|
+stop
+@enduml

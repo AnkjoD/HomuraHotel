@@ -1,0 +1,54 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Lễ Tân|
+start
+:Chuột phải vào phòng đang ở, chọn Đổi đại diện;
+|Hệ thống|
+:Hiển thị hộp thoại đổi người đại diện;
+while (Khách hàng đại diện mới được chọn?) is (Chưa)
+  |Lễ Tân|
+  :Nhập SĐT khách hàng mới và nhấn Tìm kiếm;
+  |Hệ thống|
+  if (Khách hàng tồn tại trong hệ thống?) then (Có)
+    :Tự động hiển thị Họ tên & CCCD;
+    |Lễ Tân|
+    if (Xác nhận thông tin khách hàng?) then (Đồng ý)
+      break
+    else (Chọn lại)
+    endif
+  else (Chưa có)
+    |Lễ Tân|
+    :Nhấp nút Thêm khách mới;
+    |Hệ thống|
+    :Mở hộp thoại thêm khách hàng mới;
+    |Lễ Tân|
+    :Nhập thông tin khách hàng mới và nhấn Lưu;
+    |Hệ thống|
+    :Lưu khách hàng mới vào DB và tự động chọn;
+  endif
+endwhile (Đã tìm thấy)
+|Lễ Tân|
+:Nhấn nút Xác nhận đổi người đại diện;
+|Hệ thống|
+:Cập nhật DatPhong, Phong, ChiTietDatPhong trong DB;
+:Ghi nhật ký hệ thống;
+:Đóng hộp thoại, báo thành công và tải lại sơ đồ;
+|Lễ Tân|
+stop
+@enduml

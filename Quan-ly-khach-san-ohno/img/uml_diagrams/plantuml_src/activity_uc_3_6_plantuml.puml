@@ -1,0 +1,50 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chuột phải vào phòng bận, chọn Đổi phòng;
+|Hệ thống|
+:Hiển thị hộp thoại đổi phòng;
+while (Đổi phòng thành công?) is (Chưa)
+  |Nhân Viên|
+  :Chọn loại phòng đích mong muốn;
+  |Hệ thống|
+  :Lọc và hiển thị danh sách phòng trống thuộc loại đó;
+  |Nhân Viên|
+  :Chọn phòng trống đích cụ thể;
+  |Hệ thống|
+  :Tính toán chênh lệch giá phòng thực tế;
+  |Nhân Viên|
+  :Có thể tích chọn giữ nguyên giá cũ hoặc áp dụng giá mới;
+  :Nhấn nút Xác nhận đổi phòng;
+  |Hệ thống|
+  :Thực hiện đổi phòng bằng giao dịch CSDL;
+  if (Giao dịch thành công?) then (Có)
+    :Cập nhật phòng cũ thành CLEANING;
+    :Cập nhật phòng mới thành Đang ở;
+    :Ghi nhật ký hệ thống;
+    :Tải lại sơ đồ phòng và báo chuyển phòng thành công;
+    break
+  else (Không)
+    :Báo lỗi giao dịch và khôi phục trạng thái phòng cũ;
+  endif
+endwhile (Thành công)
+|Nhân Viên|
+stop
+@enduml

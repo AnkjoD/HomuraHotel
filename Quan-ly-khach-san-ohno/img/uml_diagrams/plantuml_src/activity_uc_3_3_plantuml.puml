@@ -1,0 +1,64 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chuột phải vào phòng trống, chọn Nhận phòng;
+|Hệ thống|
+:Hiển thị hộp thoại nhận phòng;
+|Nhân Viên|
+if (Hình thức nhận phòng?) then (Theo phiếu đặt)
+  :Chọn phiếu đặt phòng tương ứng;
+  |Hệ thống|
+  :Tự động điền thông tin khách từ phiếu đặt;
+else (Trực tiếp)
+  |Nhân Viên|
+  :Nhập thông tin khách và ngày đi dự kiến;
+endif
+|Nhân Viên|
+:Nhập tiền cọc (nếu có);
+while (Check-in hợp lệ?) is (Chưa)
+  |Nhân Viên|
+  :Kiểm tra và xác nhận thông tin;
+  |Hệ thống|
+  if (Phòng đang ở trạng thái Trống?) then (Không)
+    :Báo lỗi phòng không khả dụng;
+    stop
+  else (Có)
+    if (Số khách vượt sức chứa + 2?) then (Có)
+      :Báo lỗi quá tải sức chứa và chặn;
+    else (Không)
+      if (Số khách vượt sức chứa chuẩn?) then (Có)
+        :Cảnh báo và tự động thêm phí phụ thu;
+        break
+      else (Không)
+        break
+      endif
+    endif
+  endif
+endwhile (Hợp lệ)
+|Nhân Viên|
+:Nhấn Hoàn tất nhận phòng;
+|Hệ thống|
+:Ghi ChiTietDatPhong (ngayNhanThucTe = now);
+:Cập nhật trạng thái phòng thành Đang ở;
+:Ghi nhật ký hệ thống;
+:Làm mới sơ đồ phòng và thông báo thành công;
+|Nhân Viên|
+stop
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Nhấn Thêm khách hàng;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin khách hàng rỗng;
+while (Thông tin khách hàng hợp lệ?) is (Chưa)
+  |Nhân Viên|
+  :Nhập quốc tịch khách hàng;
+  |Hệ thống|
+  if (Quốc tịch nước ngoài?) then (Có)
+    :Hiển thị các trường Passport & Visa;
+  else (Không)
+    :Ẩn các trường Passport & Visa;
+  endif
+  |Nhân Viên|
+  :Nhập Họ tên, SĐT, CCCD/Passport,\nNgày sinh, Giới tính và nhấn Lưu;
+  |Hệ thống|
+  if (Định dạng Họ tên/SĐT/CCCD/Passport hợp lệ?) then (Không)
+    :Báo lỗi định dạng trường thông tin;
+  else (Có)
+    if (Khách hàng bị trùng lặp số SĐT/CCCD?) then (Có)
+      :Báo lỗi thông tin đã tồn tại trong hệ thống;
+    else (Không)
+      break
+    endif
+  endif
+endwhile (Hợp lệ)
+:Lưu thông tin khách hàng vào cơ sở dữ liệu;
+:Thông báo thêm khách hàng thành công;
+:Tải lại bảng khách hàng và đóng hộp thoại;
+|Nhân Viên|
+stop
+@enduml

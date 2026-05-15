@@ -1,0 +1,53 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Lễ Tân|
+start
+:Nhấn nút Bàn giao ca hoặc Đăng xuất;
+|Hệ thống|
+if (Chưa có ca làm việc nào đang chạy?) then (Có)
+  :Hiển thị hộp thoại Bắt đầu ca mới;
+  |Lễ Tân|
+  :Nhập số tiền mặt đầu ca và nhấn Xác nhận;
+  |Hệ thống|
+  :Tạo ca làm việc mới trong DB;
+  stop
+else (Không)
+  :Hiển thị hộp thoại bàn giao ca\ntổng hợp doanh thu trong ca;
+endif
+|Lễ Tân|
+:Nhấn chọn Bảng kiểm tiền mặt;
+|Hệ thống|
+:Hiển thị hộp thoại mệnh giá bàn giao;
+|Lễ Tân|
+:Nhập số lượng cho từng mệnh giá tiền;
+|Hệ thống|
+:Tự động tính tổng tiền thực tế;
+|Lễ Tân|
+:Nhấn Xác nhận bảng kiểm tiền;
+:Khai báo chi phí phát sinh trong ca (nếu có);
+:Chọn nhân viên nhận ca sau;
+:Nhấn Xác nhận bàn giao ca;
+|Hệ thống|
+:Tính toán chênh lệch tiền thực tế so với sổ sách;
+:Lưu bản ghi GiaoCa vào cơ sở dữ liệu;
+:In biên bản bàn giao ca;
+:Mở lại Giao diện đăng nhập;
+|Lễ Tân|
+stop
+@enduml

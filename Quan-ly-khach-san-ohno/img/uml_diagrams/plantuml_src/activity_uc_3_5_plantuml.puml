@@ -1,0 +1,59 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chuột phải vào phòng bận, chọn Gọi dịch vụ;
+|Hệ thống|
+:Hiển thị hộp thoại Gọi dịch vụ phòng;
+|Nhân Viên|
+repeat
+  :Tìm dịch vụ hoặc chọn danh mục;
+  |Hệ thống|
+  :Lọc và hiển thị danh mục dịch vụ phù hợp;
+  |Nhân Viên|
+  :Thêm dịch vụ vào giỏ hàng hoặc tùy chỉnh số lượng;
+  |Hệ thống|
+  :Cập nhật hiển thị giỏ hàng và tổng tiền dịch vụ;
+  |Nhân Viên|
+repeat while (Tiếp tục chọn/chỉnh sửa dịch vụ?) is (Có)
+
+if (Nhấn nút nào?) then (Xác nhận ghi dịch vụ)
+  |Hệ thống|
+  if (Giỏ hàng rỗng?) then (Có)
+    :Thông báo yêu cầu chọn ít nhất 1 dịch vụ;
+    stop
+  else (Không)
+    :Lưu danh sách sử dụng dịch vụ vào CSDL;
+    if (Có lỗi khi lưu?) then (Có)
+      :Hiển thị thông báo lỗi chi tiết;
+      stop
+    else (Không)
+      :Thông báo thêm dịch vụ thành công;
+      |Nhân Viên|
+      :Đóng hộp thoại và kết thúc;
+      stop
+    endif
+  endif
+else (Hủy bỏ)
+  |Nhân Viên|
+  :Đóng hộp thoại;
+  stop
+endif
+
+@enduml

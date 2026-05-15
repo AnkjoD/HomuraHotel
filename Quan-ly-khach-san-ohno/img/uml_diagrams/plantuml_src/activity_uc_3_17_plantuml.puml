@@ -1,0 +1,40 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Lý|
+start
+:Chọn loại phòng, nhấn Cập nhật bảng giá;
+|Hệ thống|
+:Hiển thị hộp thoại Bảng giá\ncó các mức giá cũ;
+while (Các mức giá hợp lệ?) is (Chưa)
+  |Quản Lý|
+  :Thay đổi mức giá (ngày, giờ, cuối tuần, phụ phí);
+  :Nhấn nút Lưu thay đổi;
+  |Hệ thống|
+  if (Mức giá là số hợp lệ và không âm?) then (Có)
+    break
+  else (Không)
+    :Thông báo lỗi: Đơn giá không hợp lệ!;
+  endif
+endwhile (Hợp lệ)
+:Cập nhật dữ liệu giá mới vào cơ sở dữ liệu;
+:Làm mới danh sách giá phòng và báo thành công;
+|Quản Lý|
+:Đóng hộp thoại và hoàn tất;
+stop
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Lễ Tân / Buồng phòng|
+start
+:Chuột phải vào phòng trên sơ đồ;
+|Hệ thống|
+:Hiển thị Context Menu có các trạng thái phù hợp;
+|Lễ Tân / Buồng phòng|
+:Chọn trạng thái mới cần chuyển đổi (VD: CLEANING -> AVAILABLE);
+|Hệ thống|
+:Lưu cập nhật thông tin trạng thái phòng vào DB;
+:Làm mới ô hiển thị phòng tương ứng trên sơ đồ;
+|Lễ Tân / Buồng phòng|
+stop
+@enduml

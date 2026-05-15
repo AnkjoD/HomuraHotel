@@ -1,0 +1,51 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Nhân Viên|
+start
+:Chọn ứng dụng và khởi động;
+|Hệ thống|
+:Hiển thị Giao diện đăng nhập;
+repeat
+  |Nhân Viên|
+  :Nhập tài khoản, mật khẩu\nvà nhấn Đăng nhập;
+  |Hệ thống|
+  if (Định dạng hợp lệ?) then (Không)
+    :Hiển thị lỗi định dạng;
+  else (Có)
+    if (Tài khoản bị khóa/vô hiệu hóa?) then (Có)
+      :Hiển thị thông báo tài khoản\nbị vô hiệu hóa bởi Admin;
+    else (Không)
+      if (Xác thực thành công?) then (Không)
+        if (Sai quá số lần (>= 5)?) then (Có)
+          :Khóa đăng nhập 30 giây;
+        else (Không)
+          :Thông báo sai tài khoản/mật khẩu\nvà hiển thị số lần thử còn lại;
+        endif
+      else (Có)
+        ' Do nothing, will exit repeat
+      endif
+    endif
+  endif
+repeat while (Đăng nhập thành công?) is (Chưa) not (Có)
+
+:Ghi nhật ký đăng nhập thành công;
+:Hiển thị Giao diện chính\ntheo phân quyền;
+|Nhân Viên|
+stop
+@enduml

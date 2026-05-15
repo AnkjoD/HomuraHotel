@@ -1,0 +1,45 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản Trị Viên|
+start
+:Chọn nhân viên từ bảng, chuột phải chọn Sửa;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin nhân viên\nđiền sẵn dữ liệu cũ;
+while (Thông tin cập nhật hợp lệ?) is (Chưa)
+  |Quản Trị Viên|
+  :Thay đổi thông tin cá nhân,\nchức vụ hoặc trạng thái;
+  :Nhập mật khẩu mới (nếu muốn thay đổi);
+  :Nhấn nút Lưu thay đổi;
+  |Hệ thống|
+  if (Thông tin nhập liệu hợp lệ?) then (Có)
+    if (Tuổi dưới 18?) then (Có)
+      :Báo lỗi tuổi dưới 18;
+    else (Không)
+      break
+    endif
+  else (Không)
+    :Hiển thị báo lỗi định dạng chi tiết trên Form;
+  endif
+endwhile (Hợp lệ)
+:Cập nhật thông tin nhân viên vào CSDL;
+:Tải lại danh sách bảng và báo thành công;
+|Quản Trị Viên|
+:Đóng hộp thoại và hoàn tất;
+stop
+@enduml

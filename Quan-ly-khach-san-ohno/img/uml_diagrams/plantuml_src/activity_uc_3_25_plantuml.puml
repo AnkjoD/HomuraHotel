@@ -1,0 +1,39 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Quản lý / Admin|
+start
+:Nhấn nút Thêm mới khuyến mãi;
+|Hệ thống|
+:Hiển thị hộp thoại thông tin khuyến mãi trống;
+while (Thông tin khuyến mãi hợp lệ?) is (Chưa)
+  |Quản lý / Admin|
+  :Nhập mã, tên, giá trị giảm, ngày bắt đầu, ngày kết thúc;
+  :Nhấn nút Lưu;
+  |Hệ thống|
+  if (Trùng mã hoặc ngày kết thúc đứng trước ngày bắt đầu?) then (Có)
+    :Báo lỗi: Trùng mã hoặc ngày không hợp lệ!;
+  else (Không)
+    break
+  endif
+endwhile (Hợp lệ)
+:Lưu khuyến mãi vào cơ sở dữ liệu;
+:Lưu thành công, đóng hộp thoại và tải lại bảng;
+|Quản lý / Admin|
+stop
+@enduml

@@ -1,0 +1,45 @@
+@startuml
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+skinparam ActivityMinimalWidth 180
+skinparam ActivityPadding 8
+skinparam ActivityMargin 8
+skinparam backgroundcolor white
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #475569
+skinparam ActivityStartColor #0F172A
+skinparam ActivityEndColor #0F172A
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderColor #475569
+skinparam ArrowColor #475569
+skinparam ActivityBorderThickness 1
+skinparam ArrowThickness 1
+skinparam linetype ortho
+
+|Lễ tân / Quản lý|
+start
+:Chọn đơn đặt phòng cần hủy, chọn Hủy đặt phòng;
+|Hệ thống|
+:Hiển thị hộp thoại Hủy đặt phòng với phí phạt tính sẵn;
+while (Hủy đơn thành công?) is (Chưa)
+  |Lễ tân / Quản lý|
+  :Có thể tích chọn tự điền để sửa đổi phí phạt;
+  :Nhập lý do hủy đơn bắt buộc;
+  :Nhấn nút Xác nhận Hủy Đơn;
+  |Hệ thống|
+  if (Lý do hủy đơn bị bỏ trống?) then (Có)
+    :Hiển thị cảnh báo: Vui lòng nhập lý do hủy!;
+  else (Không)
+    if (Phí phạt nhập vào không hợp lệ?) then (Có)
+      :Báo lỗi: Số tiền phạt không hợp lệ!;
+    else (Không)
+      break
+    endif
+  endif
+endwhile (Hợp lệ)
+:Cập nhật trạng thái đơn đặt phòng thành CANCELLED;
+:Giải phóng phòng đặt và ghi nhận hóa đơn phạt (nếu có);
+:Báo hủy đặt phòng thành công, đóng hộp thoại và tải lại bảng;
+|Lễ tân / Quản lý|
+stop
+@enduml
