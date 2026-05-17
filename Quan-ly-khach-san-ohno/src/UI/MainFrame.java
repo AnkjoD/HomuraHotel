@@ -52,6 +52,8 @@ public class MainFrame extends JFrame {
     private DatPhongPanel pDatPhong;
     private HoaDonPanel pHoaDon;
     private KhuyenMaiPanel pKhuyenMai;
+    private ShiftHistoryPanel pShiftHistory;
+    private LogPanel pLog;
 
     private ui.components.GlobalNotificationBell notificationBell;
     private final service.ThongKeService ts = new service.ThongKeService();
@@ -1045,11 +1047,19 @@ public class MainFrame extends JFrame {
                 } else if (refreshData)
                     pThongKe.resetFilters();
                 break;
-            case "nhatky":
-                contentArea.add(new LogPanel(), key);
-                break;
             case "lichsuca":
-                contentArea.add(new ShiftHistoryPanel(), key);
+                if (pShiftHistory == null) {
+                    pShiftHistory = new ShiftHistoryPanel();
+                    contentArea.add(pShiftHistory, key);
+                } else if (refreshData) {
+                    pShiftHistory.refresh();
+                }
+                break;
+            case "nhatky":
+                if (pLog == null) {
+                    pLog = new LogPanel();
+                    contentArea.add(pLog, key);
+                }
                 break;
             case "nhanvien":
                 if (pNhanVien == null) {
@@ -1398,25 +1408,8 @@ public class MainFrame extends JFrame {
         f.setPreferredSize(new Dimension(Integer.MAX_VALUE, 36));
         f.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         f.setAlignmentX(Component.LEFT_ALIGNMENT);
-        f.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0xCBD5E1), 1),
-                BorderFactory.createEmptyBorder(4, 10, 4, 10)));
-        // Hiệu ứng focus: border đổi màu xanh
-        f.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusGained(FocusEvent e) {
-                f.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(new Color(67, 97, 238), 2),
-                        BorderFactory.createEmptyBorder(3, 9, 3, 9)));
-            }
-
-            @Override
-            public void focusLost(FocusEvent e) {
-                f.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(new Color(0xCBD5E1), 1),
-                        BorderFactory.createEmptyBorder(4, 10, 4, 10)));
-            }
-        });
+        f.setBorder(BorderFactory.createEmptyBorder());
+        f.setOpaque(false);
         return f;
     }
 
@@ -1435,13 +1428,73 @@ public class MainFrame extends JFrame {
         g.setOpaque(false);
         g.setLayout(new BoxLayout(g, BoxLayout.Y_AXIS));
         g.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JLabel cap = new JLabel(labelText);
         cap.setFont(new Font("Segoe UI", Font.BOLD, 12));
         cap.setForeground(new Color(0x374151));
         cap.setAlignmentX(Component.LEFT_ALIGNMENT);
         g.add(cap);
         g.add(Box.createVerticalStrut(5));
-        g.add(field);
+
+        // Wrapper cho field và nút hiện mật khẩu
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setBackground(Color.WHITE);
+        wrap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        wrap.setBorder(BorderFactory.createLineBorder(new Color(0xCBD5E1), 1));
+
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                wrap.setBorder(BorderFactory.createLineBorder(new Color(67, 97, 238), 2));
+            }
+            @Override
+            public void focusLost(FocusEvent e) {
+                wrap.setBorder(BorderFactory.createLineBorder(new Color(0xCBD5E1), 1));
+            }
+        });
+
+        JButton btnEye = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0x94A3B8));
+                int w = getWidth(), h = getHeight();
+                int ew = 20, eh = 12;
+                int x = (w - ew) / 2, y = (h - eh) / 2;
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                // Almond shape
+                java.awt.geom.Path2D.Double path = new java.awt.geom.Path2D.Double();
+                path.moveTo(x, y + eh / 2.0);
+                path.quadTo(x + ew / 2.0, y - 2, x + ew, y + eh / 2.0);
+                path.quadTo(x + ew / 2.0, y + eh + 2, x, y + eh / 2.0);
+                g2.draw(path);
+
+                // Pupil
+                g2.fillOval(x + ew / 2 - 3, y + eh / 2 - 3, 6, 6);
+
+                if (field.getEchoChar() != (char) 0) {
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawLine(x, y + eh - 1, x + ew, y + 1);
+                }
+                g2.dispose();
+            }
+        };
+        btnEye.setPreferredSize(new Dimension(36, 36));
+        btnEye.setContentAreaFilled(false);
+        btnEye.setBorderPainted(false);
+        btnEye.setFocusPainted(false);
+        btnEye.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnEye.addActionListener(e -> {
+            field.setEchoChar(field.getEchoChar() == (char) 0 ? '•' : (char) 0);
+            btnEye.repaint();
+        });
+
+        wrap.add(field, BorderLayout.CENTER);
+        wrap.add(btnEye, BorderLayout.EAST);
+
+        g.add(wrap);
         if (errLbl != null)
             g.add(errLbl);
         return g;

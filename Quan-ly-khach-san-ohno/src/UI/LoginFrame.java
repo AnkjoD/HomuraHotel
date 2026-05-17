@@ -182,15 +182,8 @@ public class LoginFrame extends JFrame {
         form.add(buildFieldLabel("Mật khẩu"));
         form.add(Box.createVerticalStrut(4));
         txtPassword = new JPasswordField();
-        styleField(txtPassword);
-        txtPassword.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                validatePassword();
-            }
-        });
         txtPassword.setAlignmentX(Component.LEFT_ALIGNMENT);
-        form.add(txtPassword);
+        form.add(wrapPasswordField(txtPassword));
         form.add(Box.createVerticalStrut(12));
 
         // Error label (hỗ trợ HTML multi-line)
@@ -453,16 +446,121 @@ public class LoginFrame extends JFrame {
 
     private void setErrorBorder(JTextField field) {
         field.putClientProperty("hasError", true);
-        field.setBorder(BorderFactory.createCompoundBorder(
+        Component target = field;
+        int padding = 6;
+        
+        // Nếu field được bọc (có con mắt), ta áp dụng border vào khung bọc ngoài cùng
+        if (Boolean.TRUE.equals(field.getClientProperty("isWrapped"))) {
+            target = field.getParent().getParent(); // wrap panel
+            padding = 0;
+        }
+        
+        ((JComponent) target).setBorder(BorderFactory.createCompoundBorder(
                 new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.DANGER),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                BorderFactory.createEmptyBorder(padding, 10, padding, 10)));
     }
 
     private void resetFieldBorder(JTextField field) {
         field.putClientProperty("hasError", false);
-        field.setBorder(BorderFactory.createCompoundBorder(
+        Component target = field;
+        int padding = 6;
+        
+        if (Boolean.TRUE.equals(field.getClientProperty("isWrapped"))) {
+            target = field.getParent().getParent(); // wrap panel
+            padding = 0;
+        }
+        
+        ((JComponent) target).setBorder(BorderFactory.createCompoundBorder(
                 new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+                BorderFactory.createEmptyBorder(padding, 10, padding, 10)));
+    }
+
+    private JPanel wrapPasswordField(JPasswordField field) {
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setOpaque(true);
+        wrap.setBackground(Color.WHITE);
+        wrap.setPreferredSize(new Dimension(300, 38));
+        wrap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        wrap.setAlignmentX(Component.LEFT_ALIGNMENT);
+        wrap.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+
+        field.setFont(UIConstants.FONT_BODY);
+        field.setOpaque(false);
+        field.setBorder(null); 
+        field.putClientProperty("isWrapped", true); // Đánh dấu để xử lý border ở setError/resetBorder
+
+        JButton btnEye = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0x94A3B8));
+                int w = getWidth(), h = getHeight();
+                int ew = 20, eh = 12;
+                int x = (w - ew) / 2, y = (h - eh) / 2;
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                // Almond shape
+                java.awt.geom.Path2D.Double path = new java.awt.geom.Path2D.Double();
+                path.moveTo(x, y + eh / 2.0);
+                path.quadTo(x + ew / 2.0, y - 2, x + ew, y + eh / 2.0);
+                path.quadTo(x + ew / 2.0, y + eh + 2, x, y + eh / 2.0);
+                g2.draw(path);
+
+                // Pupil
+                g2.fillOval(x + ew / 2 - 3, y + eh / 2 - 3, 6, 6);
+
+                if (field.getEchoChar() != (char) 0) {
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawLine(x, y + eh - 1, x + ew, y + 1);
+                }
+                g2.dispose();
+            }
+        };
+        btnEye.setPreferredSize(new Dimension(38, 38));
+        btnEye.setContentAreaFilled(false);
+        btnEye.setBorderPainted(false);
+        btnEye.setFocusPainted(false);
+        btnEye.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnEye.addActionListener(e -> {
+            field.setEchoChar(field.getEchoChar() == (char) 0 ? '•' : (char) 0);
+            btnEye.repaint();
+        });
+
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                wrap.setBorder(BorderFactory.createCompoundBorder(
+                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.PRIMARY),
+                        BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+                if (!isLockedOut) {
+                    lblError.setForeground(UIConstants.DANGER);
+                    lblError.setText(" ");
+                }
+            }
+
+            @Override
+            public void focusLost(FocusEvent e) {
+                validatePassword();
+                Boolean hasError = (Boolean) field.getClientProperty("hasError");
+                if (hasError == null || !hasError) {
+                    wrap.setBorder(BorderFactory.createCompoundBorder(
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                            BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+                }
+            }
+        });
+
+        JPanel fieldInnerWrap = new JPanel(new BorderLayout());
+        fieldInnerWrap.setOpaque(false);
+        fieldInnerWrap.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+        fieldInnerWrap.add(field, BorderLayout.CENTER);
+
+        wrap.add(fieldInnerWrap, BorderLayout.CENTER);
+        wrap.add(btnEye, BorderLayout.EAST);
+        return wrap;
     }
 
     private void doLogin() {

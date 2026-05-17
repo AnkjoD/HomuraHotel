@@ -290,8 +290,9 @@ public class ShiftHistoryPanel extends JPanel {
     }
 
     private void refreshLogsOnly() {
-        String keyword = txtSearch.getText();
+        String keyword = txtSearch.getText().trim();
         String status = (String) cbStatus.getSelectedItem();
+        if ("Tất cả trạng thái".equals(status)) status = null;
         List<GiaoCa> newHistory = service.searchHistory(keyword, status);
         
         if (allHistory == null || newHistory.size() != allHistory.size()) {

@@ -34,6 +34,8 @@ public class MasterBillDialog extends JDialog {
 
     private DefaultTableModel tableModel;
     private JLabel lblTongPhong, lblTongDV, lblTongPhuPhi, lblTienCoc, lblTongCong;
+    private JTextField txtTienKhachDua;
+    private JLabel lblTienThua;
     private JComboBox<String> cboHinhThuc;
 
     public MasterBillDialog(Frame parent, DatPhong dp, List<ChiTietDatPhong> rooms) {
@@ -339,6 +341,7 @@ public class MasterBillDialog extends JDialog {
                     bdTotalPhong.add(bdTotalDV).add(bdTotalPhuPhi)
                     .subtract(java.math.BigDecimal.valueOf(tienCoc)).doubleValue());
             lblTongCong.setText(String.format("%,.0f đ", tongSauCoc));
+            updateTienThua();
         }
     }
 
@@ -347,7 +350,7 @@ public class MasterBillDialog extends JDialog {
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 350));
 
         panel.add(Box.createVerticalStrut(10));
         panel.add(sumRow("Tổng tiền phòng (" + allRooms.size() + " phòng)", lblTongPhong, false));
@@ -385,7 +388,87 @@ public class MasterBillDialog extends JDialog {
         rowHT.add(comboPan, BorderLayout.EAST);
 
         panel.add(rowHT);
+
+        // Thêm text field Tiền khách đưa và Tiền thừa
+        JPanel rowTienKhachDua = new JPanel(new BorderLayout());
+        rowTienKhachDua.setOpaque(false);
+        rowTienKhachDua.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
+        JLabel lblTienKhachDua = new JLabel("Tiền khách đưa");
+        lblTienKhachDua.setFont(UIConstants.FONT_BODY);
+        lblTienKhachDua.setForeground(UIConstants.TEXT_SECONDARY);
+        rowTienKhachDua.add(lblTienKhachDua, BorderLayout.WEST);
+
+        txtTienKhachDua = new ui.components.RoundedComponents.ModernTextField("");
+        txtTienKhachDua.setPreferredSize(new Dimension(180, 38));
+        txtTienKhachDua.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        txtTienKhachDua.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtTienKhachDua.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { updateTienThua(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { updateTienThua(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { updateTienThua(); }
+        });
+
+        JPanel rowKhachDuaRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rowKhachDuaRight.setOpaque(false);
+        rowKhachDuaRight.add(txtTienKhachDua);
+        rowTienKhachDua.add(rowKhachDuaRight, BorderLayout.EAST);
+
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(rowTienKhachDua);
+
+        JPanel rowTienThua = new JPanel(new BorderLayout());
+        rowTienThua.setOpaque(false);
+        rowTienThua.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        JLabel lblTienThuaTitle = new JLabel("Tiền thối lại");
+        lblTienThuaTitle.setFont(UIConstants.FONT_BODY);
+        lblTienThuaTitle.setForeground(UIConstants.TEXT_SECONDARY);
+        rowTienThua.add(lblTienThuaTitle, BorderLayout.WEST);
+
+        lblTienThua = new JLabel("0 đ");
+        lblTienThua.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblTienThua.setForeground(UIConstants.SUCCESS);
+
+        JPanel rowTienThuaRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rowTienThuaRight.setOpaque(false);
+        rowTienThuaRight.add(lblTienThua);
+        rowTienThua.add(rowTienThuaRight, BorderLayout.EAST);
+
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(rowTienThua);
+
+        cboHinhThuc.addActionListener(e -> {
+            boolean isCash = "Tiền mặt".equals(cboHinhThuc.getSelectedItem());
+            rowTienKhachDua.setVisible(isCash);
+            rowTienThua.setVisible(isCash);
+            if (!isCash) txtTienKhachDua.setText("");
+            updateTienThua();
+        });
+
         return panel;
+    }
+
+    private void updateTienThua() {
+        if (lblTongCong == null || txtTienKhachDua == null || lblTienThua == null) return;
+        
+        String tongText = lblTongCong.getText().replaceAll("[^\\d]", "");
+        long tongCong = 0;
+        try { tongCong = Long.parseLong(tongText); } catch (Exception ignored) {}
+        
+        String khachText = txtTienKhachDua.getText().replaceAll("[^\\d]", "");
+        long khachDua = 0;
+        try { khachDua = Long.parseLong(khachText); } catch (Exception ignored) {}
+        
+        long tienThua = khachDua - tongCong;
+        if (khachDua == 0 || khachText.isEmpty()) {
+            lblTienThua.setText("0 đ");
+            lblTienThua.setForeground(UIConstants.TEXT_SECONDARY);
+        } else if (tienThua < 0) {
+            lblTienThua.setText("Thiếu " + String.format("%,d đ", -tienThua));
+            lblTienThua.setForeground(UIConstants.DANGER);
+        } else {
+            lblTienThua.setText(String.format("%,d đ", tienThua));
+            lblTienThua.setForeground(UIConstants.SUCCESS);
+        }
     }
 
     private JPanel sumRow(String label, JLabel valLabel, boolean bold) {
@@ -434,6 +517,22 @@ public class MasterBillDialog extends JDialog {
     // ---- MASTER CHECKOUT ----
     private void doMasterCheckout() {
         String hinhThuc = (String) cboHinhThuc.getSelectedItem();
+        if (hinhThuc == null) return;
+
+        if ("Tiền mặt".equals(hinhThuc)) {
+            String tongText = lblTongCong.getText().replaceAll("[^\\d]", "");
+            long tongCong = 0;
+            try { tongCong = Long.parseLong(tongText); } catch (Exception ignored) {}
+
+            String khachText = txtTienKhachDua.getText().replaceAll("[^\\d]", "");
+            long khachDua = 0;
+            try { khachDua = Long.parseLong(khachText); } catch (Exception ignored) {}
+
+            if (khachDua < tongCong) {
+                ui.components.NotificationManager.showError("Lỗi thanh toán", "Tiền khách đưa chưa đủ để thanh toán!");
+                return;
+            }
+        }
 
         // Nếu chuyển khoản → hiện QR
         if ("Chuyển khoản".equals(hinhThuc)) {
