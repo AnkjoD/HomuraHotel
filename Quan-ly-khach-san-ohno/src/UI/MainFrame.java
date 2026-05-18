@@ -14,6 +14,7 @@ import ui.panels.HoaDonPanel;
 import ui.panels.KhuyenMaiPanel;
 import ui.panels.LogPanel;
 import ui.panels.ShiftHistoryPanel;
+import ui.panels.KeHoachPanel;
 import ui.panels.ResettableFilter;
 import entity.NhanVien;
 import entity.enums.VaiTro;
@@ -53,6 +54,7 @@ public class MainFrame extends JFrame {
     private HoaDonPanel pHoaDon;
     private KhuyenMaiPanel pKhuyenMai;
     private ShiftHistoryPanel pShiftHistory;
+    private KeHoachPanel pKeHoach;
     private LogPanel pLog;
 
     private ui.components.GlobalNotificationBell notificationBell;
@@ -638,6 +640,7 @@ public class MainFrame extends JFrame {
 
         String[][] menus = {
                 { "tongquan", "Tổng quan", "\uD83C\uDFE0", null },
+                { "kehoach", "Kế hoạch sử dụng", "\uD83D\uDCC6", null },
                 { "datphong", "Đặt phòng", "\uD83D\uDCC5", null },
                 { "thuephong", "Sơ đồ phòng", "\uD83D\uDECF", null },
                 { "hoadon", "Lịch sử Hóa đơn", "\uD83E\uDDFE", null },
@@ -916,6 +919,10 @@ public class MainFrame extends JFrame {
         return pHoaDon;
     }
 
+    public KeHoachPanel getKeHoachPanel() {
+        return pKeHoach;
+    }
+
     public void navigateTo(String key) {
         navigateTo(key, null);
     }
@@ -996,6 +1003,14 @@ public class MainFrame extends JFrame {
                     contentArea.add(pTongQuan, key);
                 } else if (refreshData)
                     pTongQuan.refresh();
+                break;
+            case "kehoach":
+                if (pKeHoach == null) {
+                    pKeHoach = new KeHoachPanel(this);
+                    contentArea.add(pKeHoach, key);
+                } else if (refreshData) {
+                    pKeHoach.resetFilters();
+                }
                 break;
             case "thuephong":
                 if (pThuePhong == null) {
@@ -1632,14 +1647,14 @@ public class MainFrame extends JFrame {
                     }
                 }
 
-                java.util.List<entity.DatPhong> pending = ds.getLongPendingBookings(24);
+                java.util.List<entity.DatPhong> pending = ds.getLongPendingBookings(0);
                 if (!pending.isEmpty()) {
                     String id = "pending_group_" + pending.size();
                     if (!dismissedAlertIds.contains(id)) {
                         ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
                                 id,
                                 pending.size() + " đơn đặt phòng chưa duyệt",
-                                "Có các đơn đặt > 24h chưa được xác nhận",
+                                "Có các đơn đặt phòng mới đang chờ xác nhận.",
                                 "warning", () -> navigateTo("datphong"));
                         item.onDismiss = () -> {
                             dismissedAlertIds.add(id);

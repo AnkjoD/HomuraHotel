@@ -105,6 +105,7 @@ public class AuthService {
         // RECEPTIONIST: chỉ 4 nghiệp vụ chính
         switch (moduleKey) {
             case "tongquan":
+            case "kehoach":
             case "datphong":
             case "thuephong":
             case "hoadon":
