@@ -4,6 +4,7 @@ import service.*;
 import dao.PhongDAO;
 import ui.MainFrame;
 import ui.components.UIConstants;
+import ui.components.NotificationManager;
 import ui.components.RoundedComponents.*;
 
 import ui.components.WrapLayout;
@@ -280,8 +281,7 @@ public class TongQuanPanel extends JPanel {
                 String id = String.valueOf(alert.getOrDefault("id", alert.getOrDefault("title", "")));
                 currentIds.add(id);
                 if (!pushedAlertIds.contains(id)) {
-                    JOptionPane.showMessageDialog(this, (String) alert.get("title"), "Cảnh báo mới",
-                            JOptionPane.WARNING_MESSAGE);
+                    NotificationManager.showWarning("Cảnh báo mới", (String) alert.get("title"));
                     pushedAlertIds.add(id);
                 }
             }
