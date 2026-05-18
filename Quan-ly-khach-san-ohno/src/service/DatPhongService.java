@@ -226,6 +226,22 @@ public class DatPhongService {
         return datPhongDAO.update(dp);
     }
 
+    public String moveToWaitlist(String maDatPhong) {
+        DatPhong dp = datPhongDAO.getById(maDatPhong);
+        if (dp == null) return "Không tìm thấy đặt phòng!";
+        if (dp.getTrangThai() != TrangThaiDatPhong.PENDING && dp.getTrangThai() != TrangThaiDatPhong.CONFIRMED) {
+            return "Chỉ có thể đưa đơn ở trạng thái Chờ xác nhận hoặc Đã xác nhận vào danh sách chờ!";
+        }
+        int nextOrder = datPhongDAO.getNextWaitlistOrder();
+        dp.setTrangThai(TrangThaiDatPhong.WAITLIST);
+        dp.setThuTuWaitlist(nextOrder);
+        if (datPhongDAO.update(dp)) {
+            LogService.addLog("Đưa vào danh sách chờ", "Nghiệp vụ", "Đơn " + maDatPhong + " xếp thứ " + nextOrder);
+            return null;
+        }
+        return "Lỗi cập nhật CSDL!";
+    }
+
     // Overload for String status
     public boolean updateTrangThai(String maDatPhong, String trangThai) {
         try {

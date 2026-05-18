@@ -109,6 +109,17 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         filterListTable();
     }
 
+    public void focusBooking(String maDatPhong) {
+        cardLayout.show(cardContainer, CARD_LIST);
+        if (cboFilterStatus != null) {
+            cboFilterStatus.setSelectedIndex(0);
+        }
+        if (txtSearchList != null) {
+            txtSearchList.setText(maDatPhong);
+        }
+        filterListTable();
+    }
+
     public DatPhongPanel(MainFrame mainFrame) {
         this.mainFrame = mainFrame;
         setOpaque(false);
@@ -1560,6 +1571,13 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             menu.add(mnuDeposit);
         }
 
+        // 2.3 Chuyển sang chờ xếp phòng (Waitlist)
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {
+            JMenuItem mnuMoveWaitlist = createMenuItem("Chuyển sang chờ xếp phòng", new Color(0xF59E0B));
+            mnuMoveWaitlist.addActionListener(e -> doMoveToWaitlist(ma, ten));
+            menu.add(mnuMoveWaitlist);
+        }
+
         // 3. Xác nhận (PENDING hoặc WAITLIST)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
             JMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
@@ -1730,6 +1748,21 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         }
     }
 
+    private void doMoveToWaitlist(String ma, String ten) {
+        int ok = JOptionPane.showConfirmDialog(this, 
+                "Bạn có chắc muốn chuyển đơn đặt phòng của \"" + ten + "\" sang danh sách Chờ xếp phòng?",
+                "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = datPhongService.moveToWaitlist(ma);
+            if (err == null) {
+                refresh();
+                NotificationManager.showSuccess("Thành công", "Đã chuyển đơn sang danh sách chờ xếp phòng!");
+            } else {
+                showError(err);
+            }
+        }
+    }
+
     private void showWarning(JDialog parent, String msg) {
         NotificationManager.showWarning("Cảnh báo", msg);
     }
@@ -1751,7 +1784,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
     private JComponent buildAlertBell() {
         List<DatPhong> noShows = datPhongService.getNoShowBookings(4);
         List<DatPhong> upcoming = datPhongService.getUpcomingArrivals(6);
-        List<DatPhong> longPending = datPhongService.getLongPendingBookings(12);
+        List<DatPhong> longPending = datPhongService.getLongPendingBookings(0);
         List<DatPhong> overdue = datPhongService.getOverdueDepositBookings();
         List<DatPhong> nearDeadline = datPhongService.getUpcomingDepositDeadlines(12);
 
@@ -1823,7 +1856,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         btnBell.addActionListener(e -> {
             List<DatPhong> currentNoShows = datPhongService.getNoShowBookings(4);
             List<DatPhong> currentUpcoming = datPhongService.getUpcomingArrivals(6);
-            List<DatPhong> currentLongPending = datPhongService.getLongPendingBookings(12);
+            List<DatPhong> currentLongPending = datPhongService.getLongPendingBookings(0);
             List<DatPhong> currentOverdue = datPhongService.getOverdueDepositBookings();
             List<DatPhong> currentNearDeadline = datPhongService.getUpcomingDepositDeadlines(12);
 
