@@ -769,11 +769,19 @@ public class MainFrame extends JFrame {
                 }
 
                 if (indent > 0) {
-                    g2.setColor(new Color(0x334155));
-                    g2.setStroke(new BasicStroke(1.5f));
-                    // Đường kẻ dọc từ trên xuống giữa
-                    g2.drawLine(-22, -10, -22, getHeight() / 2);
-                    // Đường kẻ ngang vào tâm icon
+                    if (isActive) {
+                        g2.setColor(new Color(0x818CF8)); // Soft indigo when active
+                        g2.setStroke(new BasicStroke(2.0f));
+                    } else if (hover[0]) {
+                        g2.setColor(new Color(0x64748B)); // Lighter gray-blue when hovered
+                        g2.setStroke(new BasicStroke(1.5f));
+                    } else {
+                        g2.setColor(new Color(0x334155)); // Standard slate gray normally
+                        g2.setStroke(new BasicStroke(1.5f));
+                    }
+                    // Continuous vertical line (overlapping to avoid gaps)
+                    g2.drawLine(-22, -22, -22, getHeight() / 2);
+                    // Horizontal guide line
                     g2.drawLine(-22, getHeight() / 2, -8, getHeight() / 2);
                 }
                 g2.dispose();
