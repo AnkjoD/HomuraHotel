@@ -50,13 +50,8 @@ public class PhongService {
             if (tt == TrangThaiPhong.OCCUPIED) return "Không thể xóa phòng đang có khách!";
         }
 
-        // Kiểm tra ràng buộc lịch sử đặt phòng
-        int bookings = phongDAO.countBookingReferences(maPhong);
-        if (bookings > 0) {
-            return "Không thể xóa phòng đã có lịch sử giao dịch (" + bookings + " lượt lưu trú)! " +
-                   "Hãy chuyển trạng thái sang Bảo trì hoặc Ngừng sử dụng để bảo toàn dữ liệu báo cáo.";
-        }
-
+        // Cho phép xóa mềm (chuyển trạng thái sang DELETED) để ẩn hoàn toàn khỏi tất cả giao diện
+        // nhưng vẫn giữ bản ghi trong DB để tránh lỗi liên kết lịch sử hóa đơn cũ.
         return phongDAO.delete(maPhong) ? null : "Không thể xóa phòng này!";
     }
 
