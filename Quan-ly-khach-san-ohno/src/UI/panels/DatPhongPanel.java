@@ -901,7 +901,10 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         tableDatPhong.setShowGrid(false);
         tableDatPhong.setIntercellSpacing(new Dimension(0, 0));
         tableDatPhong.setBackground(Color.WHITE);
+        tableDatPhong.setForeground(UIConstants.TEXT_PRIMARY);
         tableDatPhong.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        tableDatPhong.setSelectionForeground(UIConstants.TEXT_PRIMARY);
+        tableDatPhong.setFont(UIConstants.FONT_BODY);
         tableDatPhong.getTableHeader().setBackground(new Color(0xF8FAFC));
         tableDatPhong.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
         tableDatPhong.getTableHeader().setForeground(UIConstants.TEXT_PRIMARY);

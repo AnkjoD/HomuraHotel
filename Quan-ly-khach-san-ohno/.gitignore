@@ -42,3 +42,6 @@ Thumbs.db
 *.jar
 *.war
 *.ear
+*.zip
+*.rar
+*.7z
