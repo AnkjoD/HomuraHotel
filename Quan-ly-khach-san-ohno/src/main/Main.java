@@ -1,8 +1,8 @@
 package main;
 
-import ui.LoginFrame;
 import database.DatabaseConnection;
 import javax.swing.*;
+import ui.LoginFrame;
 
 /**
  * ỨNG DỤNG QUẢN LÝ KHÁCH SẠN
@@ -14,7 +14,8 @@ public class Main {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             UIManager.put("Button.focus", new java.awt.Color(0, 0, 0, 0));
-        } catch (Exception e) {
+        } catch (UnsupportedLookAndFeelException | ClassNotFoundException | InstantiationException
+                | IllegalAccessException e) {
             // fallback to default
         }
 
@@ -22,12 +23,15 @@ public class Main {
             if (!DatabaseConnection.getInstance().testConnection()) {
                 int choice = JOptionPane.showConfirmDialog(
                         null,
-                        "Không thể kết nối SQL Server!\n\n" +
-                                "Vui lòng kiểm tra:\n" +
-                                "  • SQL Server đang chạy\n" +
-                                "  • Database 'HotelMS' đã được tạo\n" +
-                                "  • Cấu hình trong DatabaseConnection.java\n\n" +
-                                "Tiếp tục ở chế độ demo (không có DB)?",
+                        """
+                                Không thể kết nối SQL Server!
+
+                                Vui lòng kiểm tra:
+                                  • SQL Server đang chạy
+                                  • Database 'HotelMS' đã được tạo
+                                  • Cấu hình trong DatabaseConnection.java
+
+                                Tiếp tục ở chế độ demo (không có DB)?""",
                         "Lỗi kết nối",
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE);

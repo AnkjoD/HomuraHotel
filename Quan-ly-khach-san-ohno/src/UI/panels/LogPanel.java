@@ -1,22 +1,24 @@
 package ui.panels;
 
-import service.LogService;
 import entity.NhatKyHeThong;
-import ui.components.UIConstants;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
-import java.util.ArrayList;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.DefaultTableCellRenderer;
-import ui.components.RoundedComponents.*;
-import ui.components.PaginationPanel;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import ui.dialogs.LogDialog;
-import ui.components.ModernPopupMenu;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
+import service.LogService;
+import ui.components.ModernPopupMenu;
+import ui.components.PaginationPanel;
+import ui.components.RoundedComponents.ModernComboBox;
+import ui.components.RoundedComponents.ModernTextField;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.RoundedComponents.StatusBadge;
+import ui.components.UIConstants;
+import ui.dialogs.LogDialog;
 
 public class LogPanel extends JPanel {
     private final LogService service = new LogService();
@@ -34,10 +36,6 @@ public class LogPanel extends JPanel {
         setLayout(new BorderLayout());
         buildUI();
         setupAutoRefresh();
-    }
-
-    private void initData() {
-        refresh();
     }
 
     private void setupAutoRefresh() {
@@ -147,17 +145,17 @@ public class LogPanel extends JPanel {
         main.add(center, BorderLayout.CENTER);
 
         add(main, BorderLayout.CENTER);
-        
+
         refresh();
     }
 
     private JPanel buildStats() {
         List<NhatKyHeThong> all = service.getAllLogs();
         int total = all.size();
-        
+
         java.time.LocalDate today = java.time.LocalDate.now();
         long todayCount = all.stream().filter(l -> l.getThoiGian().toLocalDate().equals(today)).count();
-        
+
         long alerts = all.stream().filter(l -> {
             String act = l.getHanhDong().toLowerCase();
             return act.contains("xóa") || act.contains("hủy") || act.contains("lỗi");
@@ -183,6 +181,7 @@ public class LogPanel extends JPanel {
         l1.setForeground(UIConstants.TEXT_SECONDARY);
         JLabel l2 = new JLabel(val);
         l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        l2.setForeground(c);
 
         card.add(l1, BorderLayout.NORTH);
         card.add(l2, BorderLayout.CENTER);
@@ -222,11 +221,19 @@ public class LogPanel extends JPanel {
         txtSearch.setPreferredSize(new Dimension(300, 40));
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) { refresh(); }
+            public void insertUpdate(DocumentEvent e) {
+                refresh();
+            }
+
             @Override
-            public void removeUpdate(DocumentEvent e) { refresh(); }
+            public void removeUpdate(DocumentEvent e) {
+                refresh();
+            }
+
             @Override
-            public void changedUpdate(DocumentEvent e) { refresh(); }
+            public void changedUpdate(DocumentEvent e) {
+                refresh();
+            }
         });
 
         cbActionType = new ModernComboBox<>();
@@ -290,7 +297,7 @@ public class LogPanel extends JPanel {
     private void updateActionTypes() {
         List<String> types = service.getActionTypes();
         String current = (String) cbActionType.getSelectedItem();
-        cbActionType.setModel(new DefaultComboBoxModel<String>(types.toArray(new String[0])));
+        cbActionType.setModel(new DefaultComboBoxModel<>(types.toArray(String[]::new)));
         if (current != null && types.contains(current))
             cbActionType.setSelectedItem(current);
     }

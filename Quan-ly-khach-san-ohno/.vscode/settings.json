@@ -1,0 +1,17 @@
+{
+  "[java]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "redhat.java"
+  },
+  "files.exclude": {
+    "**/bin": true,
+    "**/temp_bin": true,
+    "**/out": true,
+    "**/restore_tmp": true,
+    "**/*.class": true
+  },
+  "java.project.outputPath": "bin",
+  "java.import.excludedFolders": ["bin", "out", "temp_bin", "restore_tmp"],
+  "java.project.referencedLibraries": ["lib/*.jar"],
+  "java.project.sourcePaths": ["src"]
+}

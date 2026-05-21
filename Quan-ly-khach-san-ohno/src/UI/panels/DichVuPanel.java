@@ -11,7 +11,6 @@ import javax.swing.table.*;
 import service.DichVuService;
 import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
-import ui.components.RoundedComponents.*;
 import ui.components.RoundedComponents.ModernComboBox;
 import ui.components.RoundedComponents.ModernTextField;
 import ui.components.RoundedComponents.RoundedButton;
@@ -23,9 +22,12 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
 
     @Override
     public void resetFilters() {
-        if (txtSearch != null) txtSearch.setText("");
-        if (cboLoai != null) cboLoai.setSelectedIndex(0);
-        if (cboTT != null) cboTT.setSelectedIndex(0);
+        if (txtSearch != null)
+            txtSearch.setText("");
+        if (cboLoai != null)
+            cboLoai.setSelectedIndex(0);
+        if (cboTT != null)
+            cboTT.setSelectedIndex(0);
         loadData();
     }
 
@@ -108,7 +110,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         return row;
     }
 
-    private RoundedPanel statCard(String label, String val, Color c) {
+    private RoundedPanel statCard(String label, String val, Color color) {
         RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
         card.setBackground(Color.WHITE);
         card.setShadow(true);
@@ -120,6 +122,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         l1.setForeground(UIConstants.TEXT_SECONDARY);
         JLabel l2 = new JLabel(val);
         l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        l2.setForeground(color);
 
         card.add(l1, BorderLayout.NORTH);
         card.add(l2, BorderLayout.CENTER);
@@ -141,24 +144,36 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
 
         txtSearch = new ModernTextField("Tìm tên dịch vụ...");
         txtSearch.setPreferredSize(new Dimension(280, 40));
-        g.gridx = 0; g.weightx = 0; g.fill = GridBagConstraints.VERTICAL;
+        g.gridx = 0;
+        g.weightx = 0;
+        g.fill = GridBagConstraints.VERTICAL;
         g.anchor = GridBagConstraints.WEST;
         filterCard.add(txtSearch, g);
 
         cboLoai = new ModernComboBox<>(
                 new String[] { "Tất cả loại", "Ăn uống", "Spa & Làm đẹp", "Vận chuyển", "Dịch vụ phòng", "Khác" });
         cboLoai.setPreferredSize(new Dimension(200, 40));
-        g.gridx = 1; g.weightx = 0; g.fill = GridBagConstraints.VERTICAL;
+        g.gridx = 1;
+        g.weightx = 0;
+        g.fill = GridBagConstraints.VERTICAL;
         filterCard.add(cboLoai, g);
 
         cboTT = new ModernComboBox<>(new String[] { "Tất cả trạng thái", "Hoạt động", "Tạm ngừng" });
         cboTT.setPreferredSize(new Dimension(180, 40));
-        g.gridx = 2; g.weightx = 0; g.insets = new Insets(0, 0, 0, 0);
+        g.gridx = 2;
+        g.weightx = 0;
+        g.insets = new Insets(0, 0, 0, 0);
         filterCard.add(cboTT, g);
 
         // Spacer để đẩy các nút về bên trái
-        g.gridx = 3; g.weightx = 1.0; g.fill = GridBagConstraints.HORIZONTAL;
-        filterCard.add(new JPanel() {{ setOpaque(false); }}, g);
+        g.gridx = 3;
+        g.weightx = 1.0;
+        g.fill = GridBagConstraints.HORIZONTAL;
+        filterCard.add(new JPanel() {
+            {
+                setOpaque(false);
+            }
+        }, g);
 
         // Table
         String[] cols = { "_ma", "#", "Tên dịch vụ", "Loại", "Giá", "Đơn vị", "SL tối thiểu", "Trạng thái" };
@@ -196,14 +211,17 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
 
         // Listeners
         DocumentListener dl = new DocumentListener() {
+            @Override
             public void insertUpdate(DocumentEvent e) {
                 runFilter();
             }
 
+            @Override
             public void removeUpdate(DocumentEvent e) {
                 runFilter();
             }
 
+            @Override
             public void changedUpdate(DocumentEvent e) {
             }
         };
@@ -260,7 +278,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         t.setBackground(Color.WHITE);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
         t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        
+
         // Căn lề cho tiêu đề
         DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
             @Override
@@ -286,12 +304,10 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
 
                 // Căn lề
-                if (col == 0 || col == 2 || col == 4 || col == 5 || col == 6) {
-                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
-                } else if (col == 3) {
-                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
-                } else {
-                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                switch (col) {
+                    case 0, 2, 4, 5, 6 -> lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    case 3 -> lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                    default -> lbl.setHorizontalAlignment(SwingConstants.LEFT);
                 }
 
                 String v = val != null ? val.toString() : "";
@@ -320,13 +336,15 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         fullList = service.search(
                 (kw == null || kw.isBlank()) ? null : kw, l, t);
 
-        if (pagination != null) pagination.setCurrentPage(1);
+        if (pagination != null)
+            pagination.setCurrentPage(1);
         displayPage();
     }
 
     private void displayPage() {
         tableModel.setRowCount(0);
-        if (fullList == null) return;
+        if (fullList == null)
+            return;
 
         int pageSize = 12;
         int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
@@ -334,7 +352,8 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         int totalPages = (int) Math.ceil((double) fullList.size() / pageSize);
         if (currentPage > totalPages && totalPages > 0) {
             currentPage = totalPages;
-            if (pagination != null) pagination.setCurrentPage(currentPage);
+            if (pagination != null)
+                pagination.setCurrentPage(currentPage);
         }
 
         int start = (currentPage - 1) * pageSize;
@@ -370,8 +389,8 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         DichVuDialog dlg = new DichVuDialog(owner, dv);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            NotificationManager.showSuccess("Thành công", 
-                (dv == null ? "Đã thêm dịch vụ mới" : "Đã cập nhật dịch vụ"));
+            NotificationManager.showSuccess("Thành công",
+                    (dv == null ? "Đã thêm dịch vụ mới" : "Đã cập nhật dịch vụ"));
             refresh();
         }
     }
@@ -397,7 +416,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         if (ok == JOptionPane.YES_OPTION) {
             String err = service.xoa(dv.getMaDV());
             if (err == null) {
-                NotificationManager.showSuccess("Thành công", "Đã xóa dịch vụ " + dv.getTenDichVu());
+                NotificationManager.showSuccess("Thành công", "Đã xóa dịch vụ " + dv.getTenDV());
                 refresh();
             } else
                 JOptionPane.showMessageDialog(this, "Lỗi: " + err, "Không thể xóa", JOptionPane.ERROR_MESSAGE);

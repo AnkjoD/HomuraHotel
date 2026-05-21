@@ -1,6 +1,7 @@
 -- ======================================================
 -- HỆ THỐNG QUẢN LÝ KHÁCH SẠN (HOTEL MS)
--- Consolidated Database Script (Final Version for Submission)
+-- Complete Database Script (Final Version for Submission)
+-- Includes: Schema + Data Seeding + Migrations
 -- ======================================================
 
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'HotelMs')
@@ -193,7 +194,10 @@ CREATE TABLE KhachHang (
     soVisa VARCHAR(30) NULL,
     ngayHetHanVisa DATE NULL,
     noiCapHoChieu NVARCHAR(100) NULL,
-    ngayNhapCanh DATE NULL
+    ngayNhapCanh DATE NULL,
+    isBlacklist BIT DEFAULT 0,
+    preferences NVARCHAR(MAX),
+    vipLevel VARCHAR(20) DEFAULT 'BRONZE'
 );
 
 CREATE TABLE KenhDatPhong (
@@ -223,7 +227,9 @@ CREATE TABLE DatPhong (
     maXacNhanKenh NVARCHAR(100) NULL,
     phiNoShow DECIMAL(18,2) DEFAULT 0,
     hanCheckIn DATETIME NULL,
-    thuTuWaitlist INT DEFAULT 0
+    thuTuWaitlist INT DEFAULT 0,
+    hanNopCoc DATETIME,
+    phiHuyPhong DECIMAL(18,2) DEFAULT 0
 );
 
 CREATE TABLE ChiTietDatPhong (
@@ -378,5 +384,5 @@ VALUES ('DV001', N'Nước suối', N'Ăn uống', 15000, N'chai'),
        ('DV002', N'Coca Cola', N'Ăn uống', 25000, N'lon'),
        ('DV006', N'Thuê xe máy', N'Vận chuyển', 150000, N'ngày');
 
-PRINT '✓ Consolidated Database setup completed successfully!';
+PRINT '✓ Complete Database setup (Schema + Data + Migrations) completed successfully!';
 GO
