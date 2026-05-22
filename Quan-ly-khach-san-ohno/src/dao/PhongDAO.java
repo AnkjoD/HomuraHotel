@@ -324,7 +324,7 @@ public class PhongDAO {
             "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
-            "AND dp.trangThai IN ('CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
+            "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
             "AND dp.ngayNhanDuKien < ? " +
             "AND dp.ngayTraDuKien > ?"
         );

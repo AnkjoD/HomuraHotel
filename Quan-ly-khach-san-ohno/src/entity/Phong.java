@@ -170,8 +170,16 @@ public class Phong {
 
     public String getMaLoai() { return loaiPhong != null ? loaiPhong.getMaLoaiPhong() : ""; }
 
+    public String getSoPhongDisplay() {
+        if (maPhong == null) return "";
+        if (maPhong.toUpperCase().startsWith("P") && maPhong.length() > 1 && Character.isDigit(maPhong.charAt(1))) {
+            return maPhong.substring(1);
+        }
+        return maPhong;
+    }
+
     @Override
     public String toString() {
-        return "P." + maPhong;
+        return "P." + getSoPhongDisplay();
     }
 }

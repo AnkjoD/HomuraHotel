@@ -109,9 +109,10 @@ public class AuthService {
             case "datphong":
             case "thuephong":
             case "hoadon":
+            case "khachhang":
                 return true;
             default:
-                return false; // khachhang, nhanvien, qlhethong, thongke → ẩn
+                return false; // nhanvien, qlhethong, thongke → ẩn
         }
     }
 

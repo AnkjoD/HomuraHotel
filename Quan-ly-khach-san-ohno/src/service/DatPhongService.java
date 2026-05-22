@@ -222,6 +222,20 @@ public class DatPhongService {
     public boolean updateTrangThai(String maDatPhong, TrangThaiDatPhong trangThai) {
         DatPhong dp = datPhongDAO.getById(maDatPhong);
         if (dp == null) return false;
+        
+        if (trangThai == TrangThaiDatPhong.CONFIRMED || trangThai == TrangThaiDatPhong.CHECKED_IN || trangThai == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) {
+            List<ChiTietDatPhong> rooms = ctDAO.getByDatPhong(maDatPhong);
+            if (rooms != null) {
+                for (ChiTietDatPhong ct : rooms) {
+                    if (ct.getPhong() != null) {
+                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), dp.getNgayNhanDuKien(), dp.getNgayTraDuKien(), dp.getMaDatPhong())) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        
         dp.setTrangThai(trangThai);
         return datPhongDAO.update(dp);
     }
@@ -451,6 +465,20 @@ public class DatPhongService {
         if (old == null) return "Không tìm thấy đơn đặt phòng!";
         if (old.getTrangThai() != TrangThaiDatPhong.PENDING && old.getTrangThai() != TrangThaiDatPhong.CONFIRMED) {
             return "Chỉ có thể sửa đơn ở trạng thái Chờ xác nhận hoặc Đã xác nhận!";
+        }
+
+        // Kiểm tra xung đột phòng khi chuyển sang CONFIRMED hoặc CHECKED_IN
+        if (dp.getTrangThai() == TrangThaiDatPhong.CONFIRMED || dp.getTrangThai() == TrangThaiDatPhong.CHECKED_IN || dp.getTrangThai() == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) {
+            List<ChiTietDatPhong> rooms = ctDAO.getByDatPhong(dp.getMaDatPhong());
+            if (rooms != null) {
+                for (ChiTietDatPhong ct : rooms) {
+                    if (ct.getPhong() != null) {
+                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), dp.getNgayNhanDuKien(), dp.getNgayTraDuKien(), dp.getMaDatPhong())) {
+                            return "Phòng " + ct.getPhong().getSoPhongDisplay() + " đã có lịch đặt hoặc đang sử dụng trong khoảng thời gian này!";
+                        }
+                    }
+                }
+            }
         }
 
         // Thực hiện cập nhật

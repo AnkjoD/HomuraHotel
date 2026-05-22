@@ -93,4 +93,5 @@ public class ChiTietDatPhong {
     public Date getNgayTraThucTe_Date() { 
         return ngayTraThucTe != null ? Date.from(ngayTraThucTe.atZone(ZoneId.systemDefault()).toInstant()) : null; 
     }
+    public String getSoPhongDisplay() { return phong != null ? phong.getSoPhongDisplay() : ""; }
 }
