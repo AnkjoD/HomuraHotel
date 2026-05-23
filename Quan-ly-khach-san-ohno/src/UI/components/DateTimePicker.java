@@ -122,6 +122,7 @@ public class DateTimePicker extends JPanel {
     // ---- Popup calendar ----
     private void buildPopup() {
         popup = new JPopupMenu();
+        popup.setLightWeightPopupEnabled(false);
         popup.setBorder(new LineBorder(BORDER_COLOR, 1));
         popup.setBackground(Color.WHITE);
 
@@ -367,11 +368,58 @@ public class DateTimePicker extends JPanel {
     }
 
     private void togglePopup() {
+        if (!isEnabled()) return;
         if (popup.isVisible()) {
             popup.setVisible(false);
-        } else {
-            popup.show(this, 0, getHeight());
+            return;
         }
+
+        int x = 0;
+        int y = getHeight();
+
+        if (isShowing()) {
+            try {
+                Point loc = getLocationOnScreen();
+                Dimension popupSize = popup.getPreferredSize();
+                
+                GraphicsConfiguration gc = getGraphicsConfiguration();
+                if (gc == null) {
+                    gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+                }
+                Rectangle screenBounds = gc.getBounds();
+                Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
+                
+                int screenMinX = screenBounds.x + screenInsets.left;
+                int screenMaxX = screenBounds.x + screenBounds.width - screenInsets.right;
+                int screenMinY = screenBounds.y + screenInsets.top;
+                int screenMaxY = screenBounds.y + screenBounds.height - screenInsets.bottom;
+
+                // 1. Dịch chuyển Y (Lên / Xuống)
+                int popupBottomY = loc.y + getHeight() + popupSize.height;
+                if (popupBottomY > screenMaxY) {
+                    int popupTopY = loc.y - popupSize.height;
+                    if (popupTopY >= screenMinY) {
+                        y = -popupSize.height;
+                    } else {
+                        y = screenMaxY - popupSize.height - loc.y;
+                    }
+                }
+
+                // 2. Dịch chuyển X (Trái / Phải)
+                int popupRightX = loc.x + popupSize.width;
+                if (popupRightX > screenMaxX) {
+                    x = screenMaxX - popupSize.width - loc.x;
+                }
+                if (loc.x + x < screenMinX) {
+                    x = screenMinX - loc.x;
+                }
+            } catch (Exception ignored) {
+                x = 0;
+                y = getHeight();
+            }
+        }
+
+        popup.show(this, x, y);
     }
 
     // ---- Public API ----

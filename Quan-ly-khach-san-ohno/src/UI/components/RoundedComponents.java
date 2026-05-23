@@ -1,10 +1,10 @@
 package ui.components;
 
-import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+import javax.swing.*;
+import javax.swing.border.*;
 
 /**
  * Các component tùy chỉnh: nút bo góc, panel bo góc, text field đẹp.
@@ -21,10 +21,10 @@ public class RoundedComponents {
 
         public RoundedButton(String text, Color bg, Color fg) {
             super(text);
-            this.normalBg  = bg;
-            this.hoverBg   = bg.darker();
+            this.normalBg = bg;
+            this.hoverBg = bg.darker();
             this.textColor = fg;
-            this.radius    = UIConstants.BTN_RADIUS;
+            this.radius = UIConstants.BTN_RADIUS;
             setup();
         }
 
@@ -32,8 +32,8 @@ public class RoundedComponents {
         public static RoundedButton outline(String text, Color borderColor) {
             RoundedButton btn = new RoundedButton(text, Color.WHITE, borderColor);
             btn.isOutline = true;
-            btn.normalBg  = Color.WHITE;
-            btn.hoverBg   = new Color(borderColor.getRed(), borderColor.getGreen(), borderColor.getBlue(), 20);
+            btn.normalBg = Color.WHITE;
+            btn.hoverBg = new Color(borderColor.getRed(), borderColor.getGreen(), borderColor.getBlue(), 20);
             return btn;
         }
 
@@ -46,9 +46,14 @@ public class RoundedComponents {
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseEntered(MouseEvent e) { repaint(); }
+                public void mouseEntered(MouseEvent e) {
+                    repaint();
+                }
+
                 @Override
-                public void mouseExited(MouseEvent e)  { repaint(); }
+                public void mouseExited(MouseEvent e) {
+                    repaint();
+                }
             });
         }
 
@@ -63,7 +68,8 @@ public class RoundedComponents {
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), radius, radius));
                 g2.setColor(textColor);
                 g2.setStroke(new BasicStroke(1.5f));
-                g2.draw(new RoundRectangle2D.Float(0.75f, 0.75f, getWidth()-1.5f, getHeight()-1.5f, radius, radius));
+                g2.draw(new RoundRectangle2D.Float(0.75f, 0.75f, getWidth() - 1.5f, getHeight() - 1.5f, radius,
+                        radius));
             } else {
                 g2.setColor(bg);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), radius, radius));
@@ -71,25 +77,25 @@ public class RoundedComponents {
             // Text & Icon
             String text = getText() != null ? getText() : "";
             Icon icon = getIcon();
-            
+
             g2.setFont(getFont());
             FontMetrics fm = g2.getFontMetrics();
-            
+
             int textWidth = fm.stringWidth(text);
             int textHeight = fm.getAscent() - fm.getDescent();
             int iconWidth = icon != null ? icon.getIconWidth() : 0;
             int iconHeight = icon != null ? icon.getIconHeight() : 0;
             int gap = (icon != null && !text.isEmpty()) ? 6 : 0;
-            
+
             int totalWidth = textWidth + iconWidth + gap;
             int startX = (getWidth() - totalWidth) / 2;
-            
+
             if (icon != null) {
                 int iconY = (getHeight() - iconHeight) / 2;
                 icon.paintIcon(this, g2, startX, iconY);
                 startX += iconWidth + gap;
             }
-            
+
             g2.setColor(textColor);
             if (!text.isEmpty()) {
                 int textY = (getHeight() + textHeight) / 2;
@@ -119,7 +125,7 @@ public class RoundedComponents {
         }
 
         public void setShadow(boolean hasShadow) {
-            this.hasShadow   = hasShadow;
+            this.hasShadow = hasShadow;
             this.shadowColor = new Color(0, 0, 0, 18);
         }
 
@@ -128,11 +134,14 @@ public class RoundedComponents {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             if (hasShadow) {
-                g2.setColor(shadowColor);
-                g2.fill(new RoundRectangle2D.Float(2, 3, getWidth()-2, getHeight()-2, radius, radius));
+                // Enhanced shadow - deeper & softer
+                g2.setColor(new Color(0, 0, 0, 20));
+                g2.fill(new RoundRectangle2D.Float(1, 2, getWidth() - 1, getHeight() - 2, radius, radius));
+                g2.setColor(new Color(0, 0, 0, 8));
+                g2.fill(new RoundRectangle2D.Float(2, 4, getWidth() - 2, getHeight() - 4, radius, radius));
             }
             g2.setColor(getBackground());
-            g2.fill(new RoundRectangle2D.Float(0, 0, getWidth()-2, getHeight()-3, radius, radius));
+            g2.fill(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 2, radius, radius));
             g2.dispose();
             super.paintComponent(g);
         }
@@ -149,22 +158,23 @@ public class RoundedComponents {
             setFont(UIConstants.FONT_BODY);
             setForeground(UIConstants.TEXT_PRIMARY);
             setBorder(BorderFactory.createCompoundBorder(
-                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(7, 12, 7, 12)));
+                    new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                    BorderFactory.createEmptyBorder(7, 12, 7, 12)));
             setBackground(Color.WHITE);
             setOpaque(true);
             addFocusListener(new FocusAdapter() {
                 @Override
                 public void focusGained(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
-                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
-                        BorderFactory.createEmptyBorder(7, 12, 7, 12)));
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
+                            BorderFactory.createEmptyBorder(7, 12, 7, 12)));
                 }
+
                 @Override
                 public void focusLost(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
-                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                        BorderFactory.createEmptyBorder(7, 12, 7, 12)));
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                            BorderFactory.createEmptyBorder(7, 12, 7, 12)));
                 }
             });
         }
@@ -191,8 +201,8 @@ public class RoundedComponents {
             super(model);
             setFont(UIConstants.FONT_BODY);
             setBorder(BorderFactory.createCompoundBorder(
-                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+                    new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                    BorderFactory.createEmptyBorder(2, 2, 2, 2)));
             setBackground(Color.WHITE);
             setUI(new javax.swing.plaf.basic.BasicSpinnerUI() {
                 @Override
@@ -202,6 +212,7 @@ public class RoundedComponents {
                     installNextButtonListeners(c);
                     return c;
                 }
+
                 @Override
                 protected Component createPreviousButton() {
                     Component c = createArrow(SwingConstants.SOUTH);
@@ -209,7 +220,7 @@ public class RoundedComponents {
                     installPreviousButtonListeners(c);
                     return c;
                 }
-                
+
                 private Component createArrow(int direction) {
                     JButton btn = new JButton();
                     btn.setBorder(BorderFactory.createEmptyBorder());
@@ -217,7 +228,8 @@ public class RoundedComponents {
                     btn.setPreferredSize(new Dimension(24, 16));
                     btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                     btn.setIcon(new Icon() {
-                        @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                        @Override
+                        public void paintIcon(Component c, Graphics g, int x, int y) {
                             Graphics2D g2 = (Graphics2D) g.create();
                             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                             g2.setColor(UIConstants.TEXT_MUTED);
@@ -225,35 +237,48 @@ public class RoundedComponents {
                             int w = 8, h = 5;
                             int sx = (c.getWidth() - w) / 2;
                             int sy = (c.getHeight() - h) / 2;
-                            if (direction == SwingConstants.NORTH) { 
-                                g2.drawLine(sx, sy + h, sx + w/2, sy); g2.drawLine(sx + w/2, sy, sx + w, sy + h);
+                            if (direction == SwingConstants.NORTH) {
+                                g2.drawLine(sx, sy + h, sx + w / 2, sy);
+                                g2.drawLine(sx + w / 2, sy, sx + w, sy + h);
                             } else {
-                                g2.drawLine(sx, sy, sx + w/2, sy + h); g2.drawLine(sx + w/2, sy + h, sx + w, sy);
+                                g2.drawLine(sx, sy, sx + w / 2, sy + h);
+                                g2.drawLine(sx + w / 2, sy + h, sx + w, sy);
                             }
                             g2.dispose();
                         }
-                        @Override public int getIconWidth() { return 12; }
-                        @Override public int getIconHeight() { return 12; }
+
+                        @Override
+                        public int getIconWidth() {
+                            return 12;
+                        }
+
+                        @Override
+                        public int getIconHeight() {
+                            return 12;
+                        }
                     });
                     return btn;
                 }
             });
-            
+
             JComponent editor = getEditor();
             if (editor instanceof JSpinner.DefaultEditor) {
                 JTextField txt = ((JSpinner.DefaultEditor) editor).getTextField();
                 txt.setBackground(Color.WHITE);
                 txt.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 0));
                 txt.addFocusListener(new FocusAdapter() {
-                    @Override public void focusGained(FocusEvent e) {
+                    @Override
+                    public void focusGained(FocusEvent e) {
                         setBorder(BorderFactory.createCompoundBorder(
-                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
-                            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+                                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
+                                BorderFactory.createEmptyBorder(2, 2, 2, 2)));
                     }
-                    @Override public void focusLost(FocusEvent e) {
+
+                    @Override
+                    public void focusLost(FocusEvent e) {
                         setBorder(BorderFactory.createCompoundBorder(
-                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+                                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                                BorderFactory.createEmptyBorder(2, 2, 2, 2)));
                     }
                 });
             }
@@ -269,8 +294,8 @@ public class RoundedComponents {
             setFont(UIConstants.FONT_BODY);
             setBackground(Color.WHITE);
             setBorder(BorderFactory.createCompoundBorder(
-                new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+                    new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                    BorderFactory.createEmptyBorder(2, 12, 2, 12)));
             setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
                 @Override
                 protected JButton createArrowButton() {
@@ -278,7 +303,8 @@ public class RoundedComponents {
                     btn.setBorder(BorderFactory.createEmptyBorder());
                     btn.setContentAreaFilled(false);
                     btn.setIcon(new Icon() {
-                        @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                        @Override
+                        public void paintIcon(Component c, Graphics g, int x, int y) {
                             Graphics2D g2 = (Graphics2D) g.create();
                             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                             g2.setColor(UIConstants.TEXT_MUTED);
@@ -287,30 +313,39 @@ public class RoundedComponents {
                             int h = 4;
                             int sx = x + (getIconWidth() - w) / 2;
                             int sy = y + (getIconHeight() - h) / 2;
-                            g2.drawLine(sx, sy, sx + w/2, sy + h);
-                            g2.drawLine(sx + w/2, sy + h, sx + w, sy);
+                            g2.drawLine(sx, sy, sx + w / 2, sy + h);
+                            g2.drawLine(sx + w / 2, sy + h, sx + w, sy);
                             g2.dispose();
                         }
-                        @Override public int getIconWidth() { return 14; }
-                        @Override public int getIconHeight() { return 14; }
+
+                        @Override
+                        public int getIconWidth() {
+                            return 14;
+                        }
+
+                        @Override
+                        public int getIconHeight() {
+                            return 14;
+                        }
                     });
                     return btn;
                 }
             });
-            
+
             // Add focus effect
             addFocusListener(new FocusAdapter() {
                 @Override
                 public void focusGained(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
-                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
-                        BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER_FOCUS),
+                            BorderFactory.createEmptyBorder(2, 12, 2, 12)));
                 }
+
                 @Override
                 public void focusLost(FocusEvent e) {
                     setBorder(BorderFactory.createCompoundBorder(
-                        new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
-                        BorderFactory.createEmptyBorder(2, 12, 2, 12)));
+                            new RoundedBorder(UIConstants.BTN_RADIUS, UIConstants.BORDER),
+                            BorderFactory.createEmptyBorder(2, 12, 2, 12)));
                 }
             });
         }
@@ -353,7 +388,7 @@ public class RoundedComponents {
 
         public RoundedBorder(int radius, Color color) {
             this.radius = radius;
-            this.color  = color;
+            this.color = color;
         }
 
         @Override
@@ -367,7 +402,9 @@ public class RoundedComponents {
         }
 
         @Override
-        public Insets getBorderInsets(Component c) { return new Insets(radius/2, radius, radius/2, radius); }
+        public Insets getBorderInsets(Component c) {
+            return new Insets(radius / 2, radius, radius / 2, radius);
+        }
     }
 
     // ============================================================
@@ -414,4 +451,3 @@ public class RoundedComponents {
         return new RoundedButton(text, new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
     }
 }
-

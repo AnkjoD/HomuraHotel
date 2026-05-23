@@ -11,7 +11,16 @@
     "**/*.class": true
   },
   "java.project.outputPath": "bin",
-  "java.import.excludedFolders": ["bin", "out", "temp_bin", "restore_tmp"],
-  "java.project.referencedLibraries": ["lib/*.jar"],
-  "java.project.sourcePaths": ["src"]
+  "java.import.excludedFolders": [
+    "bin",
+    "out",
+    "temp_bin",
+    "restore_tmp"
+  ],
+  "java.project.referencedLibraries": [
+    "lib/*.jar"
+  ],
+  "java.project.sourcePaths": [
+    "src"
+  ]
 }

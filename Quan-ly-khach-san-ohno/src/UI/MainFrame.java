@@ -1142,6 +1142,15 @@ public class MainFrame extends JFrame {
             pThuePhong.rebuildFilter();
             pThuePhong.refreshGrid();
         }
+        if ("hoadon".equals(activeMenu) && pHoaDon != null) {
+            pHoaDon.refresh();
+        }
+
+        // Luôn refresh HoaDonPanel khi dữ liệu thay đổi (sau thanh toán từ
+        // ThuePhongPanel)
+        if (pHoaDon != null && !"hoadon".equals(activeMenu)) {
+            pHoaDon.refresh();
+        }
     }
 
     private void startClock() {
@@ -1470,6 +1479,7 @@ public class MainFrame extends JFrame {
             public void focusGained(FocusEvent e) {
                 wrap.setBorder(BorderFactory.createLineBorder(new Color(67, 97, 238), 2));
             }
+
             @Override
             public void focusLost(FocusEvent e) {
                 wrap.setBorder(BorderFactory.createLineBorder(new Color(0xCBD5E1), 1));
@@ -1574,7 +1584,7 @@ public class MainFrame extends JFrame {
                     ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
                             id,
                             "P." + (dp.getDsChiTiet() != null && !dp.getDsChiTiet().isEmpty()
-                                    ? dp.getDsChiTiet().get(0).getPhong().getSoPhong()
+                                    ? UIConstants.formatRoomNumber(dp.getDsChiTiet().get(0).getPhong().getSoPhong())
                                     : "??") + " quá hạn check-in",
                             "Đơn " + dp.getMaDatPhong() + " ("
                                     + (dp.getKhachHang() != null ? dp.getKhachHang().getHoTen() : "Khách") + ")",
@@ -1607,7 +1617,7 @@ public class MainFrame extends JFrame {
                         String id = "dirty_" + dp.getMaDatPhong();
                         if (!dismissedAlertIds.contains(id)) {
                             ui.components.GlobalNotificationBell.AlertItem item = new ui.components.GlobalNotificationBell.AlertItem(
-                                    id, "P." + roomNum + " chưa dọn dẹp",
+                                    id, "P." + UIConstants.formatRoomNumber(roomNum) + " chưa dọn dẹp",
                                     "Khách sắp đến nhận phòng nhưng phòng vẫn đang bẩn.",
                                     "warning", () -> navigateTo("thuephong"));
                             item.onDismiss = () -> {

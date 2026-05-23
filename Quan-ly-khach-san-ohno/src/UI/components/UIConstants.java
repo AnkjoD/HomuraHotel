@@ -101,8 +101,8 @@ public class UIConstants {
         switch (tt) {
             case PENDING:     return "Chờ xác nhận";
             case CONFIRMED:   return "Đã xác nhận";
-            case PARTIALLY_CHECKED_IN: return "Đang check-in";
-            case CHECKED_IN:  return "Đã check-in";
+            case PARTIALLY_CHECKED_IN: return "Đang nhận phòng";
+            case CHECKED_IN:  return "Đã nhận phòng";
             case CHECKED_OUT: return "Đã trả phòng";
             case CANCELLED:   return "Đã hủy";
             case NO_SHOW:     return "Khách không đến";
@@ -178,6 +178,15 @@ public class UIConstants {
         if ("Gold".equals(hang))   return new Color(0xD97706);
         if ("Silver".equals(hang)) return new Color(0x475569);
         return TEXT_MUTED;
+    }
+
+    public static String formatRoomNumber(String raw) {
+        if (raw == null) return "";
+        String trimmed = raw.trim();
+        if (trimmed.toUpperCase().startsWith("P") && trimmed.length() > 1 && Character.isDigit(trimmed.charAt(1))) {
+            return trimmed.substring(1);
+        }
+        return trimmed;
     }
 }
 
