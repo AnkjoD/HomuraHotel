@@ -33,7 +33,7 @@ public class ExtendStayDialog extends JDialog {
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public ExtendStayDialog(Frame parent, ChiTietDatPhong ctdp) {
-        super(parent, "Gia hạn lưu trú - EXTEND STAY", true);
+        super(parent, "Gia hạn lưu trú", true);
         this.chiTietDatPhong = ctdp;
         this.datPhong = ctdp.getDatPhong();
 
@@ -54,13 +54,13 @@ public class ExtendStayDialog extends JDialog {
         header.setPreferredSize(new Dimension(0, 80));
         header.setBorder(new EmptyBorder(15, 30, 10, 30));
 
-        JLabel lblTitle = new JLabel("Gia hạn lưu trú (Stay Extension)");
+        JLabel lblTitle = new JLabel("Gia hạn lưu trú");
         lblTitle.setFont(UIConstants.FONT_HEADER);
         lblTitle.setForeground(UIConstants.PRIMARY);
         header.add(lblTitle);
         
         Phong p = chiTietDatPhong.getPhong();
-        JLabel lblRoom = new JLabel("Phòng " + (p != null ? p.getSoPhong() : "N/A") + " • Khách: " + 
+        JLabel lblRoom = new JLabel("Phòng " + (p != null ? p.getSoPhongDisplay() : "N/A") + " • Khách: " + 
                                    (datPhong.getKhachHang() != null ? datPhong.getKhachHang().getHoTen() : "Khách lẻ"));
         lblRoom.setFont(UIConstants.FONT_SMALL);
         lblRoom.setForeground(UIConstants.TEXT_MUTED);

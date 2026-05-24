@@ -33,7 +33,7 @@ public class RoomTransferDialog extends JDialog {
     private boolean useNewPrice = true;
 
     public RoomTransferDialog(Frame parent, ChiTietDatPhong ctdp) {
-        super(parent, "Đổi phòng - Move Room", true);
+        super(parent, "Đổi phòng", true);
         this.chiTietDatPhong = ctdp;
         this.oldRoom = ctdp.getPhong();
 
@@ -54,12 +54,12 @@ public class RoomTransferDialog extends JDialog {
         header.setPreferredSize(new Dimension(0, 80));
         header.setBorder(new EmptyBorder(0, 25, 0, 25));
 
-        JLabel lblTitle = new JLabel("QUY TRÌNH ĐỔI PHÒNG (ROOM MOVE)");
+        JLabel lblTitle = new JLabel("QUY TRÌNH ĐỔI PHÒNG");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitle.setForeground(Color.WHITE);
         header.add(lblTitle, BorderLayout.CENTER);
         
-        JLabel lblRoom = new JLabel("Đang ở: Phòng " + oldRoom.getSoPhong() + " (" + oldRoom.getTenLoaiPhong() + ")");
+        JLabel lblRoom = new JLabel("Đang ở: Phòng " + oldRoom.getSoPhongDisplay() + " (" + oldRoom.getTenLoaiPhong() + ")");
         lblRoom.setFont(UIConstants.FONT_BODY);
         lblRoom.setForeground(new Color(0x94A3B8));
         header.add(lblRoom, BorderLayout.SOUTH);
@@ -268,7 +268,7 @@ public class RoomTransferDialog extends JDialog {
             p.setBackground(isSelected ? new Color(0xEFF6FF) : Color.WHITE);
             
             if (value instanceof Phong room) {
-                JLabel lblTitle = new JLabel("Phòng " + room.getSoPhong());
+                JLabel lblTitle = new JLabel("Phòng " + room.getSoPhongDisplay());
                 lblTitle.setFont(UIConstants.FONT_BODY_BOLD);
                 lblTitle.setForeground(isSelected ? UIConstants.PRIMARY : UIConstants.TEXT_PRIMARY);
                 

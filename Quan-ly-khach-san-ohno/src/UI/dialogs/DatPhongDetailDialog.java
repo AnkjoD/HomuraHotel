@@ -118,8 +118,8 @@ public class DatPhongDetailDialog extends JDialog {
         String checkin = datPhong.getNgayNhanDK_Date() != null ? sdf.format(datPhong.getNgayNhanDK_Date()) : "—";
         String checkout = datPhong.getNgayTraDK_Date() != null ? sdf.format(datPhong.getNgayTraDK_Date()) : "—";
         
-        content.add(createDetailRow("Check-in dự kiến:", checkin));
-        content.add(createDetailRow("Check-out dự kiến:", checkout));
+        content.add(createDetailRow("Nhận phòng dự kiến:", checkin));
+        content.add(createDetailRow("Trả phòng dự kiến:", checkout));
         
         long soNgay = (datPhong.getNgayNhanDK_Date() != null && datPhong.getNgayTraDK_Date() != null)
                 ? new ThuePhongService().tinhSoNgay(datPhong.getNgayNhanDK_Date(), datPhong.getNgayTraDK_Date())
@@ -130,7 +130,7 @@ public class DatPhongDetailDialog extends JDialog {
         if (datPhong.getHanCheckIn() != null) {
             String hanCI = sdf.format(java.sql.Timestamp.valueOf(datPhong.getHanCheckIn()));
             boolean quaHan = datPhong.isQuaHanCheckIn();
-            content.add(createDetailRow("Hạn check-in:", hanCI + (quaHan ? " [ĐÃ QUÁ HẠN]" : "")));
+            content.add(createDetailRow("Hạn nhận phòng:", hanCI + (quaHan ? " [ĐÃ QUÁ HẠN]" : "")));
         }
         content.add(Box.createVerticalStrut(15));
 

@@ -24,7 +24,8 @@ public class PhongDialog extends JDialog {
     private final Phong entity;
     private boolean confirmed = false;
 
-    private ModernTextField txtSoPhong, txtTang;
+    private ModernTextField txtSoPhong;
+    private ModernComboBox<Integer> cboTang;
     private JLabel lblGia, lblSucChua, lblGiaHienHanh;
     private ModernComboBox<String> cboLoai, cboView, cboTrangThai;
     private List<LoaiPhong> loaiList;
@@ -89,8 +90,12 @@ public class PhongDialog extends JDialog {
         cboTrangThai.setPreferredSize(new Dimension(140, 40));
 
         txtSoPhong = new ModernTextField("Nhập số phòng...");
-        txtTang = new ModernTextField("1");
-        txtTang.setPreferredSize(new Dimension(100, 40));
+        Integer[] floors = new Integer[10];
+        for (int i = 0; i < 10; i++) {
+            floors[i] = i + 1;
+        }
+        cboTang = new ModernComboBox<>(floors);
+        cboTang.setPreferredSize(new Dimension(100, 40));
         txtSoPhong.setPreferredSize(new Dimension(140, 40));
 
         // Read-only labels
@@ -115,6 +120,11 @@ public class PhongDialog extends JDialog {
         if (loaiList.size() > 0 && entity == null)
             updateGiaFromLoai();
 
+        cboTang.addActionListener(e -> suggestSoPhong());
+        if (entity == null) {
+            suggestSoPhong();
+        }
+
         // Form layout
         JPanel body = new JPanel(new GridBagLayout());
         body.setBackground(Color.WHITE);
@@ -124,7 +134,7 @@ public class PhongDialog extends JDialog {
         gbc.insets = new Insets(6, 6, 6, 6);
 
         int row = 0;
-        addField(body, gbc, row++, "Số phòng *", txtSoPhong, "Tầng *", txtTang);
+        addField(body, gbc, row++, "Số phòng *", txtSoPhong, "Tầng *", cboTang);
         addField(body, gbc, row++, "Loại phòng *", cboLoai, "Hướng nhìn", cboView);
 
         JPanel giaPanel = new JPanel(new BorderLayout(0, 2));
@@ -212,7 +222,7 @@ public class PhongDialog extends JDialog {
 
     private void fillData() {
         txtSoPhong.setText(entity.getSoPhong());
-        txtTang.setText(String.valueOf(entity.getTang()));
+        cboTang.setSelectedItem(entity.getTang());
         // Select loại phòng
         for (int i = 0; i < loaiList.size(); i++) {
             if (loaiList.get(i).getMaLoai().equals(entity.getMaLoai())) {
@@ -250,14 +260,22 @@ public class PhongDialog extends JDialog {
             return;
         }
 
-        int tang;
-        try {
-            tang = Integer.parseInt(txtTang.getText().trim());
-            if (tang < 1 || tang > 99)
-                throw new Exception();
-        } catch (Exception e) {
-            err("Tầng phải là số nguyên từ 1–99!");
-            return;
+        int tang = cboTang.getSelectedItem() != null ? (Integer) cboTang.getSelectedItem() : 1;
+
+        // Kiểm tra khớp số tầng (chỉ áp dụng khi tạo mới)
+        if (entity == null) {
+            String numPart = soPhong.replaceAll("\\D+", "");
+            if (!numPart.isEmpty() && !numPart.startsWith(String.valueOf(tang))) {
+                int choice = JOptionPane.showConfirmDialog(this,
+                        "⚠️ Số phòng (" + soPhong + ") không bắt đầu bằng số tầng (" + tang + ").\n" +
+                        "Quy chuẩn thông thường của khách sạn là " + tang + "01, " + tang + "02...\n\n" +
+                        "Bạn vẫn muốn tiếp tục sử dụng số phòng này?",
+                        "Xác nhận số phòng khác quy chuẩn", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (choice != JOptionPane.YES_OPTION) {
+                    txtSoPhong.requestFocus();
+                    return;
+                }
+            }
         }
 
         Phong p = entity != null ? entity : new Phong();
@@ -285,6 +303,35 @@ public class PhongDialog extends JDialog {
             dispose();
         } else
             err(error);
+    }
+
+    private void suggestSoPhong() {
+        if (entity != null) return;
+        if (cboTang.getSelectedItem() == null) return;
+        try {
+            int tang = (Integer) cboTang.getSelectedItem();
+            
+            List<Phong> all = service.getAllPhong();
+            int maxNum = 0;
+            for (Phong p : all) {
+                if (p.getTang() == tang) {
+                    String numPart = p.getSoPhong().replaceAll("\\D+", "");
+                    if (!numPart.isEmpty()) {
+                        try {
+                            int val = Integer.parseInt(numPart);
+                            if (val > maxNum) {
+                                maxNum = val;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+            if (maxNum > 0) {
+                txtSoPhong.setText(String.valueOf(maxNum + 1));
+            } else {
+                txtSoPhong.setText(tang + "01");
+            }
+        } catch (Exception ignored) {}
     }
 
     public boolean isConfirmed() {

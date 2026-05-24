@@ -34,7 +34,7 @@ public class DatPhongDialog extends JDialog {
         this.onSuccess = onSuccess;
 
         String titleStr = selectedRoomsList.size() == 1
-                ? "P." + selectedRoomsList.get(0).getSoPhong()
+                ? "P." + selectedRoomsList.get(0).getSoPhongDisplay()
                 : selectedRoomsList.size() + " phòng";
         setTitle("Đặt phòng — " + titleStr);
         setSize(600, 720);
@@ -69,7 +69,7 @@ public class DatPhongDialog extends JDialog {
                     p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "",
                     checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
             pricePerNight += giaBook;
-            roomNames.append("P.").append(p.getSoPhong()).append(", ");
+            roomNames.append("P.").append(p.getSoPhongDisplay()).append(", ");
         }
         if (roomNames.length() > 2)
             roomNames.setLength(roomNames.length() - 2);
@@ -179,10 +179,10 @@ public class DatPhongDialog extends JDialog {
         g.gridy = rowIdx;
         g.gridx = 0;
         g.insets = new Insets(0, 0, 12, 8);
-        form.add(fieldGroup("Họ và tên *", txtHoTen, errHoTen), g);
+        form.add(fieldGroup("Số điện thoại *", txtSDT, errSDT), g);
         g.gridx = 1;
         g.insets = new Insets(0, 8, 12, 0);
-        form.add(fieldGroup("Số điện thoại *", txtSDT, errSDT), g);
+        form.add(fieldGroup("Họ và tên *", txtHoTen, errHoTen), g);
         rowIdx++;
 
         // Real-time validation for Name and Phone
@@ -212,8 +212,11 @@ public class DatPhongDialog extends JDialog {
 
         JLabel errCCCD = inlineErr();
         ModernTextField txtCCCD = new ModernTextField("CCCD/Hộ chiếu (tùy chọn)...");
-        ModernComboBox<String> cboQuocTich = new ModernComboBox<>(
-                new String[] { "Việt Nam", "Mỹ", "Trung Quốc", "Hàn Quốc", "Nhật Bản", "Khác" });
+        ModernComboBox<String> cboQuocTich = new ModernComboBox<>();
+        for (String country : util.CountryList.getCountriesForInput()) {
+            cboQuocTich.addItem(country);
+        }
+        cboQuocTich.setSelectedItem("Việt Nam");
 
         g.gridy = rowIdx;
         g.gridwidth = 1;
@@ -313,12 +316,72 @@ public class DatPhongDialog extends JDialog {
             }
         });
 
+        // Section: Lịch trình từng phòng
+        g.gridx = 0;
+        g.gridy = rowIdx++;
+        g.gridwidth = 2;
+        g.weightx = 1.0;
+        g.insets = new Insets(8, 0, 16, 0);
+        form.add(modernSectionLabel("Lịch trình lưu trú từng phòng"), g);
+
+        final java.util.List<ui.components.DateTimePicker[]> roomDates = new java.util.ArrayList<>();
+        final Runnable[] updateEstTotal = new Runnable[1];
+
+        for (Phong ph : selectedRoomsList) {
+            ui.components.DateTimePicker pickNhan = new ui.components.DateTimePicker(checkIn);
+            ui.components.DateTimePicker pickTra = new ui.components.DateTimePicker(checkOut);
+            roomDates.add(new ui.components.DateTimePicker[] { pickNhan, pickTra });
+
+            JLabel lblStatus = new JLabel("✔️ Phòng trống");
+            lblStatus.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            lblStatus.setForeground(new Color(0x10B981)); // Success green
+
+            Runnable checkAvailability = () -> {
+                LocalDateTime ldtNhan = pickNhan.getLocalDateTime();
+                LocalDateTime ldtTra = pickTra.getLocalDateTime();
+                if (!ldtTra.isAfter(ldtNhan)) {
+                    lblStatus.setText("❌ Ngày trả phải sau ngày nhận");
+                    lblStatus.setForeground(new Color(0xEF4444)); // Error red
+                } else if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra)) {
+                    lblStatus.setText("❌ Bị trùng lịch đặt phòng!");
+                    lblStatus.setForeground(new Color(0xEF4444)); // Error red
+                } else {
+                    lblStatus.setText("✔️ Phòng trống sẵn sàng");
+                    lblStatus.setForeground(new Color(0x10B981)); // Success green
+                }
+            };
+
+            g.gridwidth = 1;
+            g.weightx = 0.5;
+            g.gridy = rowIdx;
+            g.gridx = 0;
+            g.insets = new Insets(0, 0, 12, 8);
+            form.add(fieldGroup("Nhận phòng " + ph.toString() + " *", pickNhan), g);
+
+            g.gridx = 1;
+            g.insets = new Insets(0, 8, 12, 0);
+            form.add(fieldGroup("Trả phòng " + ph.toString() + " *", pickTra, lblStatus), g);
+            rowIdx++;
+
+            pickNhan.addChangeListener(ev -> {
+                checkAvailability.run();
+                if (updateEstTotal[0] != null) updateEstTotal[0].run();
+            });
+            pickTra.addChangeListener(ev -> {
+                checkAvailability.run();
+                if (updateEstTotal[0] != null) updateEstTotal[0].run();
+            });
+
+            // Initial check
+            checkAvailability.run();
+        }
+
         // Section: Thanh toan
         g.gridx = 0;
         g.gridy = rowIdx++;
         g.gridwidth = 2;
         g.weightx = 1.0;
-        g.insets = new Insets(0, 0, 16, 0);
+        g.insets = new Insets(12, 0, 16, 0);
         form.add(modernSectionLabel("Thông tin thanh toán"), g);
 
         double tongTien = pricePerNight * soNgay;
@@ -326,10 +389,38 @@ public class DatPhongDialog extends JDialog {
         txtTongTien.setEditable(false);
         txtTongTien.setBackground(new Color(0xF1F5F9));
 
-        String[] cocOptions = { "Không đặt cọc", "30% (" + String.format("%,.0fđ", tongTien * 0.3) + ")",
-                "50% (" + String.format("%,.0fđ", tongTien * 0.5) + ")",
-                "100% (" + String.format("%,.0fđ", tongTien) + ")" };
-        JComboBox<String> cboCoc = new ModernComboBox<>(cocOptions);
+        JComboBox<String> cboCoc = new ModernComboBox<>();
+
+        updateEstTotal[0] = () -> {
+            double total = 0;
+            for (int i = 0; i < selectedRoomsList.size(); i++) {
+                Phong ph = selectedRoomsList.get(i);
+                ui.components.DateTimePicker[] pickers = roomDates.get(i);
+                Date rCheckIn = pickers[0].getDate();
+                Date rCheckOut = pickers[1].getDate();
+                long rNights = new ThuePhongService().tinhSoNgay(rCheckIn, rCheckOut);
+                double base = bangGiaService.layGiaVaoThoiDiem(
+                        ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
+                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                total += base * rNights;
+            }
+            txtTongTien.setText(String.format("%,.0fđ", total));
+
+            int selIdx = cboCoc.getSelectedIndex();
+            cboCoc.removeAllItems();
+            cboCoc.addItem("Không đặt cọc");
+            cboCoc.addItem("30% (" + String.format("%,.0fđ", total * 0.3) + ")");
+            cboCoc.addItem("50% (" + String.format("%,.0fđ", total * 0.5) + ")");
+            cboCoc.addItem("100% (" + String.format("%,.0fđ", total) + ")");
+            if (selIdx >= 0 && selIdx < cboCoc.getItemCount()) {
+                cboCoc.setSelectedIndex(selIdx);
+            } else {
+                cboCoc.setSelectedIndex(0);
+            }
+        };
+
+        // Initialize cboCoc options
+        updateEstTotal[0].run();
 
         g.gridy = rowIdx;
         g.gridwidth = 1;
@@ -378,7 +469,7 @@ public class DatPhongDialog extends JDialog {
                 BorderFactory.createLineBorder(UIConstants.BORDER),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)));
         txtGhiChu.setBackground(Color.WHITE);
-        String hint = "VD: Cần giường phụ, yêu cầu tầng cao, check-in muộn...";
+        String hint = "VD: Cần giường phụ, yêu cầu tầng cao, nhận phòng muộn...";
         txtGhiChu.setText(hint);
         txtGhiChu.setForeground(UIConstants.TEXT_MUTED);
         txtGhiChu.addFocusListener(new FocusAdapter() {
@@ -439,12 +530,27 @@ public class DatPhongDialog extends JDialog {
                 return;
             }
 
-            if (soKhach > finalTotalAbsMax && finalTotalAbsMax > 0) {
-                NotificationManager.showError("Lỗi", "Số lượng khách dự kiến vượt quá sức chứa tối đa!");
-                return;
+            // 1. Kiểm tra ngày nhận/trả và sẵn sàng cho từng phòng
+            for (int i = 0; i < selectedRoomsList.size(); i++) {
+                Phong ph = selectedRoomsList.get(i);
+                ui.components.DateTimePicker[] pickers = roomDates.get(i);
+                Date rCheckIn = pickers[0].getDate();
+                Date rCheckOut = pickers[1].getDate();
+
+                if (!rCheckOut.after(rCheckIn)) {
+                    NotificationManager.showError("Lỗi", "Ngày trả của phòng " + ph.getSoPhongDisplay() + " phải sau ngày nhận!");
+                    return;
+                }
+
+                LocalDateTime ldtNhan = pickers[0].getLocalDateTime();
+                LocalDateTime ldtTra = pickers[1].getLocalDateTime();
+                if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra)) {
+                    NotificationManager.showError("Lỗi", "Phòng " + ph.getSoPhongDisplay() + " đã có lịch đặt hoặc đang sử dụng trong khoảng thời gian này!");
+                    return;
+                }
             }
 
-            // Save logic
+            // 2. Lưu thông tin khách hàng trước
             KhachHang kh = khService.getByPhone(sdt);
             if (kh == null) {
                 kh = new KhachHang();
@@ -458,41 +564,27 @@ public class DatPhongDialog extends JDialog {
                 kh.setCccd(cccd);
             }
 
-            DatPhong dp = new DatPhong();
-            dp.setKhachHang(kh);
-            dp.setNgayNhanDuKien(checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
-            dp.setNgayTraDuKien(checkOut.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
-            dp.setSoLuongKhach(soKhach);
-            dp.setTienDatCoc(tongTien * (new double[] { 0, 0.3, 0.5, 1.0 })[cboCoc.getSelectedIndex()]);
-            dp.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
-            dp.setTrangThai(TrangThaiDatPhong.PENDING);
+            // Tính toán tổng tiền thực tế trên tất cả phòng
+            double overallTotal = 0;
+            double[] roomEstimates = new double[selectedRoomsList.size()];
+            for (int i = 0; i < selectedRoomsList.size(); i++) {
+                Phong ph = selectedRoomsList.get(i);
+                ui.components.DateTimePicker[] pickers = roomDates.get(i);
+                Date rCheckIn = pickers[0].getDate();
+                Date rCheckOut = pickers[1].getDate();
+                long rNights = new ThuePhongService().tinhSoNgay(rCheckIn, rCheckOut);
+                double base = bangGiaService.layGiaVaoThoiDiem(
+                        ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
+                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                roomEstimates[i] = base * rNights;
+                overallTotal += roomEstimates[i];
+            }
 
-            // Section: Check Deadline
-            dp.setHanNopCoc(txtHanCoc.getLocalDateTime());
-
-            entity.KenhDatPhong kenh = (entity.KenhDatPhong) cboKenh.getSelectedItem();
-            dp.setMaKenh(kenh != null ? kenh.getMaKenh() : "DIR");
-            String ota = txtOTA.getText().trim();
-            dp.setMaXacNhanKenh(ota.isEmpty() ? null : ota);
-
-            dp.setHanCheckIn(dp.getNgayNhanDuKien().toLocalDate().atTime(18, 0));
-            if (dp.getHanCheckIn().isBefore(dp.getNgayNhanDuKien()))
-                dp.setHanCheckIn(dp.getNgayNhanDuKien().plusHours(4));
-
-            boolean isDoan = cboLoaiKhach.getSelectedIndex() == 1;
-            dp.setLoaiKhach(isDoan ? "DOAN" : "CA_NHAN");
-            if (isDoan)
-                dp.setTenDoan(txtTenDoan.getText().trim());
-
-            NhanVien nv = new NhanVien();
-            nv.setMaNhanVien(AuthService.getInstance().getCurrentMaNV());
-            dp.setNhanVien(nv);
-
-            String vCode = txtVoucher.getText().trim();
-            if (!vCode.isEmpty())
-                dp.setMaKhuyenMai(vCode);
+            double cocPercent = (new double[] { 0, 0.3, 0.5, 1.0 })[cboCoc.getSelectedIndex()];
+            double totalCoc = overallTotal * cocPercent;
 
             double discount = 0;
+            boolean isDoan = cboLoaiKhach.getSelectedIndex() == 1;
             if (isDoan) {
                 try {
                     discount = Double.parseDouble(txtGiamGia.getText().trim());
@@ -500,7 +592,51 @@ public class DatPhongDialog extends JDialog {
                 }
             }
 
-            for (Phong ph : selectedRoomsList) {
+            // 3. Thực hiện lưu từng phòng thành đơn đặt riêng biệt
+            boolean allOk = true;
+            String errorMsg = null;
+            java.util.List<DatPhong> createdBookings = new java.util.ArrayList<>();
+
+            for (int i = 0; i < selectedRoomsList.size(); i++) {
+                Phong ph = selectedRoomsList.get(i);
+                ui.components.DateTimePicker[] pickers = roomDates.get(i);
+                LocalDateTime rCheckIn = pickers[0].getLocalDateTime();
+                LocalDateTime rCheckOut = pickers[1].getLocalDateTime();
+
+                DatPhong dp = new DatPhong();
+                dp.setKhachHang(kh);
+                dp.setNgayNhanDuKien(rCheckIn);
+                dp.setNgayTraDuKien(rCheckOut);
+                dp.setSoLuongKhach(Math.min(soKhach, ph.getSucChua() + 2));
+
+                double roomDeposit = overallTotal > 0 ? totalCoc * (roomEstimates[i] / overallTotal) : 0;
+                dp.setTienDatCoc(roomDeposit);
+
+                dp.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
+                dp.setTrangThai(TrangThaiDatPhong.PENDING);
+                dp.setHanNopCoc(txtHanCoc.getLocalDateTime());
+
+                entity.KenhDatPhong kenh = (entity.KenhDatPhong) cboKenh.getSelectedItem();
+                dp.setMaKenh(kenh != null ? kenh.getMaKenh() : "DIR");
+                String ota = txtOTA.getText().trim();
+                dp.setMaXacNhanKenh(ota.isEmpty() ? null : ota);
+
+                dp.setHanCheckIn(dp.getNgayNhanDuKien().toLocalDate().atTime(18, 0));
+                if (dp.getHanCheckIn().isBefore(dp.getNgayNhanDuKien()))
+                    dp.setHanCheckIn(dp.getNgayNhanDuKien().plusHours(4));
+
+                dp.setLoaiKhach(isDoan ? "DOAN" : "CA_NHAN");
+                if (isDoan)
+                    dp.setTenDoan(txtTenDoan.getText().trim());
+
+                NhanVien nv = new NhanVien();
+                nv.setMaNhanVien(AuthService.getInstance().getCurrentMaNV());
+                dp.setNhanVien(nv);
+
+                String vCode = txtVoucher.getText().trim();
+                if (!vCode.isEmpty())
+                    dp.setMaKhuyenMai(vCode);
+
                 ChiTietDatPhong ct = new ChiTietDatPhong();
                 ct.setPhong(ph);
                 ct.setDatPhong(dp);
@@ -508,16 +644,31 @@ public class DatPhongDialog extends JDialog {
                         ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "", dp.getNgayNhanDuKien());
                 ct.setGiaThucTeChot(discount > 0 ? base * (1 - discount / 100.0) : base);
                 dp.getDsChiTiet().add(ct);
+
+                String err = datPhongService.datPhong(dp);
+                if (err == null) {
+                    createdBookings.add(dp);
+                } else {
+                    allOk = false;
+                    errorMsg = err;
+                    break;
+                }
             }
 
-            String err = datPhongService.datPhong(dp);
-            if (err == null) {
-                NotificationManager.showSuccess("Thành công", "Đặt phòng " + dp.getMaDatPhong() + " thành công!");
+            if (allOk) {
+                String successMsg = selectedRoomsList.size() == 1 
+                        ? "Đặt phòng thành công!" 
+                        : "Đã tạo thành công " + selectedRoomsList.size() + " đơn đặt phòng riêng biệt lệch ngày!";
+                NotificationManager.showSuccess("Thành công", successMsg);
                 dispose();
                 if (onSuccess != null)
                     onSuccess.run();
             } else {
-                NotificationManager.showError("Lỗi", err);
+                // Hard rollback of any bookings created in the current batch on error
+                for (DatPhong created : createdBookings) {
+                    datPhongService.xoaDatPhong(created.getMaDatPhong());
+                }
+                NotificationManager.showError("Lỗi", "Gặp sự cố khi đặt phòng: " + errorMsg);
             }
         });
 
@@ -536,7 +687,7 @@ public class DatPhongDialog extends JDialog {
 
         // Focus first field
         SwingUtilities.invokeLater(() -> {
-            txtHoTen.requestFocusInWindow();
+            txtSDT.requestFocusInWindow();
         });
     }
 

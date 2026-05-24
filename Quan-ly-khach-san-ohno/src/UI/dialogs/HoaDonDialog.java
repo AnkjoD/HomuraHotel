@@ -62,7 +62,7 @@ public class HoaDonDialog extends JDialog {
     private double customDeductedDeposit = -1;
 
     public HoaDonDialog(Frame parent, ChiTietDatPhong tp) {
-        super(parent, "Hóa đơn – Phòng " + tp.getSoPhong(), true);
+        super(parent, "Hóa đơn – Phòng " + tp.getSoPhongDisplay(), true);
         this.thuePhong = tp;
         setSize(660, 700);
         setLocationRelativeTo(parent);
@@ -95,7 +95,7 @@ public class HoaDonDialog extends JDialog {
         JLabel t1 = new JLabel("HÓA ĐƠN THANH TOÁN");
         t1.setFont(new Font("Segoe UI", Font.BOLD, 20));
         t1.setForeground(Color.WHITE);
-        JLabel t2 = new JLabel("P." + thuePhong.getSoPhong() + "  "
+        JLabel t2 = new JLabel("P." + thuePhong.getSoPhongDisplay() + "  "
                 + (thuePhong.getTenLoaiPhong() != null ? thuePhong.getTenLoaiPhong() : ""));
         t2.setFont(UIConstants.FONT_BODY);
         t2.setForeground(new Color(255, 255, 255, 200));
@@ -761,7 +761,7 @@ public class HoaDonDialog extends JDialog {
                     if (!c.getMaChiTiet().equals(thuePhong.getMaChiTiet()) && c.getNgayTraThucTe() == null) {
                         String cKH = c.resolveKhachHang() != null ? c.resolveKhachHang().getMaKhachHang() : null;
                         if (currentKH.equals(cKH)) {
-                            sharedRooms.add((c.getPhong() != null ? c.getPhong().getMaPhong() : "Unknown"));
+                            sharedRooms.add((c.getPhong() != null ? c.getPhong().getSoPhongDisplay() : "Unknown"));
                         }
                     }
                 }
@@ -770,10 +770,10 @@ public class HoaDonDialog extends JDialog {
             if (!sharedRooms.isEmpty()) {
                 int warn = JOptionPane.showConfirmDialog(this,
                     "CẢNH BÁO NGHIỆP VỤ LƯU TRÚ:\n"
-                    + "Phòng " + thuePhong.getSoPhong() + " đang trả phòng.\n"
+                    + "Phòng " + thuePhong.getSoPhongDisplay() + " đang trả phòng.\n"
                     + "Các phòng phụ thuộc: " + String.join(", ", sharedRooms) + " đang dùng CHUNG thông tin người đại diện này.\n\n"
                     + "Khi người đại diện rời đi, bạn NÊN bổ sung giấy tờ/CCCD cho người quản lý các phòng còn lại.\n"
-                    + "Bạn có muốn tiếp tục thanh toán phòng " + thuePhong.getSoPhong() + " ngay lúc này?",
+                    + "Bạn có muốn tiếp tục thanh toán phòng " + thuePhong.getSoPhongDisplay() + " ngay lúc này?",
                     "Cảnh báo người đại diện RỜI ĐI", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
                 if (warn != JOptionPane.YES_OPTION) {
                     return;
@@ -834,7 +834,7 @@ public class HoaDonDialog extends JDialog {
         // ────────────────────────────────────────────────────────
 
         int ok = JOptionPane.showConfirmDialog(this,
-                "Xác nhận trả phòng " + thuePhong.getSoPhong() + "?\nTổng tiền: " + lblTongCong.getText(),
+                "Xác nhận trả phòng " + thuePhong.getSoPhongDisplay() + "?\nTổng tiền: " + lblTongCong.getText(),
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (ok != JOptionPane.YES_OPTION)
             return;
@@ -853,7 +853,7 @@ public class HoaDonDialog extends JDialog {
         if (err == null) {
             confirmed = true;
             ui.components.NotificationManager.showSuccess("Trả phòng thành công", 
-                "Phòng " + thuePhong.getSoPhong() + " đã được thanh toán.");
+                "Phòng " + thuePhong.getSoPhongDisplay() + " đã được thanh toán.");
             
             // Thông báo làm mới toàn bộ hệ thống (Sơ đồ phòng, Thống kê, Lịch sử)
             if (getOwner() instanceof MainFrame) {

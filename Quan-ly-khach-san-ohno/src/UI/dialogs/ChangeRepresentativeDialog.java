@@ -106,7 +106,11 @@ public class ChangeRepresentativeDialog extends JDialog {
         if (datPhong.getKhachHang() != null) txtCCCD.setText(datPhong.getKhachHang().getCccd());
         row4.add(fieldGroup("CCCD / Hộ chiếu", txtCCCD, errCCCD));
         
-        cboQuocTich = new ModernComboBox<>(new String[] { "Việt Nam", "Mỹ", "Trung Quốc", "Hàn Quốc", "Nhật Bản", "Khác" });
+        cboQuocTich = new ModernComboBox<>();
+        for (String country : util.CountryList.getCountriesForInput()) {
+            cboQuocTich.addItem(country);
+        }
+        cboQuocTich.setSelectedItem("Việt Nam");
         if (datPhong.getKhachHang() != null && datPhong.getKhachHang().getQuocTich() != null) {
             cboQuocTich.setSelectedItem(datPhong.getKhachHang().getQuocTich());
         }

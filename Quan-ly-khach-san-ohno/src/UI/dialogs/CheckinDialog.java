@@ -44,7 +44,7 @@ public class CheckinDialog extends JDialog {
 
     // Step inputs
     private JTextField txtTenKH, txtSDT, txtCCCD, txtEmail, txtKhachCungPhong;
-    private ModernComboBox<String> cboQuocTich;
+    private ModernComboBox<String> cboQuocTich, cboGioiTinh;
     private JLabel errTenKH, errSDT, errCCCD, errEmail, errQuocTich;
     private DateTimePicker pickerNgayNhan, pickerNgayTra;
     private JSpinner spnSoKhach;
@@ -54,6 +54,7 @@ public class CheckinDialog extends JDialog {
     private JLabel lblTongDV;
     private java.util.List<DichVu> allDichVu = new ArrayList<>();
     private final java.util.List<SuDungDichVu> selectedDV = new ArrayList<>();
+    private final java.util.List<JCheckBox> chkChecklist = new ArrayList<>();
 
     // ID Document capture
     private String selectedImagePath;
@@ -80,7 +81,7 @@ public class CheckinDialog extends JDialog {
 
     public CheckinDialog(Frame parent, Phong phong, KhachHang kh, DatPhong dp) {
         super(parent,
-                "Nhận phòng (Check-in)" + (phong != null ? " - P." + phong.getSoPhong() : ""),
+                "Nhận phòng" + (phong != null ? " - P." + phong.getSoPhong() : ""),
                 true);
         this.selectedPhong = phong;
         this.selectedKhach = kh;
@@ -125,6 +126,7 @@ public class CheckinDialog extends JDialog {
                 if (txtCCCD != null) txtCCCD.setText(selectedKhach.getCccd());
                 if (txtEmail != null && selectedKhach.getEmail() != null) txtEmail.setText(selectedKhach.getEmail());
                 if (cboQuocTich != null && selectedKhach.getQuocTich() != null) cboQuocTich.setSelectedItem(selectedKhach.getQuocTich());
+                if (cboGioiTinh != null && selectedKhach.getGioiTinh() != null) cboGioiTinh.setSelectedItem(selectedKhach.getGioiTinh());
             }
         }
     }
@@ -157,10 +159,10 @@ public class CheckinDialog extends JDialog {
         JPanel titlePanel = new JPanel();
         titlePanel.setOpaque(false);
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        JLabel lblTitle = new JLabel("Nhận phòng - Check-in");
+        JLabel lblTitle = new JLabel("Nhận phòng");
         lblTitle.setFont(UIConstants.FONT_TITLE);
         String info = selectedPhong != null
-                ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
+                ? "P." + selectedPhong.getSoPhongDisplay() + " - " + selectedPhong.getTenLoaiPhong()
                         + " - "
                         + String.format("%,.0fđ/đêm",
                                 (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null
@@ -256,7 +258,7 @@ public class CheckinDialog extends JDialog {
 
         JLabel title = new JLabel("Thông tin phòng");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel sub = new JLabel("Xác nhận phòng trước khi tiến hành check-in");
+        JLabel sub = new JLabel("Xác nhận phòng trước khi tiến hành nhận phòng");
         sub.setFont(UIConstants.FONT_SMALL);
         sub.setForeground(UIConstants.TEXT_MUTED);
 
@@ -282,7 +284,7 @@ public class CheckinDialog extends JDialog {
                         Phong ph = (Phong) value;
                         double gia = bangGiaService
                                 .layGiaHienHanh(ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "");
-                        lbl.setText(String.format("P.%s - %s - %,.0fd", ph.getSoPhong(), ph.getTenLoaiPhong(), gia));
+                        lbl.setText(String.format("P.%s - %s - %,.0fd", ph.getSoPhongDisplay(), ph.getTenLoaiPhong(), gia));
                         if (index == -1)
                             lbl.setForeground(UIConstants.PRIMARY);
                     }
@@ -311,7 +313,7 @@ public class CheckinDialog extends JDialog {
         }
 
         if (selectedPhong != null) {
-            JLabel num = new JLabel("Phòng " + selectedPhong.getSoPhong());
+            JLabel num = new JLabel("Phòng " + selectedPhong.getSoPhongDisplay());
             num.setFont(new Font("Segoe UI", Font.BOLD, 20));
             JLabel type = new JLabel(selectedPhong.getTenLoaiPhong() + " - Tầng " + selectedPhong.getTang() + " - "
                     + selectedPhong.getSucChua() + " người");
@@ -354,6 +356,16 @@ public class CheckinDialog extends JDialog {
         checklist.add(Box.createVerticalStrut(12));
         checklist.add(lblChk);
         checklist.add(Box.createVerticalStrut(6));
+
+        JCheckBox cbSelectAll = new JCheckBox("Chọn tất cả");
+        cbSelectAll.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        cbSelectAll.setForeground(UIConstants.PRIMARY);
+        cbSelectAll.setOpaque(false);
+        cbSelectAll.setAlignmentX(Component.LEFT_ALIGNMENT);
+        checklist.add(cbSelectAll);
+        checklist.add(Box.createVerticalStrut(4));
+
+        chkChecklist.clear();
         for (String c : new String[] { "Phòng sạch sẽ, vệ sinh đầy đủ", "Điều hòa, TV, đèn hoạt động bình thường",
                 "Minibar đầy đủ", "Khăn tắm, ga giường đã thay mới" }) {
             JCheckBox cb = new JCheckBox(c);
@@ -361,7 +373,30 @@ public class CheckinDialog extends JDialog {
             cb.setOpaque(false);
             cb.setAlignmentX(Component.LEFT_ALIGNMENT);
             checklist.add(cb);
+            chkChecklist.add(cb);
+
+            cb.addActionListener(e -> {
+                if (!cb.isSelected()) {
+                    cbSelectAll.setSelected(false);
+                } else {
+                    boolean allSelected = true;
+                    for (JCheckBox child : chkChecklist) {
+                        if (!child.isSelected()) {
+                            allSelected = false;
+                            break;
+                        }
+                    }
+                    cbSelectAll.setSelected(allSelected);
+                }
+            });
         }
+
+        cbSelectAll.addActionListener(e -> {
+            boolean select = cbSelectAll.isSelected();
+            for (JCheckBox cb : chkChecklist) {
+                cb.setSelected(select);
+            }
+        });
 
         JPanel content = new JPanel();
         content.setOpaque(false);
@@ -478,6 +513,8 @@ public class CheckinDialog extends JDialog {
                 txtEmail.setText(kh.getEmail() != null ? kh.getEmail() : "");
                 if (kh.getQuocTich() != null)
                     cboQuocTich.setSelectedItem(kh.getQuocTich());
+                if (kh.getGioiTinh() != null && cboGioiTinh != null)
+                    cboGioiTinh.setSelectedItem(kh.getGioiTinh());
                 findResultLbl.setText("[OK] Tìm thấy khách: " + kh.getHoTen());
                 findResultCard.setBackground(new Color(0xF0FDF4));
                 findResultCard.setBorder(BorderFactory.createLineBorder(new Color(0x86EFAC)));
@@ -517,17 +554,32 @@ public class CheckinDialog extends JDialog {
         formCard.add(fieldBlock("Họ và tên khách hàng *", txtTenKH, errTenKH, null, true), g);
         g.gridy++;
 
-        // Two columns for phone and nationality
-        JPanel rowTwin = new JPanel(new GridLayout(1, 2, 20, 0));
-        rowTwin.setOpaque(false);
-        rowTwin.add(fieldBlock("Số điện thoại *", txtSDT, errSDT, null, true));
-        cboQuocTich = new ModernComboBox<>(new String[] { "Việt Nam", "Quốc tế" });
-        cboQuocTich.setPreferredSize(new Dimension(0, 40));
-        rowTwin.add(fieldBlock("Quốc tịch", cboQuocTich, errQuocTich, null, false));
-        formCard.add(rowTwin, g);
+        // Row 3: Số điện thoại * & Địa chỉ Email
+        JPanel rowPhoneEmail = new JPanel(new GridLayout(1, 2, 20, 0));
+        rowPhoneEmail.setOpaque(false);
+        rowPhoneEmail.add(fieldBlock("Số điện thoại *", txtSDT, errSDT, null, true));
+        rowPhoneEmail.add(fieldBlock("Địa chỉ Email", txtEmail, errEmail, null, false));
+        formCard.add(rowPhoneEmail, g);
         g.gridy++;
 
-        formCard.add(fieldBlock("Địa chỉ Email", txtEmail, errEmail, null, false), g);
+        // Row 4: Giới tính & Quốc tịch
+        JPanel rowGenderNation = new JPanel(new GridLayout(1, 2, 20, 0));
+        rowGenderNation.setOpaque(false);
+
+        cboGioiTinh = new ModernComboBox<>(new String[] { "Nam", "Nữ", "Khác" });
+        cboGioiTinh.setPreferredSize(new Dimension(0, 40));
+        JLabel errGioiTinh = inlineErr();
+        rowGenderNation.add(fieldBlock("Giới tính", cboGioiTinh, errGioiTinh, null, false));
+
+        cboQuocTich = new ModernComboBox<>();
+        for (String country : util.CountryList.getCountriesForInput()) {
+            cboQuocTich.addItem(country);
+        }
+        cboQuocTich.setSelectedItem("Việt Nam");
+        cboQuocTich.setPreferredSize(new Dimension(0, 40));
+        rowGenderNation.add(fieldBlock("Quốc tịch", cboQuocTich, errQuocTich, null, false));
+
+        formCard.add(rowGenderNation, g);
         g.gridy++;
 
         formCard.add(fieldBlock("Danh sách khách ở cùng (nếu có)", txtKhachCungPhong, null, hint("Nhập tên những người lưu trú chung phòng này"), false), g);
@@ -967,13 +1019,13 @@ public class CheckinDialog extends JDialog {
 
         JLabel title = new JLabel("Xác nhận nhận phòng");
         title.setFont(UIConstants.FONT_HEADER);
-        JLabel sub = new JLabel("Kiểm tra lại thông tin trước khi hoàn tất check-in");
+        JLabel sub = new JLabel("Kiểm tra lại thông tin trước khi hoàn tất nhận phòng");
         sub.setFont(UIConstants.FONT_SMALL);
         sub.setForeground(UIConstants.TEXT_MUTED);
 
         // Doc du lieu tu cac field hien tai
         String phongInfo = selectedPhong != null
-                ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
+                ? "P." + selectedPhong.getSoPhongDisplay() + " - " + selectedPhong.getTenLoaiPhong()
                 : "Chưa chọn";
         
         // Fix: Lay gia hien hanh de hien thi cho dong bo voi Tong thanh toan và Header
@@ -1017,7 +1069,7 @@ public class CheckinDialog extends JDialog {
         };
         checkIcon.setOpaque(false);
         checkIcon.setPreferredSize(new Dimension(22, 22));
-        JLabel readyTxt = new JLabel("Sẵn sàng check-in");
+        JLabel readyTxt = new JLabel("Sẵn sàng nhận phòng");
         readyTxt.setFont(new Font("Segoe UI", Font.BOLD, 15));
         readyTxt.setForeground(UIConstants.SUCCESS);
         readyRow.add(checkIcon);
@@ -1294,7 +1346,7 @@ public class CheckinDialog extends JDialog {
         refreshHeaderInfo();
 
         btnBack.setText(step == 1 ? "Hủy" : "<< Quay lại");
-        btnNext.setText(step == TOTAL_STEPS ? "Xác nhận Check-in" : "Tiếp theo >>");
+        btnNext.setText(step == TOTAL_STEPS ? "Xác nhận nhận phòng" : "Tiếp theo >>");
 
         if (step == TOTAL_STEPS) {
             btnNext.setBackground(UIConstants.SUCCESS);
@@ -1389,7 +1441,7 @@ public class CheckinDialog extends JDialog {
         if (lblInfo == null)
             return;
         String info = selectedPhong != null
-                ? "P." + selectedPhong.getSoPhong() + " - " + selectedPhong.getTenLoaiPhong()
+                ? "P." + selectedPhong.getSoPhongDisplay() + " - " + selectedPhong.getTenLoaiPhong()
                         + " - "
                         + String.format("%,.0fd/dem",
                                 (double) bangGiaService.layGiaHienHanh(selectedPhong.getLoaiPhong() != null
@@ -1413,7 +1465,7 @@ public class CheckinDialog extends JDialog {
                                "09:00 - 12:00 (Tính 30%)";
 
                 int confirm = JOptionPane.showConfirmDialog(this,
-                        "<html><b style='color:red;'>CẢNH BÁO NHẬN PHÒNG SỚM (EARLY CHECK-IN)</b><br>" +
+                        "<html><b style='color:red;'>CẢNH BÁO NHẬN PHÒNG SỚM</b><br>" +
                                 "Thời điểm nhận phòng: <b>" + now.getHour() + "h</b><br>" +
                                 "Chính sách: " + policy + "<br>" +
                                 "Hệ thống sẽ tính thêm phụ phí: <b>" + String.format("%,.0f VNĐ", phiEarly)
@@ -1454,6 +1506,17 @@ public class CheckinDialog extends JDialog {
             return;
         }
 
+        Phong checkPhong = phongService.getPhongById(selectedPhong.getMaPhong());
+        if (checkPhong == null) {
+            NotificationManager.showError("Lỗi", "Không tìm thấy thông tin phòng!");
+            return;
+        }
+        if (checkPhong.getTrangThai() != entity.enums.TrangThaiPhong.AVAILABLE) {
+            NotificationManager.showError("Không thể nhận phòng",
+                    "Phòng " + checkPhong.getSoPhongDisplay() + " hiện không sẵn sàng (đang: " + checkPhong.getTrangThaiString() + ")!");
+            return;
+        }
+
         Date ngayNhan = pickerNgayNhan.getDate();
         Date ngayTra = pickerNgayTra.getDate();
         if (!ngayTra.after(ngayNhan)) {
@@ -1477,6 +1540,9 @@ public class CheckinDialog extends JDialog {
             kh.setCccd(cccd);
             kh.setEmail(email);
             kh.setQuocTich(cboQuocTich.getSelectedItem().toString());
+            if (cboGioiTinh != null) {
+                kh.setGioiTinh(cboGioiTinh.getSelectedItem().toString());
+            }
 
             // Lưu ảnh CCCD nếu có
             String savedPath = saveCCCDImage("GUEST_" + System.currentTimeMillis());
@@ -1495,6 +1561,9 @@ public class CheckinDialog extends JDialog {
             selectedKhach.setSdt(sdt);
             selectedKhach.setEmail(email);
             selectedKhach.setQuocTich(cboQuocTich.getSelectedItem().toString());
+            if (cboGioiTinh != null) {
+                selectedKhach.setGioiTinh(cboGioiTinh.getSelectedItem().toString());
+            }
             selectedKhach.setTrangThai("Dang o");
 
             if (selectedImagePath != null) {
@@ -1603,7 +1672,7 @@ public class CheckinDialog extends JDialog {
 
         String err = thuePhongService.checkIn(ct);
         if (err != null) {
-            NotificationManager.showError("Lỗi", "Lỗi check-in: " + err);
+            NotificationManager.showError("Lỗi", "Lỗi nhận phòng: " + err);
             return;
         }
 
@@ -1622,13 +1691,13 @@ public class CheckinDialog extends JDialog {
 
         if (!failedServices.isEmpty()) {
             NotificationManager.showWarning("Cảnh báo dịch vụ",
-                    "Check-in thành công nhưng một số dịch vụ chưa lưu được:\n- "
+                    "Nhận phòng thành công nhưng một số dịch vụ chưa lưu được:\n- "
                             + String.join("\n- ", failedServices));
         }
 
         confirmed = true;
-        NotificationManager.showSuccess("Check-in thành công",
-                "Phòng " + selectedPhong.getSoPhong() + " đã bắt đầu lưu trú.");
+        NotificationManager.showSuccess("Nhận phòng thành công",
+                "Phòng " + selectedPhong.getSoPhongDisplay() + " đã bắt đầu lưu trú.");
         dispose();
     }
 
