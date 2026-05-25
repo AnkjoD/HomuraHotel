@@ -128,20 +128,42 @@ public class ShiftHistoryPanel extends JPanel {
     }
 
     private RoundedPanel statCard(String label, String val, Color c) {
-        RoundedPanel card = new RoundedPanel(UIConstants.CARD_RADIUS);
+        RoundedPanel card = new RoundedPanel(12);
         card.setBackground(Color.WHITE);
         card.setShadow(true);
         card.setLayout(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+        card.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
 
         JLabel l1 = new JLabel(label);
-        l1.setFont(UIConstants.FONT_SMALL);
+        l1.setFont(UIConstants.FONT_SMALL_BOLD);
         l1.setForeground(UIConstants.TEXT_SECONDARY);
-        JLabel l2 = new JLabel(val);
-        l2.setFont(new Font("Segoe UI", Font.BOLD, 18));
 
-        card.add(l1, BorderLayout.NORTH);
-        card.add(l2, BorderLayout.CENTER);
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        l2.setForeground(UIConstants.TEXT_PRIMARY);
+
+        JPanel indicator = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(c);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+            }
+        };
+        indicator.setPreferredSize(new Dimension(4, 24));
+
+        JPanel left = new JPanel(new BorderLayout(12, 0));
+        left.setOpaque(false);
+        left.add(indicator, BorderLayout.WEST);
+
+        JPanel text = new JPanel(new GridLayout(2, 1, 0, 2));
+        text.setOpaque(false);
+        text.add(l1);
+        text.add(l2);
+        left.add(text, BorderLayout.CENTER);
+
+        card.add(left, BorderLayout.WEST);
         return card;
     }
 
