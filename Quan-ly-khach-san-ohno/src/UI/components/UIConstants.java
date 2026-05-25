@@ -21,8 +21,8 @@ public class UIConstants {
 
     // ---- Màu chữ ----
     public static final Color TEXT_PRIMARY   = new Color(0x1B2559);  
-    public static final Color TEXT_SECONDARY = new Color(0xA3AED0);  
-    public static final Color TEXT_MUTED     = new Color(0xCBD5E1);  
+    public static final Color TEXT_SECONDARY = new Color(0x475569);  
+    public static final Color TEXT_MUTED     = new Color(0x64748B);  
 
     // ---- Màu trạng thái (Modern Palette) ----
     public static final Color SUCCESS        = new Color(0x05CD99);  // Teal-Green
