@@ -25,8 +25,10 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
 
     @Override
     public void resetFilters() {
-        if (txtSearch != null) txtSearch.setText("");
-        if (cbStatus != null) cbStatus.setSelectedIndex(0);
+        if (txtSearch != null)
+            txtSearch.setText("");
+        if (cbStatus != null)
+            cbStatus.setSelectedIndex(0);
         loadData();
     }
 
@@ -154,7 +156,7 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
     private JPanel buildStats() {
         List<KhuyenMai> all = kmDAO.getAll();
         int total = all.size();
-        
+
         long active = all.stream().filter(km -> "HOẠT ĐỘNG".equals(determineStatus(km))).count();
         long expired = all.stream().filter(km -> "HẾT HẠN".equals(determineStatus(km))).count();
 
@@ -294,7 +296,8 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
     private void loadData() {
         String keyword = txtSearch != null ? txtSearch.getText().trim() : "";
         String status = cbStatus != null ? (String) cbStatus.getSelectedItem() : "Tất cả trạng thái";
-        if ("Tất cả trạng thái".equals(status)) status = "Tất cả";
+        if ("Tất cả trạng thái".equals(status))
+            status = "Tất cả";
         allKhuyenMai = kmDAO.search(keyword, status);
 
         if (pagination != null) {

@@ -16,9 +16,6 @@ import java.awt.event.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.LinkedHashMap;
 
 /**
  * TongQuanPanel — Dashboard tổng quan
@@ -88,15 +85,15 @@ public class TongQuanPanel extends JPanel {
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         JScrollBar vBarMain = scroll.getVerticalScrollBar();
         vBarMain.setPreferredSize(new Dimension(8, vBarMain.getPreferredSize().height));
+        // THÊM: đặt viewport border = null để tránh offset
+        scroll.getViewport().setBorder(null);
         add(scroll, BorderLayout.CENTER);
     }
 
     private JPanel buildInner() {
-        JPanel inner = new JPanel();
-        inner.setOpaque(false);
+        ScrollablePanel inner = new ScrollablePanel(null);
         inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
         inner.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-
         inner.add(buildTitleRow());
         inner.add(Box.createVerticalStrut(16));
         inner.add(buildStatsRow());
@@ -208,7 +205,7 @@ public class TongQuanPanel extends JPanel {
             pnlCheckinList.removeAll();
             SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
             if (data.checkins.isEmpty()) {
-                pnlCheckinList.add(buildEmptyLabel("Chưa có check-in hôm nay"));
+                pnlCheckinList.add(buildEmptyLabel("Chưa có nhận phòng hôm nay"));
             } else {
                 for (Map<String, Object> ci : data.checkins) {
                     pnlCheckinList.add(buildCheckinRow(
@@ -217,6 +214,7 @@ public class TongQuanPanel extends JPanel {
                             ci.get("ngayNhan") != null ? timeFmt.format(ci.get("ngayNhan")) : "--:--",
                             "Chờ xác nhận"));
                 }
+                pnlCheckinList.add(Box.createVerticalGlue());
             }
             pnlCheckinList.revalidate();
             pnlCheckinList.repaint();
@@ -229,11 +227,12 @@ public class TongQuanPanel extends JPanel {
             pnlCheckoutList.removeAll();
             SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
             if (data.checkouts.isEmpty()) {
-                pnlCheckoutList.add(buildEmptyLabel("Chưa có check-out hôm nay"));
+                pnlCheckoutList.add(buildEmptyLabel("Chưa có trả phòng hôm nay"));
             } else {
                 for (Map<String, Object> co : data.checkouts) {
                     pnlCheckoutList.add(buildCheckoutRow(co, timeFmt));
                 }
+                pnlCheckoutList.add(Box.createVerticalGlue());
             }
             pnlCheckoutList.revalidate();
             pnlCheckoutList.repaint();
@@ -249,6 +248,7 @@ public class TongQuanPanel extends JPanel {
                 for (Map<String, Object> act : data.activities) {
                     pnlActivityList.add(buildActivityRow(act, timeFmt));
                 }
+                pnlActivityList.add(Box.createVerticalGlue());
             }
             pnlActivityList.revalidate();
             pnlActivityList.repaint();
@@ -267,10 +267,17 @@ public class TongQuanPanel extends JPanel {
                 pnlAlertList.add(Box.createVerticalStrut(30));
                 pnlAlertList.add(ok);
             } else {
-                for (Map<String, Object> alert : data.alerts) {
-                    pnlAlertList.add(buildAlertRow(alert));
-                    pnlAlertList.add(new JSeparator(JSeparator.HORIZONTAL));
+                for (int i = 0; i < data.alerts.size(); i++) {
+                    pnlAlertList.add(buildAlertRow(data.alerts.get(i)));
+                    if (i < data.alerts.size() - 1) {
+                        pnlAlertList.add(Box.createVerticalStrut(8));
+                        JSeparator sep = new JSeparator(JSeparator.HORIZONTAL);
+                        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                        pnlAlertList.add(sep);
+                        pnlAlertList.add(Box.createVerticalStrut(8));
+                    }
                 }
+                pnlAlertList.add(Box.createVerticalGlue());
             }
             pnlAlertList.revalidate();
             pnlAlertList.repaint();
@@ -354,14 +361,14 @@ public class TongQuanPanel extends JPanel {
         JPanel wrapper = new JPanel(new GridLayout(1, cols, 16, 0));
         wrapper.setOpaque(false);
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
-        wrapper.setMaximumSize(new Dimension(Short.MAX_VALUE, 90));
-        wrapper.setPreferredSize(new Dimension(1000, 90));
+        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        wrapper.setPreferredSize(new Dimension(100, 90));
 
         lblStatEmpty = addStatCard(wrapper, "Phòng trống", "...", "\u2705", UIConstants.SUCCESS);
-        lblStatOccupied = addStatCard(wrapper, "Đang ở", "...", "\uD83D\uDCC8", UIConstants.PRIMARY);
-        lblStatReserved = addStatCard(wrapper, "Đặt trước", "...", "\uD83D\uDCC5", UIConstants.WARNING);
-        lblStatCheckin = addStatCard(wrapper, "Check-in", "...", "\uD83D\uDEEB", new Color(0x06B6D4));
-        lblStatCheckout = addStatCard(wrapper, "Check-out", "...", "\uD83D\uDEEC", UIConstants.ORANGE);
+        lblStatOccupied = addStatCard(wrapper, "Đang thuê", "...", "\uD83D\uDCC8", UIConstants.PRIMARY);
+        lblStatReserved = addStatCard(wrapper, "Đã đặt trước", "...", "\uD83D\uDCC5", UIConstants.WARNING);
+        lblStatCheckin = addStatCard(wrapper, "Nhận phòng", "...", "\uD83D\uDEEB", new Color(0x06B6D4));
+        lblStatCheckout = addStatCard(wrapper, "Trả phòng", "...", "\uD83D\uDEEC", UIConstants.ORANGE);
 
         if (showRevenue) {
             lblStatRevenue = addStatCard(wrapper, "Doanh thu", "...", "\uD83D\uDCB0", new Color(0x8B5CF6));
@@ -429,7 +436,7 @@ public class TongQuanPanel extends JPanel {
         JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
         row.setOpaque(false);
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 400));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 400));
         row.add(buildRoomGridCard());
         row.add(buildRevenueChartCard());
         row.add(buildOccupancyCard());
@@ -472,12 +479,14 @@ public class TongQuanPanel extends JPanel {
         gs.getViewport().setOpaque(false);
         gs.setBorder(null);
         gs.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        gs.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS); // Thay đổi thành ALWAYS để ép hiện thanh cuộn
+        gs.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS); // Thay đổi thành ALWAYS để ép hiện thanh
+                                                                              // cuộn
         gs.getVerticalScrollBar().setUnitIncrement(16);
         gs.setPreferredSize(new Dimension(200, 225)); // Giới hạn chiều cao để kích hoạt thanh cuộn
-        
+
         JScrollBar vBar = gs.getVerticalScrollBar();
-        vBar.setPreferredSize(new Dimension(8, 0)); // Dùng kích thước mặc định hoặc lớn hơn xíu để chắc chắn vẽ được thumb
+        vBar.setPreferredSize(new Dimension(8, 0)); // Dùng kích thước mặc định hoặc lớn hơn xíu để chắc chắn vẽ được
+                                                    // thumb
         vBar.setOpaque(true);
 
         JPanel center = new JPanel(new BorderLayout(0, 5));
@@ -489,7 +498,7 @@ public class TongQuanPanel extends JPanel {
         JPanel leg = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 3));
         leg.setOpaque(false);
         leg.add(mkDot("Trống", UIConstants.SUCCESS));
-        leg.add(mkDot("Đang ở", UIConstants.PRIMARY));
+        leg.add(mkDot("Đang thuê", UIConstants.PRIMARY));
         leg.add(mkDot("Đặt trước", UIConstants.WARNING));
         leg.add(mkDot("Cần dọn", new Color(0x06B6D4)));
         leg.add(mkDot("Bảo trì", UIConstants.DANGER));
@@ -498,29 +507,31 @@ public class TongQuanPanel extends JPanel {
     }
 
     private void rebuildRoomTabs() {
-        if (pnlRoomTabs == null) return;
+        if (pnlRoomTabs == null)
+            return;
         pnlRoomTabs.removeAll();
-        
+
         Set<String> floors = new TreeSet<>();
         for (Phong p : allRooms) {
             String num = p.getSoPhong() != null ? p.getSoPhong().replaceAll("[^0-9]", "") : "";
-            if (num.length() > 0) floors.add(String.valueOf(num.charAt(0)));
+            if (num.length() > 0)
+                floors.add(String.valueOf(num.charAt(0)));
         }
-        
+
         // Nếu không có data, dùng mặc định
         if (floors.isEmpty()) {
             floors.addAll(Arrays.asList("1", "2", "3", "4"));
         }
-        
+
         List<String> items = new ArrayList<>();
         items.add("Tất cả");
         for (String f : floors) {
             items.add("Tầng " + f);
         }
-        
+
         ModernComboBox<String> cboFloor = new ModernComboBox<>(items.toArray(new String[0]));
         cboFloor.setPreferredSize(new Dimension(140, 32));
-        
+
         boolean foundCurFloor = "all".equals(curFloor);
         if ("all".equals(curFloor)) {
             cboFloor.setSelectedItem("Tất cả");
@@ -528,12 +539,12 @@ public class TongQuanPanel extends JPanel {
             cboFloor.setSelectedItem("Tầng " + curFloor);
             foundCurFloor = true;
         }
-        
+
         if (!foundCurFloor) {
             cboFloor.setSelectedItem("Tất cả");
             curFloor = "all";
         }
-        
+
         cboFloor.addActionListener(e -> {
             String sel = (String) cboFloor.getSelectedItem();
             if ("Tất cả".equals(sel)) {
@@ -543,12 +554,11 @@ public class TongQuanPanel extends JPanel {
             }
             filterAndRenderGrid(curFloor);
         });
-        
+
         pnlRoomTabs.add(cboFloor);
         pnlRoomTabs.revalidate();
         pnlRoomTabs.repaint();
     }
-
 
     private JPanel mkDot(String text, Color color) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -590,24 +600,24 @@ public class TongQuanPanel extends JPanel {
     private JPanel createRoomChip(Phong r) {
         entity.enums.TrangThaiPhong physicalStatus = r.getTrangThai();
         boolean isReservedToday = reservedRoomNums.contains(r.getSoPhong());
-        
+
         Color c;
         String st;
-        
+
         if (physicalStatus == entity.enums.TrangThaiPhong.AVAILABLE && isReservedToday) {
             c = UIConstants.WARNING; // Orange for reserved
-            st = "ĐĐặt"; // Short for Đặt trước
+            st = "Đã Đặt"; // Short for Đặt trước
         } else {
             c = UIConstants.getTrangThaiPhongColor(physicalStatus);
             st = UIConstants.getTrangThaiPhongLabel(physicalStatus);
             if (st.startsWith("Có") || st.startsWith("Không"))
                 st = "Trống";
             else if (st.startsWith("Đang"))
-                st = "ĐỞ";
+                st = "Đ. Thuê";
             else if (st.startsWith("Vệ"))
                 st = "Dọn";
             else if (st.startsWith("Bảo"))
-                st = "BT";
+                st = "Bảo Trì";
         }
 
         Color bg = new Color(c.getRed(), c.getGreen(), c.getBlue(), 20);
@@ -616,16 +626,16 @@ public class TongQuanPanel extends JPanel {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
+
                 // Light background from UIConstants
                 Color bgChip = UIConstants.getTrangThaiPhongBg(physicalStatus);
                 if (physicalStatus == entity.enums.TrangThaiPhong.AVAILABLE && isReservedToday) {
                     bgChip = UIConstants.WARNING_LIGHT;
                 }
-                
+
                 g2.setColor(bgChip);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                
+
                 // Thin border
                 g2.setColor(c);
                 g2.setStroke(new BasicStroke(1.0f));
@@ -638,17 +648,17 @@ public class TongQuanPanel extends JPanel {
         chip.setPreferredSize(new Dimension(54, 48));
         chip.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
         chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        
+
         JLabel lNum = new JLabel(r.getSoPhong(), SwingConstants.CENTER);
         lNum.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lNum.setForeground(c.darker());
         lNum.setAlignmentX(0.5f);
-        
+
         JLabel lSt = new JLabel(st, SwingConstants.CENTER);
         lSt.setFont(new Font("Segoe UI", Font.BOLD, 10));
         lSt.setForeground(c.darker());
         lSt.setAlignmentX(0.5f);
-        
+
         chip.add(Box.createVerticalGlue());
         chip.add(lNum);
         chip.add(lSt);
@@ -687,26 +697,29 @@ public class TongQuanPanel extends JPanel {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setFont(new Font("Segoe UI", Font.PLAIN, 9));
-                
+
                 // Dynamic day labels (6 days ago -> today)
                 String[] dayLabels = new String[7];
-                String[] dow = {"CN", "T2", "T3", "T4", "T5", "T6", "T7"};
+                String[] dow = { "CN", "T2", "T3", "T4", "T5", "T6", "T7" };
                 Calendar cal = Calendar.getInstance();
                 cal.add(Calendar.DATE, -6);
-                for(int i=0; i<7; i++) {
-                    dayLabels[i] = dow[cal.get(Calendar.DAY_OF_WEEK)-1];
+                for (int i = 0; i < 7; i++) {
+                    dayLabels[i] = dow[cal.get(Calendar.DAY_OF_WEEK) - 1];
                     cal.add(Calendar.DATE, 1);
                 }
 
                 long[] vals = new long[7];
                 for (long[] row : revenue7) {
                     int idx = (int) (6 - row[0]);
-                    if (idx >= 0 && idx < 7) vals[idx] = row[1];
+                    if (idx >= 0 && idx < 7)
+                        vals[idx] = row[1];
                 }
-                
+
                 long maxVal = 1000000; // Default scale 1M
-                for (long v : vals) if (v > maxVal) maxVal = v;
-                
+                for (long v : vals)
+                    if (v > maxVal)
+                        maxVal = v;
+
                 int w = getWidth(), h = getHeight();
                 int padL = 40, padR = 10, padT = 30, padB = 25; // Increased padL for Y-axis
                 int chartW = w - padL - padR;
@@ -714,36 +727,39 @@ public class TongQuanPanel extends JPanel {
                 int barW = chartW / 7;
 
                 // Draw Y-axis grid lines
-                g2.setStroke(new BasicStroke(0.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{2}, 0));
+                g2.setStroke(
+                        new BasicStroke(0.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 2 }, 0));
                 g2.setColor(new Color(0xE2E8F0));
                 for (int i = 0; i <= 4; i++) {
                     int gy = padT + chartH - (chartH * i / 4);
                     g2.drawLine(padL, gy, w - padR, gy);
-                    
+
                     // Y labels
                     g2.setColor(UIConstants.TEXT_MUTED);
                     long val = maxVal * i / 4;
-                    String label = val >= 1000000 ? String.format("%.1fM", val/1000000.0) : String.format("%.0fK", val/1000.0);
+                    String label = val >= 1000000 ? String.format("%.1fM", val / 1000000.0)
+                            : String.format("%.0fK", val / 1000.0);
                     g2.drawString(label, 5, gy + 4);
                     g2.setColor(new Color(0xE2E8F0));
                 }
 
                 for (int i = 0; i < 7; i++) {
                     int barH = (int) (chartH * vals[i] / maxVal);
-                    if (vals[i] > 0 && barH < 4) barH = 4; 
+                    if (vals[i] > 0 && barH < 4)
+                        barH = 4;
 
                     int bx = padL + i * barW + 6;
                     int by = padT + (chartH - barH);
                     int bw = barW - 12;
-                    
+
                     boolean isToday = (i == 6);
                     boolean isHover = (i == hoverIdx);
                     Color baseColor = isToday ? UIConstants.PRIMARY : new Color(0x93C5FD);
-                    
+
                     if (isHover) {
                         g2.setColor(baseColor.brighter());
                         g2.fillRoundRect(bx, by, bw, barH, 6, 6);
-                        
+
                         // Draw value on top
                         g2.setColor(UIConstants.TEXT_PRIMARY);
                         g2.setFont(new Font("Segoe UI", Font.BOLD, 10));
@@ -755,7 +771,7 @@ public class TongQuanPanel extends JPanel {
                         g2.setColor(baseColor);
                         g2.fillRoundRect(bx, by, bw, barH, 6, 6);
                     }
-                    
+
                     // Label
                     g2.setColor((isToday || isHover) ? UIConstants.PRIMARY : UIConstants.TEXT_MUTED);
                     FontMetrics fm = g2.getFontMetrics();
@@ -783,18 +799,18 @@ public class TongQuanPanel extends JPanel {
                                 break;
                             }
                         }
-                        
+
                         // Dynamic day names for tooltip
                         String[] dayNames = new String[7];
-                        String[] fullDow = {"Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
+                        String[] fullDow = { "Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7" };
                         Calendar c = Calendar.getInstance();
                         c.add(Calendar.DATE, -6);
-                        for(int i=0; i<7; i++) {
-                            dayNames[i] = fullDow[c.get(Calendar.DAY_OF_WEEK)-1];
+                        for (int i = 0; i < 7; i++) {
+                            dayNames[i] = fullDow[c.get(Calendar.DAY_OF_WEEK) - 1];
                             c.add(Calendar.DATE, 1);
                         }
 
-                        pnlRevenueChart.setToolTipText(String.format("<html><b>%s</b><br>Doanh thu: %,d VNĐ</html>", 
+                        pnlRevenueChart.setToolTipText(String.format("<html><b>%s</b><br>Doanh thu: %,d VNĐ</html>",
                                 dayNames[idx], val));
                         if (hoverIdx != idx) {
                             hoverIdx = idx;
@@ -860,7 +876,7 @@ public class TongQuanPanel extends JPanel {
                 g2.drawArc(x, y, size, size, 135, 270);
                 Color arcClr = pct > 80 ? UIConstants.DANGER : pct > 50 ? UIConstants.WARNING : UIConstants.PRIMARY;
                 g2.setColor(arcClr);
-                g2.drawArc(x, y, size, size, 405, -(int) (2.7 * pct));
+                g2.drawArc(x, y, size, size, 135, (int) (2.7 * pct));
                 int cx = getWidth() / 2, cy = getHeight() / 2;
                 g2.setFont(new Font("Segoe UI", Font.BOLD, Math.max(14, size / 5)));
                 g2.setColor(UIConstants.TEXT_PRIMARY);
@@ -922,7 +938,7 @@ public class TongQuanPanel extends JPanel {
         JPanel row = new JPanel(new GridLayout(2, 2, 16, 16));
         row.setOpaque(false);
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Short.MAX_VALUE, 650));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 700));
         row.add(buildActivityCard());
         row.add(buildCheckinCard());
         row.add(buildCheckoutCard());
@@ -945,6 +961,7 @@ public class TongQuanPanel extends JPanel {
         pnlActivityList = new JPanel();
         pnlActivityList.setOpaque(false);
         pnlActivityList.setLayout(new BoxLayout(pnlActivityList, BoxLayout.Y_AXIS));
+        pnlActivityList.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
         pnlActivityList.add(buildLoadingLabel());
 
         JScrollPane scroll = new JScrollPane(pnlActivityList);
@@ -964,7 +981,7 @@ public class TongQuanPanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel title = new JLabel("Check-in hôm nay");
+        JLabel title = new JLabel("Nhận phòng hôm nay");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblCheckinCount = new JLabel("...");
         lblCheckinCount.setFont(UIConstants.FONT_SMALL_BOLD);
@@ -979,6 +996,7 @@ public class TongQuanPanel extends JPanel {
         pnlCheckinList = new JPanel();
         pnlCheckinList.setOpaque(false);
         pnlCheckinList.setLayout(new BoxLayout(pnlCheckinList, BoxLayout.Y_AXIS));
+        pnlCheckinList.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
         pnlCheckinList.add(buildLoadingLabel());
 
         JScrollPane scroll = new JScrollPane(pnlCheckinList);
@@ -998,7 +1016,7 @@ public class TongQuanPanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel title = new JLabel("Check-out hôm nay");
+        JLabel title = new JLabel("Trả phòng hôm nay");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblCheckoutCount = new JLabel("...");
         lblCheckoutCount.setFont(UIConstants.FONT_SMALL_BOLD);
@@ -1013,6 +1031,7 @@ public class TongQuanPanel extends JPanel {
         pnlCheckoutList = new JPanel();
         pnlCheckoutList.setOpaque(false);
         pnlCheckoutList.setLayout(new BoxLayout(pnlCheckoutList, BoxLayout.Y_AXIS));
+        pnlCheckoutList.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
         pnlCheckoutList.add(buildLoadingLabel());
 
         JScrollPane scroll = new JScrollPane(pnlCheckoutList);
@@ -1047,6 +1066,7 @@ public class TongQuanPanel extends JPanel {
         pnlAlertList = new JPanel();
         pnlAlertList.setOpaque(false);
         pnlAlertList.setLayout(new BoxLayout(pnlAlertList, BoxLayout.Y_AXIS));
+        pnlAlertList.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
         pnlAlertList.add(buildLoadingLabel());
 
         JScrollPane scroll = new JScrollPane(pnlAlertList);
@@ -1128,7 +1148,7 @@ public class TongQuanPanel extends JPanel {
         row.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        JLabel lblRoom = new JLabel("P." + co.get("soPhong"));
+        JLabel lblRoom = new JLabel("P." + UIConstants.formatRoomNumber(String.valueOf(co.get("soPhong"))));
         lblRoom.setFont(UIConstants.FONT_BODY_BOLD);
         lblRoom.setForeground(UIConstants.PRIMARY);
         lblRoom.setPreferredSize(new Dimension(60, 20));
@@ -1186,7 +1206,7 @@ public class TongQuanPanel extends JPanel {
         JPanel info = new JPanel();
         info.setOpaque(false);
         info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-        JLabel lblAct = new JLabel(loai + " - P." + act.get("soPhong"));
+        JLabel lblAct = new JLabel(loai + " - P." + UIConstants.formatRoomNumber(String.valueOf(act.get("soPhong"))));
         lblAct.setFont(UIConstants.FONT_SMALL_BOLD);
         lblAct.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -1244,6 +1264,7 @@ public class TongQuanPanel extends JPanel {
         lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
         lblIcon.setPreferredSize(new Dimension(24, 24));
         lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
+        lblIcon.setForeground(barColor);
 
         JPanel info = new JPanel();
         info.setOpaque(false);

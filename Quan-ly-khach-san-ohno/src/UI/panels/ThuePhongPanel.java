@@ -522,7 +522,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         if (hasReservation && tt == TrangThaiPhong.AVAILABLE) {
             borderClr = new Color(0xF59E0B); // Amber / Warning
             bgHover = new Color(0xFEF3C7);
-            txtStatus = "Sắp check-in";
+            txtStatus = "Sắp nhận phòng";
             String[] info = reservedRooms.get(p.getSoPhong());
             if (info.length > 2)
                 reservedInfo = info[2]; // Time
@@ -725,7 +725,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             showCleaningToAvailableDialog(p);
         } else {
             JOptionPane.showMessageDialog(mainFrame,
-                    "Phòng " + p.getSoPhong() + " - Trạng thái: " + p.getTrangThai(),
+                    "Phòng " + p.getSoPhongDisplay() + " - Trạng thái: " + p.getTrangThai(),
                     "Thông tin", JOptionPane.INFORMATION_MESSAGE);
         }
     }
@@ -753,7 +753,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         // Message
         String msg = "<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>"
                 + "<h3 style='margin: 0 0 8px 0; color: #0F172A;'>Phòng đã dọn dẹp xong?</h3>"
-                + "Bạn muốn chuyển phòng <b>" + p.getSoPhong()
+                + "Bạn muốn chuyển phòng <b>" + p.getSoPhongDisplay()
                 + "</b> sang trạng thái phòng trống sẵn sàng đón khách?</body></html>";
         JLabel lblMessage = new JLabel(msg);
         centerPanel.add(lblMessage, BorderLayout.CENTER);
@@ -769,7 +769,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         btnCancel.addActionListener(e -> dlg.dispose());
         btnConfirm.addActionListener(e -> {
             phongService.updateTrangThai(p.getSoPhong(), TrangThaiPhong.AVAILABLE);
-            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhong() + " đã sẵn sàng đón khách");
+            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhongDisplay() + " đã sẵn sàng đón khách");
             rebuildFilter();
             refreshGrid();
             dlg.dispose();
@@ -839,7 +839,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             // Text
             String msg = "<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>"
                     + "<h3 style='margin: 0 0 10px 0; color: #0F172A; font-size: 18px;'>Hình thức Trả phòng Đoàn</h3>"
-                    + "Phòng <b>" + p.getSoPhong() + "</b> thuộc về một hợp đồng ĐOÀN đang có " + activeRoomsInGroup
+                    + "Phòng <b>" + p.getSoPhongDisplay() + "</b> thuộc về một hợp đồng ĐOÀN đang có " + activeRoomsInGroup
                     + " phòng được thuê.<br><br>"
                     + "Bạn muốn xử lý hoá đơn cho phòng này như thế nào?</body></html>";
             JLabel lblMessage = new JLabel(msg);
@@ -912,7 +912,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
                     String msgConfirm = "<html><body style='width: 280px; color: #334155; font-family: Segoe UI, sans-serif;'>"
                             + "<h3 style='margin: 0 0 8px 0; color: #0F172A; font-size: 16px;'>Xác nhận Treo Nợ</h3>"
-                            + "Hoá đơn phòng <b>" + p.getSoPhong()
+                            + "Hoá đơn phòng <b>" + p.getSoPhongDisplay()
                             + "</b> sẽ được chuyển toàn bộ sang Hóa Đơn Đoàn tổng. Bạn vẫn muốn tiếp tục?</body></html>";
                     centerConfirm.add(new JLabel(msgConfirm), BorderLayout.CENTER);
                     confirmRoot.add(centerConfirm, BorderLayout.CENTER);
@@ -1209,7 +1209,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         btnCancel.addActionListener(e -> dlg.dispose());
         btnConfirm.addActionListener(e -> {
             phongService.updateTrangThai(p.getSoPhong(), start ? TrangThaiPhong.MAINTENANCE : TrangThaiPhong.AVAILABLE);
-            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhong() + (start ? " đã được đánh dấu bảo trì" : " đã sẵn sàng đón khách"));
+            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhongDisplay() + (start ? " đã được đánh dấu bảo trì" : " đã sẵn sàng đón khách"));
             refreshGrid();
             mainFrame.refreshDashboard();
             dlg.dispose();
@@ -1229,7 +1229,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         Phong p = phongService.getPhongById(pOld.getSoPhong());
         if (p == null) p = pOld;
 
-        JDialog dlg = new JDialog(mainFrame, "Thông tin phòng " + p.getSoPhong(), true);
+        JDialog dlg = new JDialog(mainFrame, "Thông tin phòng " + p.getSoPhongDisplay(), true);
         dlg.setSize(400, 480);
         dlg.setLocationRelativeTo(mainFrame);
         dlg.getContentPane().setBackground(Color.WHITE);
@@ -1245,7 +1245,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         infoPanel.setOpaque(false);
 
         // title
-        JLabel lblTitle = new JLabel("Chi tiết phòng " + p.getSoPhong());
+        JLabel lblTitle = new JLabel("Chi tiết phòng " + p.getSoPhongDisplay());
         lblTitle.setFont(UIConstants.FONT_HEADER);
         lblTitle.setForeground(UIConstants.TEXT_PRIMARY);
         lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);

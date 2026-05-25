@@ -1,12 +1,5 @@
 package ui.panels;
 
-import ui.MainFrame;
-import util.ExcelExporter;
-import ui.components.RoundedComponents.*;
-import ui.components.NotificationManager;
-import ui.components.PaginationPanel;
-import ui.components.UIConstants;
-import ui.dialogs.KhachHangDialog;
 import entity.KhachHang;
 import java.awt.*;
 import java.awt.event.*;
@@ -16,15 +9,30 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.*;
+import service.AuthService;
 import service.KhachHangService;
+import ui.MainFrame;
+import ui.components.NotificationManager;
+import ui.components.PaginationPanel;
+import ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents.ModernComboBox;
+import ui.components.RoundedComponents.ModernTextField;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.components.UIConstants;
+import ui.dialogs.KhachHangDialog;
+import util.ExcelExporter;
 
 public class KhachHangPanel extends JPanel implements ResettableFilter {
-    
+
     @Override
     public void resetFilters() {
-        if (txtSearch != null) txtSearch.setText("");
-        if (cboQuocTich != null) cboQuocTich.setSelectedIndex(0);
-        if (cboHang != null) cboHang.setSelectedIndex(0);
+        if (txtSearch != null)
+            txtSearch.setText("");
+        if (cboQuocTich != null)
+            cboQuocTich.setSelectedIndex(0);
+        if (cboHang != null)
+            cboHang.setSelectedIndex(0);
         runFilter();
     }
 
@@ -161,10 +169,11 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         txtSearch.setPreferredSize(new Dimension(280, 40));
 
         cboQuocTich = new ModernComboBox<>();
-        cboQuocTich.setPreferredSize(new Dimension(185, 40));
-        cboQuocTich.addItem("Quốc tịch (Tất cả)");
-        cboQuocTich.addItem("Nội địa (Việt Nam)");
-        cboQuocTich.addItem("Quốc tế");
+        cboQuocTich.setPreferredSize(new Dimension(220, 40));
+        // Load từ CountryList
+        for (String country : util.CountryList.getFilterList()) {
+            cboQuocTich.addItem(country);
+        }
 
         cboHang = new ModernComboBox<>();
         cboHang.setPreferredSize(new Dimension(200, 40));
@@ -267,13 +276,15 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
 
         // --- Group 3: System / Dangerous ---
         JMenuItem miXoa = createStyledMenuItem("Vô hiệu hóa hồ sơ", UIConstants.DANGER);
+        miXoa.setEnabled(AuthService.getInstance().isManager());
 
         // Logic actions
         miXem.addActionListener(e -> editSelected());
         miCopy.addActionListener(e -> {
             KhachHang kh = getSelected();
             if (kh != null) {
-                java.awt.datatransfer.StringSelection ss = new java.awt.datatransfer.StringSelection(kh.getMaKhachHang());
+                java.awt.datatransfer.StringSelection ss = new java.awt.datatransfer.StringSelection(
+                        kh.getMaKhachHang());
                 Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
                 NotificationManager.showSuccess("Thành công", "Đã sao chép mã: " + kh.getMaKhachHang());
             }
@@ -283,7 +294,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
             KhachHang kh = getSelected();
             if (kh != null) {
                 mainFrame.navigateTo("datphong", () -> {
-                    if (mainFrame.getDatPhongPanel() != null) mainFrame.getDatPhongPanel().prefillKhachHang(kh);
+                    if (mainFrame.getDatPhongPanel() != null)
+                        mainFrame.getDatPhongPanel().prefillKhachHang(kh);
                 });
             }
         });
@@ -292,7 +304,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
             KhachHang kh = getSelected();
             if (kh != null) {
                 mainFrame.navigateTo("hoadon", () -> {
-                    if (mainFrame.getHoaDonPanel() != null) mainFrame.getHoaDonPanel().prefillSearch(kh.getHoTen());
+                    if (mainFrame.getHoaDonPanel() != null)
+                        mainFrame.getHoaDonPanel().prefillSearch(kh.getHoTen());
                 });
             }
         });
@@ -416,7 +429,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         if (tatCaKhachHang == null)
             return;
         int total = tatCaKhachHang.size();
-        long vip = tatCaKhachHang.stream().filter(k -> k.getHangKhachHang() != null && k.getHangKhachHang().contains("VIP")).count();
+        long vip = tatCaKhachHang.stream()
+                .filter(k -> k.getHangKhachHang() != null && k.getHangKhachHang().contains("VIP")).count();
         long quen = tatCaKhachHang.stream().filter(k -> k.getSoLanO() > 1).count();
         long qte = tatCaKhachHang.stream()
                 .filter(k -> k.getQuocTich() != null && !k.getQuocTich().equalsIgnoreCase("Việt Nam")).count();
@@ -435,8 +449,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         if (kw.equals("tìm mã, họ tên, sđt, cccd..."))
             kw = "";
 
-        int idxQt = cboQuocTich.getSelectedIndex();
-
+        String selectedCountry = (String) cboQuocTich.getSelectedItem();
         final String finalKw = kw;
 
         filteredList = tatCaKhachHang.stream()
@@ -447,20 +460,29 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                             (kh.getSdt() != null && kh.getSdt().contains(finalKw)) ||
                             (kh.getCccd() != null && kh.getCccd().contains(finalKw));
 
+                    // Filter by country
                     boolean matchQt = true;
-                    boolean isVN = "Việt Nam".equalsIgnoreCase(kh.getQuocTich()) || kh.getQuocTich() == null
-                            || kh.getQuocTich().isBlank();
-                    if (idxQt == 1 && !isVN)
-                        matchQt = false;
-                    if (idxQt == 2 && isVN)
-                        matchQt = false;
+                    if (selectedCountry != null && !selectedCountry.equals("Quốc tịch (Tất cả)")) {
+                        if (selectedCountry.equals("Nội địa (Việt Nam)")) {
+                            // Show only Vietnamese customers
+                            matchQt = util.CountryList.isDomestic(kh.getQuocTich());
+                        } else {
+                            // Show specific country
+                            String customerCountry = kh.getQuocTich() != null ? kh.getQuocTich()
+                                    : util.CountryList.VIETNAM;
+                            matchQt = selectedCountry.equalsIgnoreCase(customerCountry);
+                        }
+                    }
 
                     boolean matchHang = true;
                     String hang = kh.getHangKhachHang();
                     int idxHang = cboHang.getSelectedIndex();
-                    if (idxHang == 1 && !hang.contains("Thường")) matchHang = false;
-                    if (idxHang == 2 && !hang.contains("Thân thiết")) matchHang = false;
-                    if (idxHang == 3 && !hang.contains("VIP")) matchHang = false;
+                    if (idxHang == 1 && !hang.contains("Thường"))
+                        matchHang = false;
+                    if (idxHang == 2 && !hang.contains("Thân thiết"))
+                        matchHang = false;
+                    if (idxHang == 3 && !hang.contains("VIP"))
+                        matchHang = false;
 
                     return matchKw && matchQt && matchHang;
                 })
@@ -480,7 +502,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         int totalPages = (int) Math.ceil((double) filteredList.size() / pageSize);
         if (currentPage > totalPages && totalPages > 0) {
             currentPage = totalPages;
-            if (pagination != null) pagination.setCurrentPage(currentPage);
+            if (pagination != null)
+                pagination.setCurrentPage(currentPage);
         }
 
         int start = (currentPage - 1) * pageSize;
@@ -519,8 +542,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         KhachHangDialog dlg = new KhachHangDialog(owner, kh);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
-            NotificationManager.showSuccess("Thành công", 
-                (kh == null ? "Đã thêm khách hàng mới" : "Đã cập nhật thông tin khách hàng"));
+            NotificationManager.showSuccess("Thành công",
+                    (kh == null ? "Đã thêm khách hàng mới" : "Đã cập nhật thông tin khách hàng"));
             refresh();
         }
     }
@@ -535,6 +558,10 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     }
 
     private void deleteSelected() {
+        if (!AuthService.getInstance().isManager()) {
+            NotificationManager.showWarning("Truy cập bị từ chối", "Bạn không có quyền vô hiệu hóa hồ sơ khách hàng!");
+            return;
+        }
         KhachHang kh = getSelected();
         if (kh == null) {
             JOptionPane.showMessageDialog(this, "Chọn một hồ sơ khách hàng để xóa/khóa!");
@@ -560,7 +587,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     }
 
     public void refresh() {
-        if (pagination != null) pagination.setCurrentPage(1);
+        if (pagination != null)
+            pagination.setCurrentPage(1);
         loadData();
     }
 }

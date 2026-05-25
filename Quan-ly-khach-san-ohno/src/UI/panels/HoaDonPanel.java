@@ -404,50 +404,22 @@ public class HoaDonPanel extends JPanel implements ResettableFilter {
         };
         table.getTableHeader().setDefaultRenderer(headerRenderer);
 
-        DefaultTableCellRenderer rightRender = new DefaultTableCellRenderer();
-        rightRender.setHorizontalAlignment(JLabel.RIGHT);
-        for (int i : new int[] { 5, 6, 7 })
-            table.getColumnModel().getColumn(i).setCellRenderer(rightRender);
+        // Thiết lập cell renderer cho từng cột để căn lề và định dạng màu sắc chính xác, kể cả khi chọn dòng
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            int align = SwingConstants.LEFT;
+            if (i == 5 || i == 6 || i == 7) {
+                align = SwingConstants.RIGHT;
+            } else if (i == 0 || i == 1 || i == 8 || i == 9) {
+                align = SwingConstants.CENTER;
+            }
+            table.getColumnModel().getColumn(i).setCellRenderer(new InvoiceCellRenderer(align, i));
+        }
 
         // Thiết lập chiều rộng cột để không bị cắt chữ
-        int[] widths = { 150, 85, 170, 100, 150, 110, 110, 130, 110, 120 };
+        int[] widths = { 135, 100, 170, 100, 150, 110, 110, 130, 110, 120 };
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
-
-        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
-                    int col) {
-                JLabel lbl = (JLabel) super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
-                lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
-                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
-                lbl.setForeground(UIConstants.TEXT_PRIMARY);
-
-                if (col == 1) {
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                    String v = val != null ? val.toString() : "";
-                    lbl.setForeground(v.contains("Đoàn") ? new Color(0x7C3AED) : new Color(0x0EA5E9));
-                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
-                }
-                if (col == 9) {
-                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
-                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
-                    String v = val != null ? val.toString() : "";
-                    if (v.equals("Đã thanh toán")) {
-                        lbl.setForeground(UIConstants.SUCCESS);
-                    } else if (v.equals("Đã hủy")) {
-                        lbl.setForeground(UIConstants.TEXT_MUTED);
-                    } else if (!v.isEmpty()) {
-                        lbl.setForeground(UIConstants.DANGER);
-                    }
-                }
-                if (col == 8 || col == 0) {
-                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
-                }
-                return lbl;
-            }
-        });
     }
 
     private void loadData() {
@@ -658,5 +630,67 @@ public class HoaDonPanel extends JPanel implements ResettableFilter {
 
     public void refresh() {
         loadData();
+    }
+
+    private static class InvoiceCellRenderer extends DefaultTableCellRenderer {
+        private final int alignment;
+        private final int colIndex;
+
+        public InvoiceCellRenderer(int alignment, int colIndex) {
+            this.alignment = alignment;
+            this.colIndex = colIndex;
+            setHorizontalAlignment(alignment);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row, int col) {
+            if (colIndex == 1) { // Loại
+                String v = val != null ? val.toString() : "";
+                Color bg = v.toLowerCase().contains("đoàn") ? new Color(0xF3E8FF) : new Color(0xDBEAFE);
+                Color fg = v.toLowerCase().contains("đoàn") ? new Color(0x9333EA) : new Color(0x2563EB);
+                ui.components.StatusBadge badge = new ui.components.StatusBadge(v, bg, fg);
+                JPanel p = new JPanel(new GridBagLayout());
+                p.setOpaque(true);
+                p.setBackground(sel ? tbl.getSelectionBackground() : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+                p.add(badge);
+                return p;
+            } else if (colIndex == 9) { // Trạng thái
+                String v = val != null ? val.toString() : "";
+                Color bg = new Color(0xF1F5F9);
+                Color fg = UIConstants.TEXT_SECONDARY;
+
+                if (v.equals("Đã thanh toán")) {
+                    bg = new Color(0xDCFCE7);
+                    fg = new Color(0x15803D);
+                } else if (v.equals("Đã hủy")) {
+                    bg = new Color(0xF1F5F9);
+                    fg = new Color(0x64748B);
+                } else if (v.equals("Đã hoàn tiền")) {
+                    bg = new Color(0xCFFAFE);
+                    fg = new Color(0x0E7490);
+                } else if (!v.isEmpty()) {
+                    bg = new Color(0xFEE2E2);
+                    fg = new Color(0xB91C1C);
+                }
+
+                ui.components.StatusBadge badge = new ui.components.StatusBadge(v, bg, fg);
+                JPanel p = new JPanel(new GridBagLayout());
+                p.setOpaque(true);
+                p.setBackground(sel ? tbl.getSelectionBackground() : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+                p.add(badge);
+                return p;
+            }
+
+            JLabel lbl = (JLabel) super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
+            lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+            
+            // Set consistent background
+            lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+            
+            // Default foreground color - high contrast on selection background
+            lbl.setForeground(UIConstants.TEXT_PRIMARY);
+            
+            return lbl;
+        }
     }
 }
