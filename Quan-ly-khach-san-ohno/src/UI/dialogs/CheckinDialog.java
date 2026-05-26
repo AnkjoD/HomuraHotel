@@ -112,11 +112,28 @@ public class CheckinDialog extends JDialog {
 
         // Final UI updates (like date pickers) that need components to exist
         if (dp != null) {
+            Date dateNhan = null;
+            Date dateTra = null;
+            if (selectedPhong != null && dp.getDsChiTiet() != null) {
+                for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                    if (ct.getPhong() != null && ct.getPhong().getMaPhong().equals(selectedPhong.getMaPhong())) {
+                        if (ct.getNgayNhanDuKien() != null) {
+                            dateNhan = java.util.Date.from(ct.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant());
+                        }
+                        if (ct.getNgayTraDuKien() != null) {
+                            dateTra = java.util.Date.from(ct.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant());
+                        }
+                        break;
+                    }
+                }
+            }
+            if (dateNhan == null) dateNhan = dp.getNgayNhanDK_Date();
+            if (dateTra == null) dateTra = dp.getNgayTraDK_Date();
+
             if (pickerNgayNhan != null)
-                pickerNgayNhan.setDate(dp.getNgayNhanDK_Date() != null ? dp.getNgayNhanDK_Date() : new Date());
+                pickerNgayNhan.setDate(dateNhan != null ? dateNhan : new Date());
             if (pickerNgayTra != null)
-                pickerNgayTra.setDate(dp.getNgayTraDK_Date() != null ? dp.getNgayTraDK_Date()
-                        : new Date(System.currentTimeMillis() + 86_400_000L));
+                pickerNgayTra.setDate(dateTra != null ? dateTra : new Date(System.currentTimeMillis() + 86_400_000L));
             // `spnSoKhach` initialization is already handled intelligently in buildStep3()
             
             // Sync text fields if they were created during buildUI
@@ -667,8 +684,30 @@ public class CheckinDialog extends JDialog {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         
         // Ngày nhận: 14:00 hôm nay
-        if (selectedDatPhong != null && selectedDatPhong.getNgayNhanDK_Date() != null) {
-            pickerNgayNhan = new DateTimePicker(selectedDatPhong.getNgayNhanDK_Date());
+        Date defaultNhan = null;
+        Date defaultTra = null;
+        if (selectedDatPhong != null && selectedPhong != null && selectedDatPhong.getDsChiTiet() != null) {
+            for (ChiTietDatPhong ct : selectedDatPhong.getDsChiTiet()) {
+                if (ct.getPhong() != null && ct.getPhong().getMaPhong().equals(selectedPhong.getMaPhong())) {
+                    if (ct.getNgayNhanDuKien() != null) {
+                        defaultNhan = java.util.Date.from(ct.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant());
+                    }
+                    if (ct.getNgayTraDuKien() != null) {
+                        defaultTra = java.util.Date.from(ct.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant());
+                    }
+                    break;
+                }
+            }
+        }
+        if (defaultNhan == null && selectedDatPhong != null) {
+            defaultNhan = selectedDatPhong.getNgayNhanDK_Date();
+        }
+        if (defaultTra == null && selectedDatPhong != null) {
+            defaultTra = selectedDatPhong.getNgayTraDK_Date();
+        }
+
+        if (defaultNhan != null) {
+            pickerNgayNhan = new DateTimePicker(defaultNhan);
         } else {
             cal.set(java.util.Calendar.HOUR_OF_DAY, 14);
             cal.set(java.util.Calendar.MINUTE, 0);
@@ -677,8 +716,8 @@ public class CheckinDialog extends JDialog {
         }
 
         // Ngày trả: 12:00 ngày mai
-        if (selectedDatPhong != null && selectedDatPhong.getNgayTraDK_Date() != null) {
-            pickerNgayTra = new DateTimePicker(selectedDatPhong.getNgayTraDK_Date());
+        if (defaultTra != null) {
+            pickerNgayTra = new DateTimePicker(defaultTra);
         } else {
             cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
             cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
@@ -1280,6 +1319,25 @@ public class CheckinDialog extends JDialog {
 
             // ----- Tích hợp Logic Phụ Thu Ở Ghép / Giường Phụ (Bước 3) -----
             if (currentStep == 3) {
+                Date ngayNhan = pickerNgayNhan.getDate();
+                Date ngayTra = pickerNgayTra.getDate();
+                if (!ngayTra.after(ngayNhan)) {
+                    NotificationManager.showWarning("Lỗi ngày tháng", "Ngày trả phải sau ngày nhận!");
+                    return;
+                }
+
+                // Kiểm tra trùng lịch đặt trước
+                if (selectedPhong != null) {
+                    java.time.LocalDateTime ldtNhan = ngayNhan.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+                    java.time.LocalDateTime ldtTra = ngayTra.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+                    String excludeMaDat = (selectedDatPhong != null) ? selectedDatPhong.getMaDatPhong() : null;
+                    if (!phongService.isRoomAvailable(selectedPhong.getMaPhong(), ldtNhan, ldtTra, excludeMaDat)) {
+                        NotificationManager.showError("Phòng bị trùng lịch đặt", 
+                            "Phòng " + selectedPhong.getSoPhongDisplay() + " đã có khách đặt trước hoặc đang được thuê trong khoảng thời gian này!\nVui lòng chọn thời gian khác hoặc đổi phòng.");
+                        return;
+                    }
+                }
+
                 int soKhach = (int) spnSoKhach.getValue();
                 if (selectedPhong != null) {
                     int sucChuaTieuChuan = selectedPhong.getSucChua(); // Sức chứa tiêu chuẩn
@@ -1401,10 +1459,10 @@ public class CheckinDialog extends JDialog {
         String sdt = txtSDT.getText().trim();
         errSDT.setText(" ");
         if (sdt.isEmpty()) {
-            errSDT.setText("Bắt buộc - Vui lòng nhập số điện thoại");
+            errSDT.setText("SĐT không được để trống");
             return false;
         } else if (!sdt.matches("^(0[35789])\\d{8}$")) {
-            errSDT.setText("SĐT không đúng định dạng (10 số, bắt đầu 03/05/07/08/09)");
+            errSDT.setText("SĐT không hợp lệ (10 số đầu 03-09)");
             return false;
         }
         return true;
@@ -1431,7 +1489,7 @@ public class CheckinDialog extends JDialog {
         String email = txtEmail.getText().trim();
         errEmail.setText(" ");
         if (!email.isEmpty() && !email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
-            errEmail.setText("Email không đúng định dạng (VD: ten@gmail.com)");
+            errEmail.setText("Email không hợp lệ (VD: a@b.com)");
             return false;
         }
         return true;
@@ -1524,6 +1582,17 @@ public class CheckinDialog extends JDialog {
             showStep(3);
             return;
         }
+
+        // Kiểm tra trùng lịch đặt trước lần cuối trước khi ghi nhận
+        java.time.LocalDateTime ldtNhan = ngayNhan.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        java.time.LocalDateTime ldtTra = ngayTra.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        String excludeMaDat = (selectedDatPhong != null) ? selectedDatPhong.getMaDatPhong() : null;
+        if (!phongService.isRoomAvailable(selectedPhong.getMaPhong(), ldtNhan, ldtTra, excludeMaDat)) {
+            NotificationManager.showError("Phòng bị trùng lịch đặt", 
+                "Phòng " + selectedPhong.getSoPhongDisplay() + " đã có khách đặt trước hoặc đang được thuê trong khoảng thời gian này!\nVui lòng quay lại Bước 3 để điều chỉnh.");
+            showStep(3);
+            return;
+        }
         int soKhach = (int) spnSoKhach.getValue();
 
         // Tìm hoặc tạo khách hàng thông minh
@@ -1575,10 +1644,6 @@ public class CheckinDialog extends JDialog {
 
         ChiTietDatPhong ct = new ChiTietDatPhong();
         ct.setPhong(selectedPhong);
-
-        java.time.LocalDateTime ldtNhan = ngayNhan.toInstant().atZone(java.time.ZoneId.systemDefault())
-                .toLocalDateTime();
-        java.time.LocalDateTime ldtTra = ngayTra.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
 
         if (selectedDatPhong == null) {
             DatPhong dp = new DatPhong();
@@ -1900,7 +1965,8 @@ public class CheckinDialog extends JDialog {
                                 + String.format("%,.0f đ", km.getDieuKienToiThieu()) + ")");
                 discountAmount = 0;
             } else {
-                discountAmount = km.tinhSoTienGiam(currentTotal);
+                // Tiêu chuẩn PMS: Chỉ áp dụng giảm giá trên tiền phòng (currentGia)
+                discountAmount = km.tinhSoTienGiam(currentGia);
                 voucherDescription = km.getTenKM() + " ("
                         + (km.getLoaiGiam() == LoaiGiam.PERCENT ? km.getGiaTriGiam() + "%"
                                 : String.format("%,.0f đ", km.getGiaTriGiam()))

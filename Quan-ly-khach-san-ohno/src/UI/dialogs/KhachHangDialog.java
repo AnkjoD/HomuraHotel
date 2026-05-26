@@ -160,7 +160,10 @@ public class KhachHangDialog extends JDialog {
         pgbc.gridy = 0;
         pgbc.insets = new Insets(0, 0, 8, 0);
 
-        JLabel lblPassportTitle = new JLabel("🛂 Thông tin hộ chiếu / visa (cho khách nước ngoài)");
+        JLabel lblPassportTitle = new JLabel("Thong tin ho chieu / visa (cho khach nuoc ngoai)");
+        lblPassportTitle.putClientProperty("html.disable", null);
+        // Use HTML for Vietnamese text without emoji
+        lblPassportTitle = new JLabel("<html><b>Thong tin ho chieu / visa</b> (danh cho khach nuoc ngoai)</html>");
         lblPassportTitle.setFont(UIConstants.FONT_SMALL_BOLD);
         lblPassportTitle.setForeground(new Color(0x92400E));
         passportPanel.add(lblPassportTitle, pgbc);

@@ -14,13 +14,13 @@ public class DichVuDialog extends JDialog {
     private final DichVu        entity;
     private boolean confirmed = false;
 
-    private ModernTextField    txtTen, txtGia, txtDonVi, txtSLMin, txtMoTa;
+    private ModernTextField    txtTen, txtGia, txtDonVi, txtMoTa;
     private ModernComboBox<String> cboLoai, cboTrangThai;
 
     public DichVuDialog(Frame parent, DichVu dv) {
         super(parent, dv == null ? "Thêm dịch vụ mới" : "Chỉnh sửa – " + dv.getTenDV(), true);
         this.entity = dv;
-        setSize(520, 460);
+        setSize(520, 410);
         setLocationRelativeTo(parent);
         setResizable(false);
         buildUI();
@@ -58,8 +58,7 @@ public class DichVuDialog extends JDialog {
 
         txtTen = new ModernTextField("Nhập tên dịch vụ..."); 
         txtGia = new ModernTextField("0");
-        txtDonVi = new ModernTextField("lần");
-        txtSLMin = new ModernTextField("1");
+        txtDonVi = new ModernTextField("VD: chai, lon, phần, lần...");
         txtMoTa = new ModernTextField("Mô tả thêm...");
         
         cboLoai = new ModernComboBox<>(new String[]{"Ăn uống","Spa & Làm đẹp","Vận chuyển","Dịch vụ phòng","Khác"});
@@ -68,9 +67,8 @@ public class DichVuDialog extends JDialog {
         cboTrangThai.setPreferredSize(new Dimension(0, 40));
 
         body.add(lf("Tên dịch vụ *",  txtTen));    body.add(lf("Loại dịch vụ",   cboLoai));
-        body.add(lf("Giá (đ) *",      txtGia));    body.add(lf("Đơn vị tính",    txtDonVi));
-        body.add(lf("Số lượng tối thiểu", txtSLMin)); body.add(lf("Trạng thái",  cboTrangThai));
-        body.add(lf("Mô tả",          txtMoTa));   body.add(new JLabel());
+        body.add(lf("Giá (đ) *",      txtGia));    body.add(lf("Đơn vị tính *",  txtDonVi));
+        body.add(lf("Trạng thái",     cboTrangThai)); body.add(lf("Mô tả",          txtMoTa));
 
         // Footer
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 14));
@@ -95,8 +93,7 @@ public class DichVuDialog extends JDialog {
 
     private void fillData() {
         txtTen.setText(entity.getTenDV()); txtGia.setText(String.valueOf((long)entity.getGia()));
-        txtDonVi.setText(entity.getDonVi()!=null?entity.getDonVi():"lần");
-        txtSLMin.setText(String.valueOf(entity.getSoLuongMin()));
+        txtDonVi.setText(entity.getDonVi()!=null?entity.getDonVi():"");
         txtMoTa.setText(entity.getMoTa()!=null?entity.getMoTa():"");
         sc(cboLoai, entity.getLoai()); sc(cboTrangThai, entity.getTrangThai());
     }
@@ -118,12 +115,8 @@ public class DichVuDialog extends JDialog {
             if(gia<0) throw new Exception();
         } catch(Exception e) { err("Giá phải là số không âm!"); txtGia.requestFocus(); return; }
 
-        int slMin;
-        try { slMin = Integer.parseInt(txtSLMin.getText().trim()); if(slMin<1||slMin>9999) throw new Exception(); }
-        catch(Exception e) { err("Số lượng tối thiểu phải là số nguyên từ 1–9999!"); return; }
-
         DichVu dv = entity!=null?entity:new DichVu();
-        dv.setTenDV(ten); dv.setGia(gia); dv.setDonVi(donVi); dv.setSoLuongMin(slMin);
+        dv.setTenDV(ten); dv.setGia(gia); dv.setDonVi(donVi); dv.setSoLuongMin(1); // Set default minimum quantity as 1
         dv.setMoTa(txtMoTa.getText().trim());
         dv.setLoai((String)cboLoai.getSelectedItem()); dv.setTrangThai((String)cboTrangThai.getSelectedItem());
 

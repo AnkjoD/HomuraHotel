@@ -90,10 +90,7 @@ public class LoaiPhongDialog extends JDialog {
         header.add(hl, BorderLayout.WEST);
 
         // Form body — top section (basic fields)
-        JPanel basicFields = new JPanel(new GridLayout(0, 2, 14, 14));
-        basicFields.setBackground(Color.WHITE);
-        basicFields.setBorder(BorderFactory.createEmptyBorder(20, 24, 8, 24));
-
+        // Dùng BoxLayout thay GridLayout để tránh field lẻ bị layout sai
         txtTen = new ModernTextField("Nhập tên loại phòng...");
         txtSucChua = new ModernTextField("2");
         txtGiaCoSo = new ModernTextField("500000");
@@ -101,11 +98,32 @@ public class LoaiPhongDialog extends JDialog {
         cboTrangThai = new ModernComboBox<>(new String[]{"Hoạt động", "Ngừng"});
         cboTrangThai.setPreferredSize(new Dimension(0, 40));
 
-        basicFields.add(lf("Tên loại phòng *", txtTen));
-        basicFields.add(lf("Sức chứa (người) *", txtSucChua));
-        basicFields.add(lf("Giá cơ sở (đ/đêm) *", txtGiaCoSo));
-        basicFields.add(lf("Trạng thái", cboTrangThai));
-        basicFields.add(lf("Mô tả", txtMoTa));
+        // Hàng 1: Tên loại phòng + Sức chứa (2 cột)
+        JPanel row1 = new JPanel(new GridLayout(1, 2, 14, 0));
+        row1.setBackground(Color.WHITE);
+        row1.add(lf("Tên loại phòng *", txtTen));
+        row1.add(lf("Sức chứa (người) *", txtSucChua));
+
+        // Hàng 2: Giá cơ sở + Trạng thái (2 cột)
+        JPanel row2 = new JPanel(new GridLayout(1, 2, 14, 0));
+        row2.setBackground(Color.WHITE);
+        row2.add(lf("Giá cơ sở (đ/đêm) *", txtGiaCoSo));
+        row2.add(lf("Trạng thái", cboTrangThai));
+
+        // Hàng 3: Mô tả — full-width (1 cột)
+        JPanel row3 = new JPanel(new BorderLayout());
+        row3.setBackground(Color.WHITE);
+        row3.add(lf("Mô tả", txtMoTa), BorderLayout.CENTER);
+
+        JPanel basicFields = new JPanel();
+        basicFields.setLayout(new BoxLayout(basicFields, BoxLayout.Y_AXIS));
+        basicFields.setBackground(Color.WHITE);
+        basicFields.setBorder(BorderFactory.createEmptyBorder(20, 24, 8, 24));
+        basicFields.add(row1);
+        basicFields.add(Box.createVerticalStrut(14));
+        basicFields.add(row2);
+        basicFields.add(Box.createVerticalStrut(14));
+        basicFields.add(row3);
 
         // Amenity checkbox grid
         JPanel amenitySection = buildAmenitySection();

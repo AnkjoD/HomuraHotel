@@ -66,12 +66,7 @@ public class QRPaymentDialog extends JDialog {
         left.add(Box.createVerticalStrut(3));
         left.add(lblSub);
 
-        // Icon điện thoại ở góc phải
-        JLabel icon = new JLabel("📱");
-        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
-
         header.add(left,  BorderLayout.WEST);
-        header.add(icon,  BorderLayout.EAST);
         return header;
     }
 
@@ -150,7 +145,7 @@ public class QRPaymentDialog extends JDialog {
         btnCancel.addActionListener(e -> dispose());
 
         // Nút Đã thanh toán
-        JButton btnConfirm = new JButton("✓  Đã thanh toán");
+        JButton btnConfirm = new JButton("Đã thanh toán");
         btnConfirm.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnConfirm.setForeground(Color.WHITE);
         btnConfirm.setBackground(new Color(0x0066CC)); // Màu xanh đồng bộ
@@ -178,13 +173,7 @@ public class QRPaymentDialog extends JDialog {
         btns.add(btnCancel);
         btns.add(btnConfirm);
 
-        // Thời gian hiển thị (tượng trưng)
-        JLabel lblTime = new JLabel("⏱ " + new SimpleDateFormat("HH:mm dd/MM/yyyy").format(new Date()));
-        lblTime.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblTime.setForeground(new Color(0x94A3B8));
-
-        footer.add(lblTime, BorderLayout.WEST);
-        footer.add(btns,    BorderLayout.EAST);
+        footer.add(btns,    BorderLayout.CENTER);
         return footer;
     }
 

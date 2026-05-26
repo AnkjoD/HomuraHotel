@@ -31,6 +31,7 @@ public class MasterBillDialog extends JDialog {
     private final DatPhong datPhong;
     private final List<ChiTietDatPhong> allRooms;
     private boolean confirmed = false;
+    private final Map<String, Double> roomPenalties = new HashMap<>();
 
     private DefaultTableModel tableModel;
     private JLabel lblTongPhong, lblTongDV, lblTongPhuPhi, lblTienCoc, lblTongCong;
@@ -41,7 +42,17 @@ public class MasterBillDialog extends JDialog {
     public MasterBillDialog(Frame parent, DatPhong dp, List<ChiTietDatPhong> rooms) {
         super(parent, "Gom Bill Đoàn — " + (dp.getTenDoan() != null ? dp.getTenDoan() : dp.getMaDatPhong()), true);
         this.datPhong = dp;
-        this.allRooms = rooms;
+        
+        // Lọc bỏ những phòng đã thanh toán riêng lẻ trước đó
+        this.allRooms = new ArrayList<>();
+        if (rooms != null) {
+            for (ChiTietDatPhong ct : rooms) {
+                if (!ct.isDaThanhToan()) {
+                    this.allRooms.add(ct);
+                }
+            }
+        }
+        
         setSize(780, 780);
         setLocationRelativeTo(parent);
         setResizable(false);
@@ -59,6 +70,7 @@ public class MasterBillDialog extends JDialog {
         scroll.setBorder(null);
         add(scroll, BorderLayout.CENTER);
         add(buildFooter(), BorderLayout.SOUTH);
+        loadBillRows();
     }
 
     // ---- Banner ----
@@ -276,14 +288,29 @@ public class MasterBillDialog extends JDialog {
 
             // Tính tiền phòng
             LocalDateTime ngayNhanResolved = ct.getNgayNhanThucTe();
-            if (ngayNhanResolved == null && datPhong.getNgayNhanDuKien() != null) {
-                ngayNhanResolved = datPhong.getNgayNhanDuKien();
+            if (ngayNhanResolved == null) {
+                ngayNhanResolved = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : datPhong.getNgayNhanDuKien();
             }
             LocalDateTime ngayTraResolved = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe() : LocalDateTime.now();
             long soNgay = Math.max(1, thuePhongService.tinhSoNgay(
                     ngayNhanResolved != null ? java.util.Date.from(ngayNhanResolved.atZone(java.time.ZoneId.systemDefault()).toInstant()) : new Date(),
                     java.util.Date.from(ngayTraResolved.atZone(java.time.ZoneId.systemDefault()).toInstant())
             ));
+
+            // Tính số đêm dự kiến ban đầu để check trả sớm
+            long bookedNights = 1;
+            if (ct.getNgayNhanDuKien() != null && ct.getNgayTraDuKien() != null) {
+                bookedNights = Math.max(1, thuePhongService.tinhSoNgay(
+                    Date.from(ct.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant()),
+                    Date.from(ct.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant())
+                ));
+            } else if (datPhong.getNgayNhanDuKien() != null && datPhong.getNgayTraDuKien() != null) {
+                bookedNights = Math.max(1, thuePhongService.tinhSoNgay(
+                    Date.from(datPhong.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant()),
+                    Date.from(datPhong.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant())
+                ));
+            }
+            long actualNights = soNgay;
             service.BangGiaService bangGiaService = new service.BangGiaService();
             double policyPrice = bangGiaService.layGiaHienHanh(ct.getPhong() != null && ct.getPhong().getLoaiPhong() != null ? ct.getPhong().getLoaiPhong().getMaLoaiPhong() : "");
             
@@ -307,6 +334,18 @@ public class MasterBillDialog extends JDialog {
                 totalPhuPhi += phuPhi;
                 tableModel.addRow(new Object[]{
                         roomId, "Phụ phí", "—", "—", String.format("%,.0f đ", phuPhi)
+                });
+            }
+
+            double earlyPenalty = roomPenalties.getOrDefault(ct.getMaChiTiet(), 0.0);
+            if (actualNights < bookedNights && earlyPenalty > 0) {
+                totalPhuPhi += earlyPenalty;
+                tableModel.addRow(new Object[]{
+                        roomId,
+                        "Phạt trả phòng sớm (" + (bookedNights - actualNights) + " đêm)",
+                        "—",
+                        "—",
+                        String.format("%,.0f đ", earlyPenalty)
                 });
             }
 
@@ -359,6 +398,76 @@ public class MasterBillDialog extends JDialog {
         panel.add(Box.createVerticalStrut(4));
         panel.add(sumRow("Tổng dịch vụ", lblTongDV, false));
         panel.add(Box.createVerticalStrut(4));
+
+        // ── Thêm mục Phạt trả phòng sớm cho từng phòng (nếu có) ──
+        for (ChiTietDatPhong ct : allRooms) {
+            LocalDateTime ngayNhan = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe() : (ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : datPhong.getNgayNhanDuKien());
+            LocalDateTime ngayTra = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe() : LocalDateTime.now();
+            long actN = Math.max(1, thuePhongService.tinhSoNgay(
+                ngayNhan != null ? java.util.Date.from(ngayNhan.atZone(java.time.ZoneId.systemDefault()).toInstant()) : new Date(),
+                java.util.Date.from(ngayTra.atZone(java.time.ZoneId.systemDefault()).toInstant())
+            ));
+            
+            long bookedN = 1;
+            if (ct.getNgayNhanDuKien() != null && ct.getNgayTraDuKien() != null) {
+                bookedN = Math.max(1, thuePhongService.tinhSoNgay(
+                    Date.from(ct.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant()),
+                    Date.from(ct.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant())
+                ));
+            } else if (datPhong.getNgayNhanDuKien() != null && datPhong.getNgayTraDuKien() != null) {
+                bookedN = Math.max(1, thuePhongService.tinhSoNgay(
+                    Date.from(datPhong.getNgayNhanDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant()),
+                    Date.from(datPhong.getNgayTraDuKien().atZone(java.time.ZoneId.systemDefault()).toInstant())
+                ));
+            }
+            
+            if (actN < bookedN) {
+                String rId = ct.getPhong() != null ? ct.getPhong().getSoPhongDisplay() : "?";
+                long diff = bookedN - actN;
+                
+                service.BangGiaService bangGiaService = new service.BangGiaService();
+                double policyPrice = bangGiaService.layGiaHienHanh(ct.getPhong() != null && ct.getPhong().getLoaiPhong() != null ? ct.getPhong().getLoaiPhong().getMaLoaiPhong() : "");
+                double donGia = policyPrice > 0 ? policyPrice : (ct.getGiaThucTeChot() > 0 ? ct.getGiaThucTeChot() : 400000);
+                
+                JPanel rEarly = new JPanel(new BorderLayout());
+                rEarly.setOpaque(false);
+                rEarly.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+                
+                JLabel lEarly = new JLabel("Phạt trả sớm P." + rId + " (Lệch " + diff + " đêm)");
+                lEarly.setFont(UIConstants.FONT_BODY);
+                lEarly.setForeground(UIConstants.TEXT_SECONDARY);
+                rEarly.add(lEarly, BorderLayout.WEST);
+                
+                JPanel rEarlyRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+                rEarlyRight.setOpaque(false);
+                
+                JLabel lblPhat = new JLabel("0 đ");
+                lblPhat.setFont(UIConstants.FONT_BODY);
+                lblPhat.setForeground(UIConstants.DANGER);
+                double initialPhat = roomPenalties.getOrDefault(ct.getMaChiTiet(), 0.0);
+                lblPhat.setText(initialPhat > 0 ? String.format("%,.0f đ", initialPhat) : "0 đ");
+                rEarlyRight.add(lblPhat);
+                
+                RoundedButton btnEdit = new RoundedButton("Sửa", UIConstants.PRIMARY_LIGHT, UIConstants.PRIMARY);
+                btnEdit.setFont(UIConstants.FONT_SMALL_BOLD);
+                btnEdit.setPreferredSize(new Dimension(50, 24));
+                btnEdit.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                btnEdit.addActionListener(e -> {
+                    Double val = promptEarlyPenaltyDeduction(rId, diff, roomPenalties.getOrDefault(ct.getMaChiTiet(), 0.0), donGia);
+                    if (val != null) {
+                        roomPenalties.put(ct.getMaChiTiet(), val);
+                        lblPhat.setText(val > 0 ? String.format("%,.0f đ", val) : "0 đ");
+                        loadBillRows();
+                    }
+                });
+                rEarlyRight.add(btnEdit);
+                rEarly.add(rEarlyRight, BorderLayout.EAST);
+                
+                panel.add(rEarly);
+                panel.add(Box.createVerticalStrut(4));
+            }
+        }
+
         panel.add(sumRow("Tiền cọc đã đặt (khấu trừ)", lblTienCoc, false));
         panel.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
@@ -376,7 +485,7 @@ public class MasterBillDialog extends JDialog {
         lblHT.setForeground(UIConstants.TEXT_SECONDARY);
         rowHT.add(lblHT, BorderLayout.WEST);
 
-        String[] options = {"Tiền mặt", "Chuyển khoản", "Thẻ tín dụng"};
+        String[] options = {"Tiền mặt", "Chuyển khoản"};
         cboHinhThuc = new JComboBox<>(options);
         cboHinhThuc.setFont(UIConstants.FONT_BODY);
         cboHinhThuc.setBackground(Color.WHITE);
@@ -559,7 +668,8 @@ public class MasterBillDialog extends JDialog {
         String err = thuePhongService.checkOutMasterBill(
                 datPhong.getMaDatPhong(),
                 AuthService.getInstance().getCurrentMaNV(),
-                datPhong.getMaKhuyenMai());
+                datPhong.getMaKhuyenMai(),
+                roomPenalties);
 
         if (err == null) {
             confirmed = true;
@@ -705,5 +815,90 @@ public class MasterBillDialog extends JDialog {
 
     public boolean isConfirmed() {
         return confirmed;
+    }
+
+    private Double promptEarlyPenaltyDeduction(String roomId, long diffNights, double currentVal, double donGiaRoom) {
+        JPanel pnl = new JPanel();
+        pnl.setLayout(new BoxLayout(pnl, BoxLayout.Y_AXIS));
+        pnl.setBackground(Color.WHITE);
+        pnl.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+        JLabel lblInfo = new JLabel("Phòng " + roomId + " trả phòng sớm " + diffNights + " đêm so với đặt phòng.");
+        lblInfo.setFont(UIConstants.FONT_BODY);
+        lblInfo.setForeground(UIConstants.TEXT_MUTED);
+
+        double costConLai = donGiaRoom * diffNights;
+        JLabel lblCostInfo = new JLabel(String.format("Đơn giá: %,.0f đ/đêm. Tiền phòng chưa ở: %,.0f đ", donGiaRoom, costConLai));
+        lblCostInfo.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblCostInfo.setForeground(UIConstants.TEXT_SECONDARY);
+
+        JLabel lblQuickTitle = new JLabel("GỢI Ý PHẠT NHANH:");
+        lblQuickTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblQuickTitle.setForeground(UIConstants.TEXT_MUTED);
+
+        JPanel pnlQuick = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        pnlQuick.setOpaque(false);
+
+        JButton btn30 = new JButton("30% (" + String.format("%,.0f", costConLai * 0.3) + "đ)");
+        JButton btn50 = new JButton("50% (" + String.format("%,.0f", costConLai * 0.5) + "đ)");
+        JButton btn70 = new JButton("70% (" + String.format("%,.0f", costConLai * 0.7) + "đ)");
+        JButton btn100 = new JButton("100% (" + String.format("%,.0f", costConLai * 1.0) + "đ)");
+
+        for (JButton btn : new JButton[]{btn30, btn50, btn70, btn100}) {
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            btn.setBackground(Color.WHITE);
+            btn.setForeground(UIConstants.PRIMARY);
+            btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240)),
+                BorderFactory.createEmptyBorder(6, 12, 6, 12)
+            ));
+            btn.setFocusPainted(false);
+            btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            pnlQuick.add(btn);
+        }
+
+        JLabel lblTitle = new JLabel("NHẬP SỐ TIỀN PHẠT TRẢ SỚM (VNĐ):");
+        lblTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblTitle.setForeground(UIConstants.PRIMARY);
+
+        ModernTextField txtInput = new ModernTextField("0");
+        txtInput.setText(currentVal > 0 ? String.format("%.0f", currentVal) : "0");
+        txtInput.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        txtInput.setPreferredSize(new Dimension(280, 42));
+
+        btn30.addActionListener(e -> txtInput.setText(String.format("%.0f", costConLai * 0.3)));
+        btn50.addActionListener(e -> txtInput.setText(String.format("%.0f", costConLai * 0.5)));
+        btn70.addActionListener(e -> txtInput.setText(String.format("%.0f", costConLai * 0.7)));
+        btn100.addActionListener(e -> txtInput.setText(String.format("%.0f", costConLai * 1.0)));
+
+        pnl.add(lblInfo);
+        pnl.add(Box.createVerticalStrut(4));
+        pnl.add(lblCostInfo);
+        pnl.add(Box.createVerticalStrut(15));
+        pnl.add(lblQuickTitle);
+        pnl.add(Box.createVerticalStrut(6));
+        pnl.add(pnlQuick);
+        pnl.add(Box.createVerticalStrut(15));
+        pnl.add(lblTitle);
+        pnl.add(Box.createVerticalStrut(8));
+        pnl.add(txtInput);
+
+        Object[] options = {"Đồng ý", "Huỷ"};
+        int res = JOptionPane.showOptionDialog(this, pnl, "Phí Phạt Trả Phòng Sớm", 
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+
+        if (res == JOptionPane.OK_OPTION) {
+            try {
+                double val = Double.parseDouble(txtInput.getText().replace(",", "").trim());
+                if (val >= 0) {
+                    return val;
+                } else {
+                    ui.components.NotificationManager.showError("Lỗi nhập liệu", "Số tiền phạt phải từ 0 đ trở lên.");
+                }
+            } catch (Exception ex) {
+                ui.components.NotificationManager.showError("Lỗi", "Vui lòng nhập định dạng số hợp lệ (VD: 300000).");
+            }
+        }
+        return null;
     }
 }

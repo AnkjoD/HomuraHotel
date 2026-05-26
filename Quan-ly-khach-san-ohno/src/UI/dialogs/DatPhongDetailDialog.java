@@ -13,6 +13,7 @@ import ui.panels.DatPhongPanel;
 import javax.swing.*;
 import java.awt.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class DatPhongDetailDialog extends JDialog {
@@ -100,12 +101,17 @@ public class DatPhongDetailDialog extends JDialog {
 
         content.add(createSectionTitle("THÔNG TIN PHÒNG"));
         if (chiTietList != null && !chiTietList.isEmpty()) {
-            boolean first = true;
+            SimpleDateFormat sdfRoom = new SimpleDateFormat("dd/MM/yyyy HH:mm");
             for (ChiTietDatPhong ct : chiTietList) {
                 Phong p = ct.getPhong();
                 if (p != null) {
-                    content.add(createDetailRow(first ? "Phòng:" : "", p.getMaPhong() + " (" + p.getTenLoaiPhong() + ")"));
-                    first = false;
+                    String roomVal = p.getMaPhong() + " (" + p.getTenLoaiPhong() + ")";
+                    LocalDateTime rIn = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : datPhong.getNgayNhanDuKien();
+                    LocalDateTime rOut = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : datPhong.getNgayTraDuKien();
+                    if (rIn != null && rOut != null) {
+                        roomVal += " [" + sdfRoom.format(java.sql.Timestamp.valueOf(rIn)) + " - " + sdfRoom.format(java.sql.Timestamp.valueOf(rOut)) + "]";
+                    }
+                    content.add(createDetailRow("Phòng:", roomVal));
                 }
             }
         } else {

@@ -165,8 +165,8 @@ public class ExtendStayDialog extends JDialog {
     private void calculateImpact() {
         java.util.Date selectedDate = dtpNewCheckout.getDate();
         LocalDateTime newDate = selectedDate.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
-        LocalDateTime oldDate = datPhong.getNgayTraDuKien();
-        LocalDateTime arrival = datPhong.getNgayNhanDuKien();
+        LocalDateTime oldDate = chiTietDatPhong.getNgayTraDuKien() != null ? chiTietDatPhong.getNgayTraDuKien() : datPhong.getNgayTraDuKien();
+        LocalDateTime arrival = chiTietDatPhong.getNgayNhanDuKien() != null ? chiTietDatPhong.getNgayNhanDuKien() : datPhong.getNgayNhanDuKien();
 
         if (newDate.isBefore(oldDate)) {
             lblAvailability.setText("Ngày trả mới phải sau ngày trả hiện tại!");
@@ -209,7 +209,8 @@ public class ExtendStayDialog extends JDialog {
     }
 
     private void handleConfirm() {
-        if (newCheckoutTime == null || newCheckoutTime.isBefore(datPhong.getNgayTraDuKien())) {
+        LocalDateTime currentCheckout = chiTietDatPhong.getNgayTraDuKien() != null ? chiTietDatPhong.getNgayTraDuKien() : datPhong.getNgayTraDuKien();
+        if (newCheckoutTime == null || newCheckoutTime.isBefore(currentCheckout)) {
             JOptionPane.showMessageDialog(this, "Ngày gia hạn không hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             return;
         }

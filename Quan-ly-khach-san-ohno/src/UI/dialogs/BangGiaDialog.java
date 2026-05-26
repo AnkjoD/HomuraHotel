@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
+import javax.swing.border.Border;
 import javax.swing.table.*;
 import service.BangGiaService;
 import service.PhongService;
@@ -117,7 +118,7 @@ public class BangGiaDialog extends JDialog {
         });
 
         // Đối tượng áp dụng
-        cboDoiTuong = new ModernComboBox<>(new String[]{"ALL", "CA_NHAN", "DOAN", "CORPORATE", "VIP"});
+        cboDoiTuong = new ModernComboBox<>(new String[]{"ALL", "CA_NHAN", "DOAN"});
         cboDoiTuong.setPreferredSize(new Dimension(0, 40));
         cboDoiTuong.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -127,9 +128,7 @@ public class BangGiaDialog extends JDialog {
                     switch (value.toString()) {
                         case "ALL": setText("Tất cả khách"); break;
                         case "CA_NHAN": setText("Khách lẻ"); break;
-                        case "DOAN": setText("Khách đoàn"); break;
-                        case "CORPORATE": setText("Doanh nghiệp"); break;
-                        case "VIP": setText("Khách VIP"); break;
+                        case "DOAN": setText("Khách đoàn / Doanh nghiệp"); break;
                     }
                 }
                 return this;
@@ -171,25 +170,43 @@ public class BangGiaDialog extends JDialog {
         lblTable.setFont(UIConstants.FONT_BODY_BOLD);
         lblTable.setForeground(UIConstants.TEXT_PRIMARY);
 
-        String[] cols = { "Mã", "Loại phòng", "Giá cơ sở (đ)", "Giá mới/đêm (đ)", "Giá cuối tuần (đ)", "Giá/giờ (đ)",
-                "Phụ phí trả trễ (đ)" };
+        String[] cols = { "Mã", "Loại phòng", "Giá cơ sở (đ)", "Giá ngày mới (đ)", "Giá cuối tuần (đ)" };
         chiTietModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) {
-                return col >= 3; // Chỉ cho sửa giá mới, giá cuối tuần, giá/giờ, phụ phí
+                return col >= 3; // Chỉ cho sửa Giá ngày mới, Giá cuối tuần
             }
         };
 
         JTable table = new JTable(chiTietModel);
         table.setFont(UIConstants.FONT_BODY);
-        table.setRowHeight(36);
+        table.setRowHeight(40); // Expanded for premium field breathing room
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setBackground(Color.WHITE);
         table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
+        
+        // Right-align column headers for all price columns (col >= 2)
+        TableCellRenderer baseHeaderRenderer = table.getTableHeader().getDefaultRenderer();
+        table.getTableHeader().setDefaultRenderer(new TableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object val, boolean sel, boolean foc, int row, int col) {
+                JLabel lbl = (JLabel) baseHeaderRenderer.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER),
+                        BorderFactory.createEmptyBorder(0, 10, 0, 10)
+                ));
+                if (col >= 2) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+                return lbl;
+            }
+        });
         table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
 
         // Hide mã column
@@ -197,32 +214,86 @@ public class BangGiaDialog extends JDialog {
         table.getColumn("Mã").setMinWidth(0);
         table.getColumn("Mã").setPreferredWidth(0);
 
-        // Custom renderer for giá columns
+        // Premium input-like cell renderer
         DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
+            private final Border nonEditableBorder = BorderFactory.createEmptyBorder(0, 10, 0, 10);
+            
+            // Outer margin + light input border + inner padding
+            private final Border editableBorderNormal = BorderFactory.createCompoundBorder(
+                    BorderFactory.createEmptyBorder(4, 4, 4, 4),
+                    BorderFactory.createCompoundBorder(
+                            new RoundedBorder(6, UIConstants.BORDER),
+                            BorderFactory.createEmptyBorder(0, 8, 0, 8)
+                    )
+            );
+            
+            private final Border editableBorderActive = BorderFactory.createCompoundBorder(
+                    BorderFactory.createEmptyBorder(4, 4, 4, 4),
+                    BorderFactory.createCompoundBorder(
+                            new RoundedBorder(6, UIConstants.PRIMARY),
+                            BorderFactory.createEmptyBorder(0, 8, 0, 8)
+                    )
+            );
+
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val, boolean sel, boolean foc, int row,
                     int col) {
                 JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, val, sel, foc, row, col);
-                lbl.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
                 lbl.setFont(UIConstants.FONT_BODY);
-                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
-
-                if (col == 2) { // Giá cơ sở - gray italic
-                    lbl.setForeground(UIConstants.TEXT_MUTED);
-                    lbl.setFont(UIConstants.FONT_SMALL);
-                } else if (col == 4) { // Giá cuối tuần - orange
-                    lbl.setForeground(UIConstants.ORANGE);
-                    lbl.setFont(UIConstants.FONT_BODY_BOLD);
-                } else if (col >= 3) { // Editable cells
-                    lbl.setForeground(UIConstants.SUCCESS);
-                    lbl.setFont(UIConstants.FONT_BODY_BOLD);
+                
+                // Alignment: Right-aligned for money values
+                if (col >= 2) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
                 } else {
-                    lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
+                // Styling based on column editability
+                if (col >= 3) {
+                    lbl.setBorder(foc ? editableBorderActive : editableBorderNormal);
+                    lbl.setBackground(Color.WHITE); // Pop editable cells out as real input boxes
+                    
+                    String text = val != null ? val.toString().trim() : "";
+                    if (!text.isEmpty()) {
+                        try {
+                            double num = Double.parseDouble(text.replace(",", "").replace(".", ""));
+                            lbl.setText(String.format("%,.0f", num));
+                            if (col == 4) { // Giá cuối tuần
+                                lbl.setForeground(UIConstants.ORANGE);
+                                lbl.setFont(UIConstants.FONT_BODY_BOLD);
+                            } else {
+                                lbl.setForeground(UIConstants.SUCCESS);
+                                lbl.setFont(UIConstants.FONT_BODY_BOLD);
+                            }
+                        } catch (NumberFormatException e) {
+                            lbl.setText(text);
+                            lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                        }
+                    } else {
+                        lbl.setText("Nhập giá..."); // Explicit text placeholder
+                        lbl.setForeground(UIConstants.TEXT_MUTED);
+                        lbl.setFont(UIConstants.FONT_BODY);
+                    }
+                } else {
+                    lbl.setBorder(nonEditableBorder);
+                    lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
+                    
+                    if (col == 2) { // Giá cơ sở
+                        lbl.setForeground(UIConstants.TEXT_MUTED);
+                        lbl.setFont(UIConstants.FONT_SMALL);
+                    } else {
+                        lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                    }
                 }
                 return lbl;
             }
         };
         table.setDefaultRenderer(Object.class, renderer);
+
+        // Apply custom modern editor for seamless inputs
+        ModernTableEditor modernEditor = new ModernTableEditor();
+        table.getColumnModel().getColumn(3).setCellEditor(modernEditor);
+        table.getColumnModel().getColumn(4).setCellEditor(modernEditor);
 
         // Populate with all loai phong
         loadLoaiPhongRows(null);
@@ -277,8 +348,6 @@ public class BangGiaDialog extends JDialog {
             String giaCoSo = String.format("%,.0f", lp.getGiaTheoNgay());
             String giaMoi = "";
             String giaCuoiTuan = "";
-            String giaGio = "";
-            String phuPhi = "";
 
             // If editing, fill existing values
             if (existingCT != null) {
@@ -286,8 +355,6 @@ public class BangGiaDialog extends JDialog {
                     if (ct.getLoaiPhong() != null && lp.getMaLoaiPhong().equals(ct.getLoaiPhong().getMaLoaiPhong())) {
                         giaMoi = ct.getGiaNgay() > 0 ? String.valueOf((long) ct.getGiaNgay()) : "";
                         giaCuoiTuan = ct.getGiaCuoiTuan() > 0 ? String.valueOf((long) ct.getGiaCuoiTuan()) : "";
-                        giaGio = ct.getGiaGioDau() > 0 ? String.valueOf((long) ct.getGiaGioDau()) : "";
-                        phuPhi = ct.getPhuPhiTraTre() > 0 ? String.valueOf((long) ct.getPhuPhiTraTre()) : "";
                         break;
                     }
                 }
@@ -298,9 +365,7 @@ public class BangGiaDialog extends JDialog {
                     lp.getTenLoaiPhong(),
                     giaCoSo,
                     giaMoi,
-                    giaCuoiTuan,
-                    giaGio,
-                    phuPhi
+                    giaCuoiTuan
             });
         }
     }
@@ -353,11 +418,9 @@ public class BangGiaDialog extends JDialog {
             String maLoai = (String) chiTietModel.getValueAt(i, 0);
             String giaMoiStr = chiTietModel.getValueAt(i, 3) != null ? chiTietModel.getValueAt(i, 3).toString().trim() : "";
             String giaCTuanStr = chiTietModel.getValueAt(i, 4) != null ? chiTietModel.getValueAt(i, 4).toString().trim() : "";
-            String giaGioStr = chiTietModel.getValueAt(i, 5) != null ? chiTietModel.getValueAt(i, 5).toString().trim() : "";
-            String phuPhiStr = chiTietModel.getValueAt(i, 6) != null ? chiTietModel.getValueAt(i, 6).toString().trim() : "";
 
             // Skip empty rows
-            if (giaMoiStr.isEmpty() && giaCTuanStr.isEmpty() && giaGioStr.isEmpty() && phuPhiStr.isEmpty())
+            if (giaMoiStr.isEmpty() && giaCTuanStr.isEmpty())
                 continue;
 
             ChiTietBangGia ct = new ChiTietBangGia();
@@ -370,16 +433,12 @@ public class BangGiaDialog extends JDialog {
                     ct.setGiaNgay(Double.parseDouble(giaMoiStr.replace(",", "").replace(".", "")));
                 if (!giaCTuanStr.isEmpty())
                     ct.setGiaCuoiTuan(Double.parseDouble(giaCTuanStr.replace(",", "").replace(".", "")));
-                if (!giaGioStr.isEmpty())
-                    ct.setGiaGioDau(Double.parseDouble(giaGioStr.replace(",", "").replace(".", "")));
-                if (!phuPhiStr.isEmpty())
-                    ct.setPhuPhiTraTre(Double.parseDouble(phuPhiStr.replace(",", "").replace(".", "")));
             } catch (NumberFormatException e) {
                 err("Giá trị không hợp lệ ở dòng " + (i + 1) + "! Chỉ nhập số.");
                 return;
             }
 
-            if (ct.getGiaNgay() < 0 || ct.getGiaGioDau() < 0 || ct.getPhuPhiTraTre() < 0 || ct.getGiaCuoiTuan() < 0) {
+            if (ct.getGiaNgay() < 0 || ct.getGiaCuoiTuan() < 0) {
                 err("Giá trị không được âm!");
                 return;
             }
@@ -467,5 +526,48 @@ public class BangGiaDialog extends JDialog {
         p.add(lb, BorderLayout.NORTH);
         p.add(component, BorderLayout.CENTER);
         return p;
+    }
+
+    private static class ModernTableEditor extends DefaultCellEditor {
+        private final JTextField textField;
+
+        public ModernTableEditor() {
+            super(new JTextField());
+            this.textField = (JTextField) getComponent();
+            this.textField.setFont(UIConstants.FONT_BODY_BOLD);
+            this.textField.setHorizontalAlignment(SwingConstants.RIGHT);
+            this.textField.setForeground(UIConstants.SUCCESS);
+            
+            // Outer margin + focus border + inner padding
+            this.textField.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createEmptyBorder(4, 4, 4, 4),
+                    BorderFactory.createCompoundBorder(
+                            new RoundedBorder(6, UIConstants.PRIMARY),
+                            BorderFactory.createEmptyBorder(0, 8, 0, 8)
+                    )
+            ));
+            
+            // Select all text on focus
+            this.textField.addFocusListener(new java.awt.event.FocusAdapter() {
+                @Override
+                public void focusGained(java.awt.event.FocusEvent e) {
+                    SwingUtilities.invokeLater(() -> textField.selectAll());
+                }
+            });
+            
+            setClickCountToStart(1); // Single click to initiate edit instantly
+        }
+        
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            JTextField tf = (JTextField) super.getTableCellEditorComponent(table, value, isSelected, row, column);
+            if (column == 4) { // Giá cuối tuần
+                tf.setForeground(UIConstants.ORANGE);
+            } else {
+                tf.setForeground(UIConstants.SUCCESS);
+            }
+            tf.setText(value != null ? value.toString() : "");
+            return tf;
+        }
     }
 }
