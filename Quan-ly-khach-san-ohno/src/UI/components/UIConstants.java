@@ -36,6 +36,14 @@ public class UIConstants {
     public static final Color ORANGE         = new Color(0xF97316);
     public static final Color ORANGE_LIGHT   = new Color(0xFED7AA);
 
+    // ---- Card Accent Colors (Synchronized with DatPhongPanel) ----
+    public static final Color CARD_INDIGO    = new Color(0x6366F1);
+    public static final Color CARD_AMBER     = new Color(0xF59E0B);
+    public static final Color CARD_BLUE      = new Color(0x3B82F6);
+    public static final Color CARD_GREEN     = new Color(0x10B981);
+    public static final Color CARD_TEAL      = new Color(0x06B6D4);
+    public static final Color CARD_RED       = new Color(0xEE5D50);
+
     // ---- Border ----
     public static final Color BORDER         = new Color(0xE2E8F0);
     public static final Color BORDER_FOCUS   = new Color(0x2563EB);

@@ -42,7 +42,8 @@ public class ModernMenuItem extends JMenuItem implements MouseListener {
 
         // Draw text
         g2.setFont(getFont());
-        g2.setColor(isEnabled() ? (isHovered || getModel().isArmed() ? HOVER_TEXT : NORMAL_TEXT) : DISABLED_TEXT);
+        Color textColor = isEnabled() ? (isHovered || getModel().isArmed() ? HOVER_TEXT : NORMAL_TEXT) : DISABLED_TEXT;
+        g2.setColor(textColor);
         FontMetrics fm = g2.getFontMetrics();
         int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
         String text = getText();

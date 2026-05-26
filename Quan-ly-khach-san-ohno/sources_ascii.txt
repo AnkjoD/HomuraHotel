@@ -76,6 +76,7 @@ D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\UIConstants.j
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\WrapLayout.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BangGiaDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\ChangeRepresentativeDialog.java
+D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BatchCheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\CheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDetailDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDialog.java
@@ -200,6 +201,7 @@ D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\UIConstants.j
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\WrapLayout.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BangGiaDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\ChangeRepresentativeDialog.java
+D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BatchCheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\CheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDetailDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDialog.java
@@ -324,6 +326,7 @@ D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\UIConstants.j
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\WrapLayout.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BangGiaDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\ChangeRepresentativeDialog.java
+D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BatchCheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\CheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDetailDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDialog.java
@@ -390,6 +393,7 @@ D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\UIConstants.j
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\WrapLayout.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BangGiaDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\ChangeRepresentativeDialog.java
+D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\BatchCheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\CheckinDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDetailDialog.java
 D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\dialogs\DatPhongDialog.java

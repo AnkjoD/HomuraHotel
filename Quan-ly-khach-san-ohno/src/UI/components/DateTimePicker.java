@@ -271,7 +271,7 @@ public class DateTimePicker extends JPanel {
             BorderFactory.createEmptyBorder(8, 0, 0, 0)
         ));
 
-        JLabel lblTime = new JLabel("⏰  Giờ:");
+        JLabel lblTime = new JLabel("Giờ:");
         lblTime.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblTime.setForeground(TEXT_MUTED);
 
