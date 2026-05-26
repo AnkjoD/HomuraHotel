@@ -120,9 +120,25 @@ public class ExcelExporter {
         
         for (entity.HoaDon hd : list) {
             String tenKh = (hd.getKhachHang() != null) ? hd.getKhachHang().getHoTen() : "Khách vãng lai";
+            if (hd.getDatPhong() != null && "DOAN".equalsIgnoreCase(hd.getDatPhong().getLoaiKhach())) {
+                if (hd.getDatPhong().getTenDoan() != null && !hd.getDatPhong().getTenDoan().isBlank()) {
+                    tenKh = hd.getDatPhong().getTenDoan() + " (" + tenKh + ")";
+                }
+            }
+            
             String ngayLapStr = (hd.getNgayLap() != null) 
                 ? hd.getNgayLap().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) 
                 : "";
+            
+            String statusGui = "Chưa thanh toán";
+            if (hd.getTrangThai() != null) {
+                switch (hd.getTrangThai()) {
+                    case PAID: statusGui = "Đã thanh toán"; break;
+                    case CANCELLED: statusGui = "Đã hủy"; break;
+                    case REFUNDED: statusGui = "Đã hoàn tiền"; break;
+                    default: statusGui = "Chưa thanh toán"; break;
+                }
+            }
             
             model.addRow(new Object[] {
                 hd.getMaHoaDon(),
@@ -131,7 +147,7 @@ public class ExcelExporter {
                 hd.getTongTienPhong(),
                 hd.getTongTienDichVu(),
                 hd.getTongThanhToan(),
-                hd.getTrangThai() != null ? hd.getTrangThai().name() : ""
+                statusGui
             });
         }
         exportTable(parent, model, "BaoCaoHoaDon");
