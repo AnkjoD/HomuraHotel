@@ -74,13 +74,11 @@ public class BangGia {
 
     /** Label hiển thị cho đối tượng áp dụng */
     public String getDoiTuongApDungLabel() {
-        if (doiTuongApDung == null) return "Tất cả";
+        if (doiTuongApDung == null) return "Tất cả khách";
         switch (doiTuongApDung) {
-            case "ALL": return "Tất cả";
+            case "ALL": return "Tất cả khách";
             case "CA_NHAN": return "Khách lẻ";
-            case "DOAN": return "Khách đoàn";
-            case "CORPORATE": return "Doanh nghiệp";
-            case "VIP": return "Khách VIP";
+            case "DOAN": return "Khách đoàn / Doanh nghiệp";
             default: return doiTuongApDung;
         }
     }

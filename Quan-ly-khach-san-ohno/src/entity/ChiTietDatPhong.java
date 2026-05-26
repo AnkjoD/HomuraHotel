@@ -9,6 +9,8 @@ import java.util.List;
 
 public class ChiTietDatPhong {
     private String maChiTiet;
+    private LocalDateTime ngayNhanDuKien;  // Ngày nhận phòng dự kiến riêng cho phòng này
+    private LocalDateTime ngayTraDuKien;   // Ngày trả phòng dự kiến riêng cho phòng này
     private LocalDateTime ngayNhanThucTe;
     private LocalDateTime ngayTraThucTe;
     private double giaThucTeChot;
@@ -40,6 +42,14 @@ public class ChiTietDatPhong {
     // Getters and Setters
     public String getMaChiTiet() { return maChiTiet; }
     public void setMaChiTiet(String maChiTiet) { this.maChiTiet = maChiTiet; }
+
+    /** Ngày nhận phòng dự kiến riêng của phòng này (có thể khác với ngày cha trong ĐatPhong) */
+    public LocalDateTime getNgayNhanDuKien() { return ngayNhanDuKien; }
+    public void setNgayNhanDuKien(LocalDateTime ngayNhanDuKien) { this.ngayNhanDuKien = ngayNhanDuKien; }
+
+    /** Ngày trả phòng dự kiến riêng của phòng này (có thể khác với ngày cha trong ĐatPhong) */
+    public LocalDateTime getNgayTraDuKien() { return ngayTraDuKien; }
+    public void setNgayTraDuKien(LocalDateTime ngayTraDuKien) { this.ngayTraDuKien = ngayTraDuKien; }
 
     public LocalDateTime getNgayNhanThucTe() { return ngayNhanThucTe; }
     public void setNgayNhanThucTe(LocalDateTime ngayNhanThucTe) { this.ngayNhanThucTe = ngayNhanThucTe; }

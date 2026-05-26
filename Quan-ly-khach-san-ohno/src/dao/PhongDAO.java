@@ -320,13 +320,15 @@ public class PhongDAO {
      * Kiểm tra sẵn sàng của phòng, có thể loại trừ 1 mã đặt phòng (để gia hạn/đổi phòng chính nó).
      */
     public boolean isRoomAvailable(String maPhong, LocalDateTime from, LocalDateTime to, String excludeMaDatPhong) {
+        // Ưu tiên dùng ngày dự kiến riêng của từng phòng (ct.ngayNhanDuKien/ngayTraDuKien).
+        // Nếu không có (đặt phòng cũ hoặc tất cả phòng cùng ngày), fallback về ngày cha (dp).
         StringBuilder sql = new StringBuilder(
             "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
             "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
-            "AND dp.ngayNhanDuKien < ? " +
-            "AND dp.ngayTraDuKien > ?"
+            "AND COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) < ? " +
+            "AND COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) > ?"
         );
         
         if (excludeMaDatPhong != null && !excludeMaDatPhong.trim().isEmpty()) {

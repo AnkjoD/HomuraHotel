@@ -48,14 +48,20 @@ public class ThongKeDAO {
             // Gộp checkin + checkout count vào đây — không cần gọi riêng nữa
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery(
-                    "SELECT COUNT(*) FROM ChiTietDatPhong " +
-                    "WHERE CAST(ngayNhanThucTe AS DATE)=CAST(GETDATE() AS DATE)")) {
+                    "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
+                    "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                    "WHERE dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN', 'CHECKED_OUT') " +
+                    "  AND (CAST(COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) AS DATE) = CAST(GETDATE() AS DATE) " +
+                    "       OR CAST(ct.ngayNhanThucTe AS DATE) = CAST(GETDATE() AS DATE))")) {
                 stats.put("checkinHomNay", rs.next() ? rs.getInt(1) : 0);
             }
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery(
-                    "SELECT COUNT(*) FROM ChiTietDatPhong " +
-                    "WHERE CAST(ngayTraThucTe AS DATE)=CAST(GETDATE() AS DATE)")) {
+                    "SELECT COUNT(*) FROM ChiTietDatPhong ct " +
+                    "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
+                    "WHERE dp.trangThai IN ('CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN', 'CHECKED_OUT') " +
+                    "  AND (CAST(COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) AS DATE) = CAST(GETDATE() AS DATE) " +
+                    "       OR CAST(ct.ngayTraThucTe AS DATE) = CAST(GETDATE() AS DATE))")) {
                 stats.put("checkoutHomNay", rs.next() ? rs.getInt(1) : 0);
             }
             stats.put("doanhThuHomNay", sumRevenueToday(conn));
@@ -492,20 +498,26 @@ public class ThongKeDAO {
     public List<Map<String, Object>> getCheckinHomNay() {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
-            "SELECT ct.maPhong, kh.hoTen, lp.tenLoaiPhong, ct.ngayNhanThucTe " +
+            "SELECT ct.maPhong, kh.hoTen, lp.tenLoaiPhong, ct.ngayNhanThucTe, " +
+            "       COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) AS ngayNhanDuKien " +
             "FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "JOIN KhachHang kh ON dp.maKhachHang = kh.maKhachHang " +
             "JOIN Phong p ON ct.maPhong = p.maPhong " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
-            "WHERE CAST(ct.ngayNhanThucTe AS DATE)=CAST(GETDATE() AS DATE)";
+            "WHERE dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN', 'CHECKED_OUT') " +
+            "  AND (CAST(COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) AS DATE) = CAST(GETDATE() AS DATE) " +
+            "       OR CAST(ct.ngayNhanThucTe AS DATE) = CAST(GETDATE() AS DATE))";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("soPhong",  rs.getString("maPhong"));
                 row.put("hoTen",    rs.getString("hoTen"));
                 row.put("tenLoai",  rs.getString("tenLoaiPhong"));
-                row.put("ngayNhan", rs.getTimestamp("ngayNhanThucTe"));
+                Timestamp actIn = rs.getTimestamp("ngayNhanThucTe");
+                Timestamp planIn = rs.getTimestamp("ngayNhanDuKien");
+                row.put("ngayNhan", actIn != null ? actIn : planIn);
+                row.put("trangThai", actIn != null ? "Đã nhận" : "Chờ nhận");
                 list.add(row);
             }
         } catch (SQLException e) {
@@ -518,21 +530,26 @@ public class ThongKeDAO {
     public List<Map<String, Object>> getCheckoutHomNay() {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
-            "SELECT ct.maPhong, kh.hoTen, ct.ngayTraThucTe, p.trangThai " +
+            "SELECT ct.maPhong, kh.hoTen, ct.ngayTraThucTe, " +
+            "       COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) AS ngayTraDuKien, p.trangThai " +
             "FROM ChiTietDatPhong ct " +
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "JOIN KhachHang kh ON dp.maKhachHang = kh.maKhachHang " +
             "JOIN Phong p ON ct.maPhong = p.maPhong " +
-            "WHERE CAST(ct.ngayTraThucTe AS DATE)=CAST(GETDATE() AS DATE)";
+            "WHERE dp.trangThai IN ('CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN', 'CHECKED_OUT') " +
+            "  AND (CAST(COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) AS DATE) = CAST(GETDATE() AS DATE) " +
+            "       OR CAST(ct.ngayTraThucTe AS DATE) = CAST(GETDATE() AS DATE))";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("soPhong",  rs.getString("maPhong"));
                 row.put("hoTen",    rs.getString("hoTen"));
-                row.put("ngayTraDK", rs.getTimestamp("ngayTraThucTe"));
+                Timestamp actOut = rs.getTimestamp("ngayTraThucTe");
+                Timestamp planOut = rs.getTimestamp("ngayTraDuKien");
+                row.put("ngayTraDK", actOut != null ? actOut : planOut);
                 String tt = rs.getString("trangThai");
                 row.put("trangThai",
-                    ("CLEANING".equals(tt) || "AVAILABLE".equals(tt)) ? "Đã trả" : "Chờ trả");
+                    (actOut != null || "CLEANING".equals(tt) || "AVAILABLE".equals(tt)) ? "Đã trả" : "Chờ trả");
                 list.add(row);
             }
         } catch (SQLException e) {

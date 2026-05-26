@@ -35,19 +35,21 @@ public class ChiTietDatPhongDAO {
     }
 
     public boolean insert(ChiTietDatPhong ct) {
-        String sql = "INSERT INTO ChiTietDatPhong(maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh, daThanhToan) "
+        String sql = "INSERT INTO ChiTietDatPhong(maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanDuKien, ngayTraDuKien, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh, daThanhToan) "
                 +
-                "VALUES(?,?,?,?,?,?,?,?,?)";
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getMaChiTiet());
             ps.setString(2, ct.getDatPhong() != null ? ct.getDatPhong().getMaDatPhong() : null);
             ps.setString(3, ct.getPhong() != null ? ct.getPhong().getMaPhong() : null);
             ps.setString(4, ct.getKhachHang() != null ? ct.getKhachHang().getMaKhachHang() : null);
-            ps.setTimestamp(5, ct.getNgayNhanThucTe() != null ? Timestamp.valueOf(ct.getNgayNhanThucTe()) : null);
-            ps.setTimestamp(6, ct.getNgayTraThucTe() != null ? Timestamp.valueOf(ct.getNgayTraThucTe()) : null);
-            ps.setDouble(7, ct.getGiaThucTeChot());
-            ps.setDouble(8, ct.getPhuPhiPhatSinh());
-            ps.setBoolean(9, ct.isDaThanhToan());
+            ps.setTimestamp(5, ct.getNgayNhanDuKien() != null ? Timestamp.valueOf(ct.getNgayNhanDuKien()) : null);
+            ps.setTimestamp(6, ct.getNgayTraDuKien() != null ? Timestamp.valueOf(ct.getNgayTraDuKien()) : null);
+            ps.setTimestamp(7, ct.getNgayNhanThucTe() != null ? Timestamp.valueOf(ct.getNgayNhanThucTe()) : null);
+            ps.setTimestamp(8, ct.getNgayTraThucTe() != null ? Timestamp.valueOf(ct.getNgayTraThucTe()) : null);
+            ps.setDouble(9, ct.getGiaThucTeChot());
+            ps.setDouble(10, ct.getPhuPhiPhatSinh());
+            ps.setBoolean(11, ct.isDaThanhToan());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e);
@@ -56,17 +58,19 @@ public class ChiTietDatPhongDAO {
     }
 
     public boolean update(ChiTietDatPhong ct) {
-        String sql = "UPDATE ChiTietDatPhong SET maDatPhong=?, maPhong=?, maKhachHang=?, ngayNhanThucTe=?, ngayTraThucTe=?, giaThucTeChot=?, phuPhiPhatSinh=?, daThanhToan=? WHERE maChiTiet=?";
+        String sql = "UPDATE ChiTietDatPhong SET maDatPhong=?, maPhong=?, maKhachHang=?, ngayNhanDuKien=?, ngayTraDuKien=?, ngayNhanThucTe=?, ngayTraThucTe=?, giaThucTeChot=?, phuPhiPhatSinh=?, daThanhToan=? WHERE maChiTiet=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getDatPhong() != null ? ct.getDatPhong().getMaDatPhong() : null);
             ps.setString(2, ct.getPhong() != null ? ct.getPhong().getMaPhong() : null);
             ps.setString(3, ct.getKhachHang() != null ? ct.getKhachHang().getMaKhachHang() : null);
-            ps.setTimestamp(4, ct.getNgayNhanThucTe() != null ? Timestamp.valueOf(ct.getNgayNhanThucTe()) : null);
-            ps.setTimestamp(5, ct.getNgayTraThucTe() != null ? Timestamp.valueOf(ct.getNgayTraThucTe()) : null);
-            ps.setDouble(6, ct.getGiaThucTeChot());
-            ps.setDouble(7, ct.getPhuPhiPhatSinh());
-            ps.setBoolean(8, ct.isDaThanhToan());
-            ps.setString(9, ct.getMaChiTiet());
+            ps.setTimestamp(4, ct.getNgayNhanDuKien() != null ? Timestamp.valueOf(ct.getNgayNhanDuKien()) : null);
+            ps.setTimestamp(5, ct.getNgayTraDuKien() != null ? Timestamp.valueOf(ct.getNgayTraDuKien()) : null);
+            ps.setTimestamp(6, ct.getNgayNhanThucTe() != null ? Timestamp.valueOf(ct.getNgayNhanThucTe()) : null);
+            ps.setTimestamp(7, ct.getNgayTraThucTe() != null ? Timestamp.valueOf(ct.getNgayTraThucTe()) : null);
+            ps.setDouble(8, ct.getGiaThucTeChot());
+            ps.setDouble(9, ct.getPhuPhiPhatSinh());
+            ps.setBoolean(10, ct.isDaThanhToan());
+            ps.setString(11, ct.getMaChiTiet());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e);
@@ -98,6 +102,15 @@ public class ChiTietDatPhongDAO {
             KhachHang kh = new KhachHangDAO().getById(maKhachHang);
             ct.setKhachHang(kh);
         }
+
+        // Per-room planned dates (nullable)
+        Timestamp plannedCheckin = rs.getTimestamp("ngayNhanDuKien");
+        if (plannedCheckin != null)
+            ct.setNgayNhanDuKien(plannedCheckin.toLocalDateTime());
+
+        Timestamp plannedCheckout = rs.getTimestamp("ngayTraDuKien");
+        if (plannedCheckout != null)
+            ct.setNgayTraDuKien(plannedCheckout.toLocalDateTime());
 
         Timestamp checkin = rs.getTimestamp("ngayNhanThucTe");
         if (checkin != null)
@@ -213,17 +226,20 @@ public class ChiTietDatPhongDAO {
     /** Lấy danh sách các phòng đang được thuê thuộc cùng 1 đơn đặt phòng (Đoàn/Group) */
     public java.util.Map<String, String> getActiveGroupRoomsMap() {
         java.util.Map<String, String> map = new java.util.HashMap<>();
-        String sql = "SELECT ct.maPhong, ct.maDatPhong FROM ChiTietDatPhong ct " +
+        String sql = "SELECT ct.maPhong, ct.maDatPhong, dp.tenDoan FROM ChiTietDatPhong ct " +
+                     "INNER JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
                      "WHERE ct.ngayTraThucTe IS NULL AND ct.ngayNhanThucTe IS NOT NULL " +
-                     "AND ct.maDatPhong IN ( " +
-                     "  SELECT maDatPhong FROM ChiTietDatPhong " +
-                     "  WHERE ngayTraThucTe IS NULL AND ngayNhanThucTe IS NOT NULL " +
-                     "  GROUP BY maDatPhong HAVING COUNT(maPhong) > 1 " +
-                     ")";
+                     "AND dp.loaiKhach = 'DOAN'";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
-                map.put(rs.getString("maPhong"), rs.getString("maDatPhong"));
+                String maPhong = rs.getString("maPhong");
+                String maDatPhong = rs.getString("maDatPhong");
+                String tenDoan = rs.getString("tenDoan");
+                if (tenDoan == null || tenDoan.trim().isEmpty()) {
+                    tenDoan = "Đoàn tự do";
+                }
+                map.put(maPhong, tenDoan + "|" + maDatPhong);
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error", e);
