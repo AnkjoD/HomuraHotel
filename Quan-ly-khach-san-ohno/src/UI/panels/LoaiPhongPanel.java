@@ -11,6 +11,8 @@ import javax.swing.*;
 import javax.swing.table.*;
 import service.PhongService;
 import ui.components.PaginationPanel;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import java.util.List;
 
 public class LoaiPhongPanel extends JPanel implements ResettableFilter {
@@ -49,11 +51,16 @@ public class LoaiPhongPanel extends JPanel implements ResettableFilter {
         center.setOpaque(false);
         center.add(buildStats(), BorderLayout.NORTH);
 
+        // filterBar ở NORTH (compact), tableArea ở CENTER (fill remaining space)
+        JPanel filterWrapper = new JPanel(new BorderLayout());
+        filterWrapper.setOpaque(false);
+        filterWrapper.add(Box.createVerticalStrut(14), BorderLayout.NORTH);
+        filterWrapper.add(buildFilterBar(), BorderLayout.CENTER);
+
         JPanel bot = new JPanel(new BorderLayout());
         bot.setOpaque(false);
-        bot.add(Box.createVerticalStrut(14), BorderLayout.NORTH);
-        bot.add(buildFilterBar(), BorderLayout.CENTER);
-        bot.add(buildTableArea(), BorderLayout.SOUTH);
+        bot.add(filterWrapper, BorderLayout.NORTH);
+        bot.add(buildTableArea(), BorderLayout.CENTER);
 
         center.add(bot, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
@@ -93,9 +100,9 @@ public class LoaiPhongPanel extends JPanel implements ResettableFilter {
         JPanel row = new JPanel(new GridLayout(1, 3, 16, 0));
         row.setOpaque(false);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
-        row.add(statCard("Tổng loại phòng", service.getAllLoaiPhong().size() + " loại", UIConstants.PRIMARY));
-        row.add(statCard("Đang hoạt động", service.countLoaiPhongActive() + " loại", UIConstants.SUCCESS));
-        row.add(statCard("Ngừng sử dụng", service.countLoaiPhongNgung() + " loại", UIConstants.WARNING));
+        row.add(statCard("Tổng loại phòng", service.getAllLoaiPhong().size() + " loại", UIConstants.CARD_INDIGO));
+        row.add(statCard("Đang hoạt động", service.countLoaiPhongActive() + " loại", UIConstants.CARD_GREEN));
+        row.add(statCard("Ngừng sử dụng", service.countLoaiPhongNgung() + " loại", UIConstants.CARD_AMBER));
         return row;
     }
 
@@ -215,13 +222,10 @@ public class LoaiPhongPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miEdit = new JMenuItem("Xem / Sửa");
-        JMenuItem miAdd = new JMenuItem("Thêm mới");
-        JMenuItem miDel = new JMenuItem("Xóa loại phòng");
-        miEdit.setFont(UIConstants.FONT_BODY);
-        miAdd.setFont(UIConstants.FONT_BODY);
-        miDel.setFont(UIConstants.FONT_BODY);
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
+        ModernMenuItem miAdd = new ModernMenuItem("Thêm mới");
+        ModernMenuItem miDel = new ModernMenuItem("Xóa loại phòng");
         miDel.setForeground(UIConstants.DANGER);
         miEdit.addActionListener(e -> editSelected());
         miAdd.addActionListener(e -> showDialog(null, false));

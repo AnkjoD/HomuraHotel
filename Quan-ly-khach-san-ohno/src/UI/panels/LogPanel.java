@@ -12,6 +12,7 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import service.LogService;
 import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.components.PaginationPanel;
 import ui.components.RoundedComponents.ModernComboBox;
 import ui.components.RoundedComponents.ModernTextField;
@@ -363,8 +364,7 @@ public class LogPanel extends JPanel {
     private JPopupMenu buildContextMenu() {
         ModernPopupMenu menu = new ModernPopupMenu();
 
-        JMenuItem miView = new JMenuItem("Xem chi tiết");
-        miView.setFont(UIConstants.FONT_BODY);
+        ModernMenuItem miView = new ModernMenuItem("Xem chi tiết");
         miView.addActionListener(e -> showDetail());
 
         menu.add(miView);

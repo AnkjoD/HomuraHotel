@@ -10,6 +10,8 @@ import ui.MainFrame;
 import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
 import ui.components.UIConstants;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.components.RoundedComponents.*;
 import ui.components.DatePicker;
 
@@ -348,14 +350,11 @@ public class HoaDonPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu ctxMenu(Runnable onView, Runnable onPrint, Runnable onDelete) {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miView = new JMenuItem("Xem chi tiết");
-        JMenuItem miPrint = new JMenuItem("In lại hóa đơn");
-        JMenuItem miDelete = new JMenuItem("Xóa hóa đơn");
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miView = new ModernMenuItem("Xem chi tiết");
+        ModernMenuItem miPrint = new ModernMenuItem("In lại hóa đơn");
+        ModernMenuItem miDelete = new ModernMenuItem("Xóa hóa đơn");
         
-        miView.setFont(UIConstants.FONT_BODY);
-        miPrint.setFont(UIConstants.FONT_BODY);
-        miDelete.setFont(UIConstants.FONT_BODY);
         miDelete.setForeground(UIConstants.DANGER);
         
         miView.addActionListener(e -> onView.run());

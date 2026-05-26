@@ -22,6 +22,8 @@ import ui.components.RoundedComponents.RoundedButton;
 import ui.components.RoundedComponents.RoundedPanel;
 import ui.components.UIConstants;
 import ui.components.WrapLayout;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.dialogs.DatPhongDialog;
 import ui.dialogs.NoShowDialog;
 
@@ -29,6 +31,9 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
     @Override
     public void resetFilters() {
+        if (cardLayout != null && cardContainer != null) {
+            cardLayout.show(cardContainer, CARD_LIST);
+        }
         if (txtSearchList != null)
             txtSearchList.setText("");
         if (cboFilterStatus != null)
@@ -1000,13 +1005,19 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
                 String val = (v == null) ? "" : v.toString();
-                Color bg = val.toLowerCase().contains("đoàn") ? new Color(0xF3E8FF) : new Color(0xDBEAFE);
-                Color fg = val.toLowerCase().contains("đoàn") ? new Color(0x9333EA) : new Color(0x2563EB);
-                ui.components.StatusBadge badge = new ui.components.StatusBadge(val, bg, fg);
+                String displayVal = val;
+                if (val.contains(" (")) {
+                    displayVal = val.substring(0, val.indexOf(" ("));
+                }
+                Color bg = displayVal.toLowerCase().contains("đoàn") ? new Color(0xF3E8FF) : new Color(0xDBEAFE);
+                Color fg = displayVal.toLowerCase().contains("đoàn") ? new Color(0x9333EA) : new Color(0x2563EB);
+                ui.components.StatusBadge badge = new ui.components.StatusBadge(displayVal, bg, fg);
+                badge.setToolTipText(val);
                 JPanel p = new JPanel(new GridBagLayout());
                 p.setOpaque(true);
                 p.setBackground(s ? t.getSelectionBackground() : t.getBackground());
                 p.add(badge);
+                p.setToolTipText(val);
                 return p;
             }
         });
@@ -1055,7 +1066,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         });
 
         // Thiết lập chiều rộng ưu tiên cho tất cả 12 cột ban đầu để tránh cắt chữ
-        int[] widths = { 0, 110, 150, 90, 110, 70, 180, 125, 125, 75, 100, 130 };
+        int[] widths = { 0, 110, 150, 100, 110, 70, 180, 125, 125, 75, 100, 130 };
         for (int i = 0; i < widths.length && i < tableDatPhong.getColumnCount(); i++) {
             tableDatPhong.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -1154,21 +1165,67 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
         // --- GROUP CHECK-IN HANDLING ---
         if (dp.getDsChiTiet() != null && dp.getDsChiTiet().size() > 1) {
-            JDialog mapDlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Chọn phòng để Nhận phòng",
+            // Count pending (not yet checked-in) rooms
+            long pendingCount = dp.getDsChiTiet().stream().filter(ct -> {
+                boolean isDone = ct.isDaThanhToan() || ct.getNgayTraThucTe() != null;
+                boolean isOccupied = ct.getPhong() != null
+                        && ct.getPhong().getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED
+                        && ct.getNgayNhanThucTe() != null;
+                return !isDone && !isOccupied;
+            }).count();
+
+            JDialog mapDlg = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Nhận phòng — " + dp.getMaDatPhong(),
                     true);
-            mapDlg.setSize(400, Math.min(600, 100 + dp.getDsChiTiet().size() * 50));
+            mapDlg.setSize(420, Math.min(680, 180 + dp.getDsChiTiet().size() * 52));
             mapDlg.setLocationRelativeTo(this);
             JPanel mapPanel = new JPanel();
             mapPanel.setLayout(new BoxLayout(mapPanel, BoxLayout.Y_AXIS));
-            mapPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            mapPanel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
             mapPanel.setBackground(Color.WHITE);
 
-            JLabel lblGuide = new JLabel("Đơn đặt này có " + dp.getDsChiTiet().size() + " phòng. Chọn phòng để xử lý:");
+            // Title
+            JLabel lblGuide = new JLabel("Đơn này có " + dp.getDsChiTiet().size() + " phòng — " + pendingCount + " chờ nhận:");
             lblGuide.setFont(UIConstants.FONT_BODY_BOLD);
             lblGuide.setAlignmentX(Component.CENTER_ALIGNMENT);
             mapPanel.add(lblGuide);
-            mapPanel.add(Box.createVerticalStrut(15));
+            mapPanel.add(Box.createVerticalStrut(12));
 
+            // ─── BATCH CHECK-IN BUTTON (nút nổi bật ở trên) ───
+            if (pendingCount > 1) {
+                RoundedButton btnBatch = new RoundedButton(
+                        "⚡ Nhận tất cả " + pendingCount + " phòng cùng lúc",
+                        UIConstants.SUCCESS, Color.WHITE);
+                btnBatch.setFont(UIConstants.FONT_BODY_BOLD);
+                btnBatch.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+                btnBatch.setAlignmentX(Component.CENTER_ALIGNMENT);
+                btnBatch.setToolTipText("Mở form nhận phòng đồng loạt — dùng chung thông tin khách cho tất cả các phòng");
+                btnBatch.addActionListener(ev -> {
+                    mapDlg.dispose();
+                    ui.dialogs.BatchCheckinDialog batchDlg = new ui.dialogs.BatchCheckinDialog(
+                            (Frame) SwingUtilities.getWindowAncestor(this), dp);
+                    batchDlg.setVisible(true);
+                    if (batchDlg.isConfirmed()) refresh();
+                });
+                mapPanel.add(btnBatch);
+                mapPanel.add(Box.createVerticalStrut(6));
+
+                // Separator with label
+                JPanel sepRow = new JPanel(new BorderLayout(8, 0));
+                sepRow.setOpaque(false);
+                sepRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+                JSeparator sep1 = new JSeparator();
+                JSeparator sep2 = new JSeparator();
+                JLabel lblOr = new JLabel("hoặc nhận từng phòng", SwingConstants.CENTER);
+                lblOr.setFont(UIConstants.FONT_SMALL);
+                lblOr.setForeground(UIConstants.TEXT_MUTED);
+                sepRow.add(sep1, BorderLayout.WEST);
+                sepRow.add(lblOr, BorderLayout.CENTER);
+                sepRow.add(sep2, BorderLayout.EAST);
+                mapPanel.add(sepRow);
+                mapPanel.add(Box.createVerticalStrut(10));
+            }
+
+            // ─── INDIVIDUAL ROOM BUTTONS ───
             for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
                 Phong p = ct.getPhong();
                 RoundedButton btnRoom = new RoundedButton("P." + p.getSoPhongDisplay() + " (" + p.getTenLoaiPhong() + ")",
@@ -1177,14 +1234,15 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
                 btnRoom.setAlignmentX(Component.CENTER_ALIGNMENT);
 
                 boolean isDone = ct.isDaThanhToan() || ct.getNgayTraThucTe() != null;
-                boolean isOccupied = p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED;
+                boolean isOccupied = p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED
+                        && ct.getNgayNhanThucTe() != null;
 
                 if (isOccupied || isDone) {
                     String lockLabel = isDone
-                            ? "P." + p.getSoPhongDisplay() + " - Đã hoàn thành ✓"
-                            : "P." + p.getSoPhongDisplay() + " - Đã nhận phòng";
+                            ? "P." + p.getSoPhongDisplay() + " — Đã hoàn thành ✓"
+                            : "P." + p.getSoPhongDisplay() + " — Đã nhận phòng ✓";
                     btnRoom.setText(lockLabel);
-                    btnRoom.setBackground(new Color(156, 163, 175)); // Khóa nút
+                    btnRoom.setBackground(new Color(156, 163, 175));
                 } else {
                     btnRoom.addActionListener(ev -> {
                         mapDlg.dispose();
@@ -1192,12 +1250,11 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
                         ui.dialogs.CheckinDialog ck = new ui.dialogs.CheckinDialog(
                                 (Frame) SwingUtilities.getWindowAncestor(this), p, kh, dp);
                         ck.setVisible(true);
-                        if (ck.isConfirmed())
-                            refresh();
+                        if (ck.isConfirmed()) refresh();
                     });
                 }
                 mapPanel.add(btnRoom);
-                mapPanel.add(Box.createVerticalStrut(10));
+                mapPanel.add(Box.createVerticalStrut(8));
             }
             mapDlg.add(new JScrollPane(mapPanel));
             mapDlg.setVisible(true);
@@ -1623,19 +1680,17 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu createDynamicMenu(String ma, String ten, TrangThaiDatPhong status) {
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+        ModernPopupMenu menu = new ModernPopupMenu();
 
         // 1. Xem chi tiết (Luôn có)
-        JMenuItem mnuDetail = createMenuItem("Xem chi tiết", UIConstants.TEXT_PRIMARY);
+        ModernMenuItem mnuDetail = createMenuItem("Xem chi tiết", UIConstants.TEXT_PRIMARY);
         mnuDetail.addActionListener(e -> viewDetails(ma));
         menu.add(mnuDetail);
         menu.addSeparator();
 
         // 2. Nhận phòng
         if (status == TrangThaiDatPhong.CONFIRMED || status == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) {
-            JMenuItem mnuCheckin = createMenuItem("Nhận phòng", UIConstants.SUCCESS);
-            mnuCheckin.setFont(UIConstants.FONT_BODY_BOLD);
+            ModernMenuItem mnuCheckin = createMenuItem("Nhận phòng", UIConstants.SUCCESS);
             mnuCheckin.addActionListener(e -> {
                 DatPhong dp = datPhongService.getById(ma);
                 if (dp != null)
@@ -1646,7 +1701,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
         // 2.1 Sửa đặt phòng (Mới khôi phục)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {
-            JMenuItem mnuEdit = createMenuItem("Sửa đặt phòng", UIConstants.PRIMARY);
+            ModernMenuItem mnuEdit = createMenuItem("Sửa đặt phòng", UIConstants.PRIMARY);
             mnuEdit.addActionListener(e -> {
                 DatPhong dp = datPhongService.getById(ma);
                 if (dp != null) {
@@ -1662,23 +1717,21 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
         // 2.2 Thu tiền cọc (Quick action)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
-            JMenuItem mnuDeposit = createMenuItem("Thu tiền cọc", new Color(0xF59E0B));
-            mnuDeposit.setFont(UIConstants.FONT_BODY_BOLD);
+            ModernMenuItem mnuDeposit = createMenuItem("Thu tiền cọc", new Color(0xF59E0B));
             mnuDeposit.addActionListener(e -> doNopCoc(ma, ten));
             menu.add(mnuDeposit);
         }
 
         // 2.3 Chuyển sang chờ xếp phòng (Waitlist)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {
-            JMenuItem mnuMoveWaitlist = createMenuItem("Chuyển sang chờ xếp phòng", new Color(0xF59E0B));
+            ModernMenuItem mnuMoveWaitlist = createMenuItem("Chuyển sang chờ xếp phòng", new Color(0xF59E0B));
             mnuMoveWaitlist.addActionListener(e -> doMoveToWaitlist(ma, ten));
             menu.add(mnuMoveWaitlist);
         }
 
         // 3. Xác nhận (PENDING hoặc WAITLIST)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
-            JMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
-            mnuConfirm.setFont(UIConstants.FONT_BODY_BOLD);
+            ModernMenuItem mnuConfirm = createMenuItem("Xác nhận đặt phòng", UIConstants.SUCCESS);
             mnuConfirm.addActionListener(e -> {
                 if (status == TrangThaiDatPhong.PENDING)
                     doConfirmPending(ma, ten);
@@ -1690,7 +1743,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
         // 4. No-show
         if (status == TrangThaiDatPhong.CONFIRMED) {
-            JMenuItem mnuNoShow = createMenuItem("Đánh dấu Khách không đến", new Color(0xB91C1C));
+            ModernMenuItem mnuNoShow = createMenuItem("Đánh dấu Khách không đến", new Color(0xB91C1C));
             mnuNoShow.addActionListener(e -> doMarkNoShow(ma, ten));
             menu.add(mnuNoShow);
         }
@@ -1699,7 +1752,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED
                 || status == TrangThaiDatPhong.WAITLIST) {
             menu.addSeparator();
-            JMenuItem mnuHuy = createMenuItem("Hủy đặt phòng", UIConstants.TEXT_SECONDARY);
+            ModernMenuItem mnuHuy = createMenuItem("Hủy đặt phòng", UIConstants.TEXT_SECONDARY);
             mnuHuy.addActionListener(e -> doCancel(ma, ten));
             menu.add(mnuHuy);
         }
@@ -1711,7 +1764,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             if (status == TrangThaiDatPhong.CANCELLED)
                 menu.addSeparator();
 
-            JMenuItem mnuXoa = createMenuItem("Xóa vĩnh viễn", UIConstants.DANGER);
+            ModernMenuItem mnuXoa = createMenuItem("Xóa vĩnh viễn", UIConstants.DANGER);
             mnuXoa.addActionListener(e -> doDelete(ma, ten));
             menu.add(mnuXoa);
         }
@@ -1719,11 +1772,9 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         return menu;
     }
 
-    private JMenuItem createMenuItem(String text, Color color) {
-        JMenuItem item = new JMenuItem(text);
-        item.setFont(UIConstants.FONT_BODY);
+    private ModernMenuItem createMenuItem(String text, Color color) {
+        ModernMenuItem item = new ModernMenuItem(text);
         item.setForeground(color);
-        item.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         return item;
     }
 
@@ -1995,10 +2046,10 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         JPanel p = new JPanel(new GridLayout(1, 4, 16, 0));
         p.setOpaque(false);
 
-        p.add(buildStatCard("Tổng đơn đặt", "0", new Color(0x6366F1), 1));
-        p.add(buildStatCard("Sắp nhận phòng", "0", new Color(0xF59E0B), 2));
-        p.add(buildStatCard("Đang thuê", "0", new Color(0x3B82F6), 3));
-        p.add(buildStatCard("Hoàn thành", "0", new Color(0x10B981), 4));
+        p.add(buildStatCard("Tổng đơn đặt", "0", UIConstants.CARD_INDIGO, 1));
+        p.add(buildStatCard("Sắp nhận phòng", "0", UIConstants.CARD_AMBER, 2));
+        p.add(buildStatCard("Đang thuê", "0", UIConstants.CARD_BLUE, 3));
+        p.add(buildStatCard("Hoàn thành", "0", UIConstants.CARD_GREEN, 4));
 
         return p;
     }

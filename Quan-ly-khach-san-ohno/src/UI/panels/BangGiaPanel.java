@@ -13,6 +13,8 @@ import javax.swing.*;
 import javax.swing.table.*;
 import service.BangGiaService;
 import ui.components.PaginationPanel;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import java.util.ArrayList;
 
 public class BangGiaPanel extends JPanel implements ResettableFilter {
@@ -240,17 +242,17 @@ public class BangGiaPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miEdit = new JMenuItem("Xem / Sửa");
-        JMenuItem miAdd = new JMenuItem("Thêm bảng giá mới");
-        JMenuItem miDel = new JMenuItem("Xóa bảng giá");
-        miEdit.setFont(UIConstants.FONT_BODY);
-        miAdd.setFont(UIConstants.FONT_BODY);
-        miDel.setFont(UIConstants.FONT_BODY);
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
+        ModernMenuItem miAdd = new ModernMenuItem("Thêm bảng giá mới");
+        ModernMenuItem miDel = new ModernMenuItem("Xóa bảng giá");
+        
         miDel.setForeground(UIConstants.DANGER);
+        
         miEdit.addActionListener(e -> editSelected());
         miAdd.addActionListener(e -> showDialog(null));
         miDel.addActionListener(e -> deleteSelected());
+        
         menu.add(miEdit);
         menu.add(miAdd);
         menu.addSeparator();

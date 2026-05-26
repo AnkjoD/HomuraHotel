@@ -12,6 +12,7 @@ import ui.components.RoundedComponents.*;
 import ui.components.PaginationPanel;
 import javax.swing.table.DefaultTableCellRenderer;
 import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.dialogs.ShiftDetailDialog;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -325,8 +326,7 @@ public class ShiftHistoryPanel extends JPanel {
 
     private JPopupMenu buildContextMenu() {
         ModernPopupMenu menu = new ModernPopupMenu();
-        JMenuItem miView = new JMenuItem("Xem chi tiết");
-        miView.setFont(UIConstants.FONT_BODY);
+        ModernMenuItem miView = new ModernMenuItem("Xem chi tiết");
         miView.addActionListener(e -> showDetail());
         menu.add(miView);
         return menu;

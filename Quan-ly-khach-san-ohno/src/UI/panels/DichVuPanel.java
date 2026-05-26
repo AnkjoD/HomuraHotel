@@ -11,6 +11,8 @@ import javax.swing.table.*;
 import service.DichVuService;
 import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.components.RoundedComponents.ModernComboBox;
 import ui.components.RoundedComponents.ModernTextField;
 import ui.components.RoundedComponents.RoundedButton;
@@ -197,7 +199,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         }, g);
 
         // Table
-        String[] cols = { "_ma", "#", "Tên dịch vụ", "Loại", "Giá", "Đơn vị", "SL tối thiểu", "Trạng thái" };
+        String[] cols = { "_ma", "#", "Tên dịch vụ", "Loại", "Giá", "Đơn vị", "Trạng thái" };
         tableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int r, int c) {
@@ -209,7 +211,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
         table.removeColumn(colMa);
 
         // Thiết lập chiều rộng cột
-        int[] widths = { 50, 200, 150, 120, 100, 110, 120 };
+        int[] widths = { 50, 250, 150, 120, 100, 120 };
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -272,13 +274,10 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miEdit = new JMenuItem("Xem / Sửa");
-        JMenuItem miAdd = new JMenuItem("Thêm mới");
-        JMenuItem miDel = new JMenuItem("Xóa dịch vụ");
-        miEdit.setFont(UIConstants.FONT_BODY);
-        miAdd.setFont(UIConstants.FONT_BODY);
-        miDel.setFont(UIConstants.FONT_BODY);
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
+        ModernMenuItem miAdd = new ModernMenuItem("Thêm mới");
+        ModernMenuItem miDel = new ModernMenuItem("Xóa dịch vụ");
         miDel.setForeground(UIConstants.DANGER);
         miEdit.addActionListener(e -> editSelected());
         miAdd.addActionListener(e -> showDialog(null));
@@ -326,13 +325,13 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
 
                 // Căn lề
                 switch (col) {
-                    case 0, 2, 4, 5, 6 -> lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    case 0, 2, 4, 5 -> lbl.setHorizontalAlignment(SwingConstants.CENTER);
                     case 3 -> lbl.setHorizontalAlignment(SwingConstants.RIGHT);
                     default -> lbl.setHorizontalAlignment(SwingConstants.LEFT);
                 }
 
                 String v = val != null ? val.toString() : "";
-                if (col == 6) { // Trạng thái
+                if (col == 5) { // Trạng thái
                     lbl.setFont(UIConstants.FONT_SMALL_BOLD);
                     lbl.setHorizontalAlignment(SwingConstants.CENTER);
                     if (v.equals("Hoạt động")) {
@@ -385,7 +384,7 @@ public class DichVuPanel extends JPanel implements ResettableFilter {
             tableModel.addRow(new Object[] {
                     dv.getMaDV(), i + 1, dv.getTenDV(), dv.getLoai(),
                     String.format("%,.0fđ", dv.getGia()),
-                    dv.getDonVi(), dv.getSoLuongMin(), dv.getTrangThai()
+                    dv.getDonVi(), dv.getTrangThai()
             });
         }
 

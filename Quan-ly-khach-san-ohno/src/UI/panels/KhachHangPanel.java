@@ -14,6 +14,8 @@ import service.KhachHangService;
 import ui.MainFrame;
 import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.components.RoundedComponents.*;
 import ui.components.RoundedComponents.ModernComboBox;
 import ui.components.RoundedComponents.ModernTextField;
@@ -72,11 +74,16 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         center.setOpaque(false);
         center.add(buildStats(), BorderLayout.NORTH);
 
+        // filterBar ở NORTH (compact), tableArea ở CENTER (fill remaining space)
+        JPanel filterWrapper = new JPanel(new BorderLayout());
+        filterWrapper.setOpaque(false);
+        filterWrapper.add(Box.createVerticalStrut(14), BorderLayout.NORTH);
+        filterWrapper.add(buildFilterBar(), BorderLayout.CENTER);
+
         JPanel bot = new JPanel(new BorderLayout());
         bot.setOpaque(false);
-        bot.add(Box.createVerticalStrut(14), BorderLayout.NORTH);
-        bot.add(buildFilterBar(), BorderLayout.CENTER);
-        bot.add(buildTableArea(), BorderLayout.SOUTH);
+        bot.add(filterWrapper, BorderLayout.NORTH);
+        bot.add(buildTableArea(), BorderLayout.CENTER);
 
         center.add(bot, BorderLayout.CENTER);
         main.add(center, BorderLayout.CENTER);
@@ -133,10 +140,10 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         lblKhachQuen = new JLabel("...");
         lblQuocTe = new JLabel("...");
 
-        row.add(statCard("Tổng khách hàng", lblTongKH, UIConstants.PRIMARY));
-        row.add(statCard("Khách VIP", lblKhachVIP, new Color(0xF59E0B))); // Gold
-        row.add(statCard("Khách quay lại", lblKhachQuen, new Color(0x3B82F6))); // Blue
-        row.add(statCard("Khách quốc tế", lblQuocTe, new Color(0x10B981))); // Emerald
+        row.add(statCard("Tổng khách hàng", lblTongKH, UIConstants.CARD_INDIGO));
+        row.add(statCard("Khách VIP", lblKhachVIP, UIConstants.CARD_AMBER));
+        row.add(statCard("Khách quay lại", lblKhachQuen, UIConstants.CARD_BLUE));
+        row.add(statCard("Khách quốc tế", lblQuocTe, UIConstants.CARD_GREEN));
 
         return row;
     }
@@ -260,7 +267,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
-        sp.setPreferredSize(new Dimension(0, 420));
 
         pagination = new PaginationPanel();
         pagination.setPageChangeListener(page -> displayCurrentPage());
@@ -282,22 +288,20 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBackground(Color.WHITE);
-        menu.setBorder(BorderFactory.createLineBorder(new Color(0xE2E8F0)));
-
+        ModernPopupMenu menu = new ModernPopupMenu();
+ 
         // --- Group 1: Profile & Info ---
-        JMenuItem miXem = createStyledMenuItem("Xem hồ sơ chi tiết", UIConstants.TEXT_PRIMARY);
-        JMenuItem miCopy = createStyledMenuItem("Sao chép mã khách hàng", UIConstants.TEXT_PRIMARY);
-
+        ModernMenuItem miXem = new ModernMenuItem("Xem hồ sơ chi tiết");
+        ModernMenuItem miCopy = new ModernMenuItem("Sao chép mã khách hàng");
+ 
         // --- Group 2: Business actions ---
-        JMenuItem miDat = createStyledMenuItem("Đặt phòng mới", UIConstants.PRIMARY);
-        JMenuItem miLichSu = createStyledMenuItem("Xem hóa đơn khách này", UIConstants.INFO);
-
+        ModernMenuItem miDat = new ModernMenuItem("Đặt phòng mới");
+        ModernMenuItem miLichSu = new ModernMenuItem("Xem hóa đơn khách này");
+ 
         // --- Group 3: System / Dangerous ---
-        JMenuItem miXoa = createStyledMenuItem("Vô hiệu hóa hồ sơ", UIConstants.DANGER);
+        ModernMenuItem miXoa = new ModernMenuItem("Vô hiệu hóa hồ sơ");
         miXoa.setEnabled(AuthService.getInstance().isManager());
-
+ 
         // Logic actions
         miXem.addActionListener(e -> editSelected());
         miCopy.addActionListener(e -> {
@@ -309,7 +313,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                 NotificationManager.showSuccess("Thành công", "Đã sao chép mã: " + kh.getMaKhachHang());
             }
         });
-
+ 
         miDat.addActionListener(e -> {
             KhachHang kh = getSelected();
             if (kh != null) {
@@ -319,7 +323,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                 });
             }
         });
-
+ 
         miLichSu.addActionListener(e -> {
             KhachHang kh = getSelected();
             if (kh != null) {
@@ -329,9 +333,9 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                 });
             }
         });
-
+ 
         miXoa.addActionListener(e -> deleteSelected());
-
+ 
         menu.add(miXem);
         menu.add(miCopy);
         menu.addSeparator();
@@ -340,15 +344,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         menu.addSeparator();
         menu.add(miXoa);
         return menu;
-    }
-
-    private JMenuItem createStyledMenuItem(String text, Color fg) {
-        JMenuItem item = new JMenuItem(text);
-        item.setFont(UIConstants.FONT_BODY);
-        item.setForeground(fg);
-        item.setBackground(Color.WHITE);
-        item.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-        return item;
     }
 
     private void styleTable() {
@@ -395,28 +390,6 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                     lbl.setHorizontalAlignment(SwingConstants.RIGHT);
                 } else {
                     lbl.setHorizontalAlignment(SwingConstants.LEFT);
-                }
-
-                // Tier coloring (Index 3: Hạng khách)
-                if (col == 3 && val != null) {
-                    String tier = val.toString();
-                    if (tier.contains("VIP")) {
-                        lbl.setForeground(new Color(0xD97706)); // Gold
-                        lbl.setFont(UIConstants.FONT_BODY_BOLD);
-                    } else if (tier.contains("Thân thiết")) {
-                        lbl.setForeground(new Color(0x2563EB)); // Silver/Blue
-                        lbl.setFont(UIConstants.FONT_BODY_BOLD);
-                    } else {
-                        lbl.setForeground(UIConstants.TEXT_SECONDARY);
-                    }
-                }
-
-                // Nationality coloring (Index 6: Quốc tịch)
-                if (col == 6 && val != null) {
-                    String qt = val.toString();
-                    if (!qt.equalsIgnoreCase("Việt Nam") && !qt.isBlank()) {
-                        lbl.setForeground(new Color(0xD97706)); // Gold for Int'l
-                    }
                 }
 
                 return lbl;

@@ -765,10 +765,13 @@ public class KeHoachPanel extends JPanel implements ResettableFilter {
                         : "Khách";
                 String phone = stay.getDatPhong().getKhachHang() != null ? stay.getDatPhong().getKhachHang().getSdt()
                         : "—";
-                String stayPeriod = stay.getDatPhong().getNgayNhanDuKien()
-                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                LocalDateTime rIn = stay.getNgayNhanDuKien() != null ? stay.getNgayNhanDuKien()
+                        : stay.getDatPhong().getNgayNhanDuKien();
+                LocalDateTime rOut = stay.getNgayTraDuKien() != null ? stay.getNgayTraDuKien()
+                        : stay.getDatPhong().getNgayTraDuKien();
+                String stayPeriod = rIn.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
                         + " -> "
-                        + stay.getDatPhong().getNgayTraDuKien().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                        + rOut.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
                 setToolTipText("<html><body style='padding:6px; font-family:Segoe UI;'>"
                         + "<b>Mã đơn:</b> " + stay.getDatPhong().getMaDatPhong() + "<br>"
                         + "<b>Khách hàng:</b> " + name + " (" + phone + ")<br>"
@@ -810,9 +813,10 @@ public class KeHoachPanel extends JPanel implements ResettableFilter {
 
             for (ChiTietDatPhong ct : roomStays) {
                 LocalDateTime s = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe()
-                        : ct.getDatPhong().getNgayNhanDuKien();
+                        : (ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien()
+                                : ct.getDatPhong().getNgayNhanDuKien());
                 LocalDateTime e = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe()
-                        : ct.getDatPhong().getNgayTraDuKien();
+                        : (ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : ct.getDatPhong().getNgayTraDuKien());
 
                 if (s == null || e == null)
                     continue;
@@ -913,9 +917,11 @@ public class KeHoachPanel extends JPanel implements ResettableFilter {
 
                 for (ChiTietDatPhong ct : roomStays) {
                     LocalDateTime s = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe()
-                            : ct.getDatPhong().getNgayNhanDuKien();
+                            : (ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien()
+                                    : ct.getDatPhong().getNgayNhanDuKien());
                     LocalDateTime e = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe()
-                            : ct.getDatPhong().getNgayTraDuKien();
+                            : (ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien()
+                                    : ct.getDatPhong().getNgayTraDuKien());
 
                     if (s == null || e == null)
                         continue;
@@ -1092,10 +1098,14 @@ public class KeHoachPanel extends JPanel implements ResettableFilter {
                 : stay.getPhong().getLoaiPhong().getGiaTheoNgay());
 
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String arrival = stay.getNgayNhanThucTe() != null ? stay.getNgayNhanThucTe().format(dtf)
-                : stay.getDatPhong().getNgayNhanDuKien().format(dtf) + " (Dự kiến)";
-        String departure = stay.getNgayTraThucTe() != null ? stay.getNgayTraThucTe().format(dtf)
-                : stay.getDatPhong().getNgayTraDuKien().format(dtf) + " (Dự kiến)";
+        LocalDateTime rIn = stay.getNgayNhanThucTe() != null ? stay.getNgayNhanThucTe()
+                : (stay.getNgayNhanDuKien() != null ? stay.getNgayNhanDuKien()
+                        : stay.getDatPhong().getNgayNhanDuKien());
+        LocalDateTime rOut = stay.getNgayTraThucTe() != null ? stay.getNgayTraThucTe()
+                : (stay.getNgayTraDuKien() != null ? stay.getNgayTraDuKien() : stay.getDatPhong().getNgayTraDuKien());
+        String arrival = rIn != null ? rIn.format(dtf) + (stay.getNgayNhanThucTe() != null ? "" : " (Dự kiến)") : "—";
+        String departure = rOut != null ? rOut.format(dtf) + (stay.getNgayTraThucTe() != null ? "" : " (Dự kiến)")
+                : "—";
 
         String deposit = String.format("%,.0fđ", stay.getDatPhong().getTienDatCoc());
         String total = String.format("%,.0fđ (Tạm tính)", stay.getDatPhong().getTongTienTamTinh());

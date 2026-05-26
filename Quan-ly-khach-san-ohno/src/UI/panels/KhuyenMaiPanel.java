@@ -10,6 +10,8 @@ import ui.components.RoundedComponents.RoundedPanel;
 import ui.components.RoundedComponents.StatusBadge;
 import ui.components.UIConstants;
 import ui.components.PaginationPanel;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.dialogs.KhuyenMaiDialog;
 
 import javax.swing.*;
@@ -84,16 +86,15 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
         table.getColumnModel().getColumn(8).setPreferredWidth(130);
 
         // Context Menu
-        JPopupMenu popup = new JPopupMenu();
-        JMenuItem viewItem = new JMenuItem("Xem chi tiết");
+        ModernPopupMenu popup = new ModernPopupMenu();
+        ModernMenuItem viewItem = new ModernMenuItem("Xem chi tiết");
         viewItem.addActionListener(e -> viewSelected());
 
-        JMenuItem editItem = new JMenuItem("Chỉnh sửa");
-        editItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/edit.png"));
+        ModernMenuItem editItem = new ModernMenuItem("Chỉnh sửa");
         editItem.addActionListener(e -> editSelected());
 
-        JMenuItem deleteItem = new JMenuItem("Xóa");
-        deleteItem.setIcon(new ImageIcon("d:/HK2-2026/PTUD/Hotel_FH/Quan-ly-khach-san-ohno/icon/delete.png"));
+        ModernMenuItem deleteItem = new ModernMenuItem("Xóa");
+        deleteItem.setForeground(UIConstants.DANGER);
         deleteItem.addActionListener(e -> deleteSelected());
 
         popup.add(viewItem);

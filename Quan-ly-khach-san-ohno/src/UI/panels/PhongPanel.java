@@ -3,6 +3,8 @@ package ui.panels;
 import ui.components.RoundedComponents.*;
 import ui.components.NotificationManager;
 import ui.components.UIConstants;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 import ui.dialogs.PhongDialog;
 import entity.Phong;
 import entity.enums.TrangThaiPhong;
@@ -92,11 +94,11 @@ public class PhongPanel extends JPanel implements ResettableFilter {
         Map<String, Integer> tt = phongService.getThongKeTrangThai();
         JPanel row = new JPanel(new GridLayout(1, 5, 12, 0));
         row.setOpaque(false);
-        row.add(statCard("Có sẵn", tt.getOrDefault("Có sẵn", 0) + " phòng", UIConstants.SUCCESS));
-        row.add(statCard("Đang thuê", tt.getOrDefault("Đang thuê", 0) + " phòng", UIConstants.PRIMARY));
-        row.add(statCard("Đã đặt", tt.getOrDefault("Đã đặt", 0) + " phòng", UIConstants.WARNING));
-        row.add(statCard("Vệ sinh", tt.getOrDefault("Vệ sinh", 0) + " phòng", new Color(0x06B6D4)));
-        row.add(statCard("Bảo trì", tt.getOrDefault("Bảo trì", 0) + " phòng", UIConstants.DANGER));
+        row.add(statCard("Có sẵn", tt.getOrDefault("Có sẵn", 0) + " phòng", UIConstants.CARD_GREEN));
+        row.add(statCard("Đang thuê", tt.getOrDefault("Đang thuê", 0) + " phòng", UIConstants.CARD_BLUE));
+        row.add(statCard("Đã đặt", tt.getOrDefault("Đã đặt", 0) + " phòng", UIConstants.CARD_AMBER));
+        row.add(statCard("Vệ sinh", tt.getOrDefault("Vệ sinh", 0) + " phòng", UIConstants.CARD_TEAL));
+        row.add(statCard("Bảo trì", tt.getOrDefault("Bảo trì", 0) + " phòng", UIConstants.CARD_RED));
         return row;
     }
 
@@ -225,13 +227,10 @@ public class PhongPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miEdit = new JMenuItem("Xem / Sửa");
-        JMenuItem miAdd = new JMenuItem("Thêm phòng mới");
-        JMenuItem miDel = new JMenuItem("Xóa phòng");
-        miEdit.setFont(UIConstants.FONT_BODY);
-        miAdd.setFont(UIConstants.FONT_BODY);
-        miDel.setFont(UIConstants.FONT_BODY);
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
+        ModernMenuItem miAdd = new ModernMenuItem("Thêm phòng mới");
+        ModernMenuItem miDel = new ModernMenuItem("Xóa phòng");
         miDel.setForeground(UIConstants.DANGER);
         miEdit.addActionListener(e -> editSelected());
         miAdd.addActionListener(e -> showDialog(null));

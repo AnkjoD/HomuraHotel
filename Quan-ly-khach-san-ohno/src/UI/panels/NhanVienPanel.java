@@ -10,6 +10,8 @@ import ui.components.NotificationManager;
 import ui.components.PaginationPanel;
 import ui.components.RoundedComponents.*;
 import ui.dialogs.NhanVienDialog;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -120,9 +122,9 @@ public class NhanVienPanel extends JPanel implements ResettableFilter {
         lblDangLam = new JLabel("...");
         lblDaNghi = new JLabel("...");
 
-        row.add(statCard("TỔNG NHÂN LỰC", lblTongNV, UIConstants.PRIMARY));
-        row.add(statCard("ĐANG LÀM", lblDangLam, UIConstants.SUCCESS));
-        row.add(statCard("ĐÃ NGHỈ", lblDaNghi, UIConstants.TEXT_MUTED));
+        row.add(statCard("TỔNG NHÂN LỰC", lblTongNV, UIConstants.CARD_INDIGO));
+        row.add(statCard("ĐANG LÀM", lblDangLam, UIConstants.CARD_GREEN));
+        row.add(statCard("ĐÃ NGHỈ", lblDaNghi, UIConstants.CARD_AMBER));
 
         loadStats();
         return row;
@@ -336,11 +338,9 @@ public class NhanVienPanel extends JPanel implements ResettableFilter {
     }
 
     private JPopupMenu buildContextMenu() {
-        JPopupMenu menu = new JPopupMenu();
-        JMenuItem miXem = new JMenuItem(canEdit ? "Xem / Sửa thông tin" : "Xem thông tin");
-        JMenuItem miXoa = new JMenuItem("Xóa nhân viên này");
-        miXem.setFont(UIConstants.FONT_BODY);
-        miXoa.setFont(UIConstants.FONT_BODY);
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miXem = new ModernMenuItem(canEdit ? "Xem / Sửa thông tin" : "Xem thông tin");
+        ModernMenuItem miXoa = new ModernMenuItem("Xóa nhân viên này");
         miXoa.setForeground(UIConstants.DANGER);
         miXem.addActionListener(e -> editSelected());
         miXoa.addActionListener(e -> deleteSelected());

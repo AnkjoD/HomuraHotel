@@ -212,7 +212,7 @@ public class TongQuanPanel extends JPanel {
                             (String) ci.get("hoTen"),
                             ci.get("soPhong") + " – " + ci.get("tenLoai"),
                             ci.get("ngayNhan") != null ? timeFmt.format(ci.get("ngayNhan")) : "--:--",
-                            "Chờ xác nhận"));
+                            ci.get("trangThai") != null ? (String) ci.get("trangThai") : "Chờ nhận"));
                 }
                 pnlCheckinList.add(Box.createVerticalGlue());
             }

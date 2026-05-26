@@ -569,15 +569,30 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         // Group indicator for occupied rooms
         boolean isGroup = tt == TrangThaiPhong.OCCUPIED && activeGroupRooms.containsKey(p.getSoPhong());
         if (isGroup) {
-            String groupCode = activeGroupRooms.get(p.getSoPhong());
-            String shortCode = groupCode.substring(Math.max(0, groupCode.length() - 4));
-            JLabel lblGroup = new JLabel("🔗 ĐOÀN-" + shortCode);
+            String value = activeGroupRooms.get(p.getSoPhong());
+            String tenDoan = "Đoàn";
+            String maDatPhong = "";
+            if (value != null && value.contains("|")) {
+                String[] parts = value.split("\\|", 2);
+                tenDoan = parts[0];
+                maDatPhong = parts[1];
+            } else if (value != null) {
+                maDatPhong = value;
+            }
+            
+            // Limit text length to avoid overflowing room card layout
+            String displayLabel = tenDoan;
+            if (displayLabel.length() > 15) {
+                displayLabel = displayLabel.substring(0, 13) + "..";
+            }
+            
+            JLabel lblGroup = new JLabel(displayLabel);
             lblGroup.setFont(new Font("Segoe UI", Font.BOLD, 10));
             lblGroup.setForeground(new Color(0x6366F1)); // Indigo
             lblGroup.setOpaque(true);
             lblGroup.setBackground(new Color(0xE0E7FF));
             lblGroup.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
-            lblGroup.setToolTipText("Thuộc đoàn " + groupCode);
+            lblGroup.setToolTipText("<html><b>Đoàn:</b> " + tenDoan + "<br><b>Đơn đặt:</b> " + maDatPhong + "</html>");
             lblType.setText(""); // Hide type text to save space for group badge
             lblType.setIcon(null);
             card.putClientProperty("groupBadge", lblGroup);
@@ -807,7 +822,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         if (tp.getDatPhong() != null) {
             allGroupRooms = thuePhongService.getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
             activeRoomsInGroup = allGroupRooms.stream().filter(r -> r.getNgayTraThucTe() == null).count();
-            if (allGroupRooms.size() > 1 || "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
+            if ("DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
                 isGroup = true;
             }
         }
@@ -993,74 +1008,64 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             long unpaidCount = allGroupRooms.stream().filter(r -> r.getNgayTraThucTe() != null && !r.isDaThanhToan())
                     .count();
 
-            final int[] result = {-1}; // -1: cancel, 0: gom bill, 1: pay solo
-            JDialog dlg = new JDialog(mainFrame, "", true);
-            dlg.setUndecorated(true);
-            dlg.setSize(520, unpaidCount > 0 ? 280 : 250);
-            dlg.setLocationRelativeTo(mainFrame);
-
-            JPanel root = new JPanel(new BorderLayout());
-            root.setBackground(Color.WHITE);
-            root.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(0, 0, 0, 40), 1),
-                    BorderFactory.createEmptyBorder(25, 30, 20, 30)));
-
-            JPanel centerPanel = new JPanel(new BorderLayout(20, 0));
-            centerPanel.setOpaque(false);
-
-            // Icon
-            JLabel lblIcon = new JLabel(unpaidCount > 0 ? "⚠️" : "📋");
-            lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
-            centerPanel.add(lblIcon, BorderLayout.WEST);
-
-            // Text
-            StringBuilder msg = new StringBuilder("<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>");
             if (unpaidCount > 0) {
+                final int[] result = {-1}; // -1: cancel, 0: gom bill, 1: pay solo
+                JDialog dlg = new JDialog(mainFrame, "", true);
+                dlg.setUndecorated(true);
+                dlg.setSize(520, 280);
+                dlg.setLocationRelativeTo(mainFrame);
+
+                JPanel root = new JPanel(new BorderLayout());
+                root.setBackground(Color.WHITE);
+                root.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(0, 0, 0, 40), 1),
+                        BorderFactory.createEmptyBorder(25, 30, 20, 30)));
+
+                JPanel centerPanel = new JPanel(new BorderLayout(20, 0));
+                centerPanel.setOpaque(false);
+
+                // Icon
+                JLabel lblIcon = new JLabel("⚠️");
+                lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
+                centerPanel.add(lblIcon, BorderLayout.WEST);
+
+                // Text
+                StringBuilder msg = new StringBuilder("<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>");
                 msg.append("<h3 style='margin: 0 0 10px 0; color: #DC2626; font-size: 18px;'>Tiến hành Gom Bill Đoàn</h3>")
                    .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn.<br>")
                    .append("Hiện có <b style='color: #DC2626;'>").append(unpaidCount).append(" phòng</b> đã trả nhưng đang Treo nợ.<br><br>")
                    .append("<b>BẮT BUỘC</b> tiến hành GOM BILL toàn đoàn vào 1 Hóa đơn duy nhất để tất toán cho các phòng đã treo nợ.");
-            } else {
-                msg.append("<h3 style='margin: 0 0 10px 0; color: #0F172A; font-size: 18px;'>Gom Bill Đoàn</h3>")
-                   .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn (").append(allGroupRooms.size()).append(" phòng).<br><br>")
-                   .append("Bạn muốn GOM BILL toàn đoàn vào 1 hóa đơn tổng hay thanh toán riêng lẻ phòng này?");
+                msg.append("</body></html>");
+
+                JLabel lblMessage = new JLabel(msg.toString());
+                centerPanel.add(lblMessage, BorderLayout.CENTER);
+                root.add(centerPanel, BorderLayout.CENTER);
+
+                // Buttons
+                JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+                buttons.setOpaque(false);
+                buttons.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+
+                RoundedButton btnCancel = grayButton("Hủy bỏ");
+                btnCancel.addActionListener(e -> { result[0] = -1; dlg.dispose(); });
+
+                RoundedButton btnGroup = primaryButton("Gom Bill toàn đoàn");
+                btnGroup.addActionListener(e -> { result[0] = 0; dlg.dispose(); });
+                buttons.add(btnCancel);
+                buttons.add(btnGroup);
+
+                root.add(buttons, BorderLayout.SOUTH);
+
+                dlg.setContentPane(root);
+                dlg.setVisible(true);
+
+                if (result[0] == 0) {
+                    showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
+                    return;
+                } else if (result[0] == -1) {
+                    return;
+                }
             }
-            msg.append("</body></html>");
-            
-            JLabel lblMessage = new JLabel(msg.toString());
-            centerPanel.add(lblMessage, BorderLayout.CENTER);
-            root.add(centerPanel, BorderLayout.CENTER);
-
-            // Buttons
-            JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
-            buttons.setOpaque(false);
-            buttons.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
-
-            RoundedButton btnCancel = grayButton("Hủy bỏ");
-            RoundedButton btnSolo = unpaidCount > 0 ? null : RoundedButton.outline("Thanh toán riêng", UIConstants.PRIMARY);
-            RoundedButton btnGroup = primaryButton("Gom Bill toàn đoàn");
-
-            btnCancel.addActionListener(e -> { result[0] = -1; dlg.dispose(); });
-            btnGroup.addActionListener(e -> { result[0] = 0; dlg.dispose(); });
-            if (btnSolo != null) {
-                btnSolo.addActionListener(e -> { result[0] = 1; dlg.dispose(); });
-                buttons.add(btnSolo);
-            }
-            
-            buttons.add(btnCancel);
-            buttons.add(btnGroup);
-            root.add(buttons, BorderLayout.SOUTH);
-
-            dlg.setContentPane(root);
-            dlg.setVisible(true);
-
-            if (result[0] == 0) {
-                showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
-                return;
-            } else if (result[0] == -1) {
-                return;
-            }
-            // If result[0] == 1 -> Continue below to normal HoaDonDialog
         }
 
         HoaDonDialog dlg = new HoaDonDialog(
@@ -1154,11 +1159,12 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             menu.addSeparator();
             menu.add(itemPayment);
             
-            // Gom Bill Đoàn — hiển thị nếu phòng thuộc đoàn (nhiều hơn 1 phòng)
+            // Gom Bill Đoàn — hiển thị nếu đoàn có ít nhất 2 phòng chưa thanh toán
             ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
             if (tp != null && tp.getDatPhong() != null) {
                 java.util.List<ChiTietDatPhong> allRooms = thuePhongService.getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
-                if (allRooms.size() > 1 || "DOAN".equalsIgnoreCase(tp.getDatPhong().getLoaiKhach())) {
+                long unpaidCount = allRooms.stream().filter(r -> !r.isDaThanhToan()).count();
+                if (unpaidCount > 1) {
                     ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn (Master Bill)");
                     itemMasterBill.addActionListener(e2 -> {
                         showMasterBillDialog(tp.getDatPhong(), allRooms);
