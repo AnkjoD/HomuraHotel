@@ -131,20 +131,54 @@ public class ThuePhongService {
         ChiTietDatPhong ct = ctdpDAO.getById(maChiTiet);
         if (ct == null || ct.getDatPhong() == null) return "Không tìm thấy thông tin thuê phòng!";
         DatPhong dp = ct.getDatPhong();
-        if (newLDT.isBefore(dp.getNgayTraDuKien())) {
+        
+        LocalDateTime currentCheckout = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : dp.getNgayTraDuKien();
+        if (newLDT.isBefore(currentCheckout)) {
             return "Ngày trả mới không thể sớm hơn ngày trả hiện tại!";
         }
-        LocalDateTime oldEnd = dp.getNgayTraDuKien();
-        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), oldEnd, newLDT, dp.getMaDatPhong())) {
+        
+        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), currentCheckout, newLDT, dp.getMaDatPhong())) {
             return "Không thể gia hạn! Phòng " + ct.getPhong().getMaPhong() + " đã có khách khác đặt trước trong khoảng thời gian này.";
         }
-        dp.setNgayTraDuKien(newLDT);
-        boolean ok = datPhongDAO.update(dp);
-        if (ok) {
+        
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            
+            // 1. Cập nhật chi tiết đặt phòng
+            ct.setNgayTraDuKien(newLDT);
+            if (!ctdpDAO.update(ct)) {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật chi tiết thuê phòng!";
+            }
+            
+            // 2. Tìm ngày trả muộn nhất trong tất cả các phòng để cập nhật đơn đặt phòng cha
+            List<ChiTietDatPhong> rooms = ctdpDAO.getByDatPhong(dp.getMaDatPhong());
+            LocalDateTime maxCheckout = newLDT;
+            if (rooms != null) {
+                for (ChiTietDatPhong r : rooms) {
+                    if (r.getMaChiTiet().equals(ct.getMaChiTiet())) continue;
+                    LocalDateTime rOut = r.getNgayTraDuKien() != null ? r.getNgayTraDuKien() : dp.getNgayTraDuKien();
+                    if (rOut != null && rOut.isAfter(maxCheckout)) {
+                        maxCheckout = rOut;
+                    }
+                }
+            }
+            
+            dp.setNgayTraDuKien(maxCheckout);
+            if (!datPhongDAO.update(dp)) {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật đơn đặt phòng!";
+            }
+            
+            db.commitTransaction();
             LOGGER.info("Gia hạn phòng " + ct.getPhong().getMaPhong() + " đến " + newLDT);
             return null;
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi khi gia hạn", e);
+            return "Lỗi hệ thống: " + e.getMessage();
         }
-        return "Lỗi cập nhật CSDL!";
     }
 
     public String checkOut(String maChiTiet, String maNV) {
@@ -163,6 +197,10 @@ public class ThuePhongService {
     }
     
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode, double customDeposit) {
+        return checkOut(maChiTiet, maNV, status, voucherCode, customDeposit, 0);
+    }
+    
+    public String checkOut(String maChiTiet, String maNV, String status, String voucherCode, double customDeposit, double earlyCheckoutPenalty) {
         database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
             dbConn.beginTransaction();
@@ -234,6 +272,20 @@ public class ThuePhongService {
                     tongPhuPhi += dynamicSurcharge;
                 }
 
+                // Phí phạt trả phòng sớm (nếu có)
+                if (earlyCheckoutPenalty > 0) {
+                    ChiTietHoaDon cthdPenalty = new ChiTietHoaDon();
+                    cthdPenalty.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    cthdPenalty.setHoaDon(hd);
+                    cthdPenalty.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                    cthdPenalty.setSoLuong(1);
+                    cthdPenalty.setDonGia(earlyCheckoutPenalty);
+                    cthdPenalty.setNoiDung("Phạt trả phòng sớm - P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?"));
+                    cthdPenalty.setThanhTien(earlyCheckoutPenalty);
+                    pendingItems.add(cthdPenalty);
+                    tongPhuPhi += earlyCheckoutPenalty;
+                }
+
                 // 3. Phí phát sinh khác (đã lưu trong DB)
                 tongPhuPhi += ct.getPhuPhiPhatSinh();
                 if (ct.getPhuPhiPhatSinh() > 0) {
@@ -296,7 +348,8 @@ public class ThuePhongService {
             hd.setKhuyenMai(chosenKM);
             double tienGiam = 0;
             if (chosenKM != null) {
-                tienGiam = chosenKM.tinhSoTienGiam(subTotal);
+                // Tiêu chuẩn PMS: Chỉ áp dụng giảm giá trên tổng tiền phòng (tongTienPhong)
+                tienGiam = chosenKM.tinhSoTienGiam(tongTienPhong);
             }
             hd.setTienGiamKhuyenMai(tienGiam);
             
@@ -307,11 +360,12 @@ public class ThuePhongService {
                 // trừ phi có chỉ định cấn trừ thủ công (customDeposit >= 0).
                 List<ChiTietDatPhong> realDs = ctdpDAO.getByDatPhong(mainCt.getDatPhong().getMaDatPhong());
                 boolean isGroup = realDs != null && realDs.size() > 1;
+                long unpaidOthers = realDs != null ? realDs.stream().filter(r -> !r.isDaThanhToan() && !r.getMaChiTiet().equals(mainCt.getMaChiTiet())).count() : 0;
                 double maxCoc = mainCt.getDatPhong().getTienDatCoc();
                 
                 if (customDeposit >= 0) { // Khi thao tác Manual Deduct
                     tienCoc = Math.min(customDeposit, maxCoc);
-                } else if (!isGroup) {
+                } else if (!isGroup || unpaidOthers == 0) { // Tự động trừ cọc nếu là phòng đơn hoặc phòng cuối cùng chưa thanh toán của đoàn
                     tienCoc = maxCoc;
                 }
                 
@@ -397,6 +451,10 @@ public class ThuePhongService {
     }
 
     public String checkOutMasterBill(String maDatPhong, String maNV, String voucherCode) {
+        return checkOutMasterBill(maDatPhong, maNV, voucherCode, new HashMap<>());
+    }
+    
+    public String checkOutMasterBill(String maDatPhong, String maNV, String voucherCode, Map<String, Double> roomPenalties) {
         database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
             dbConn.beginTransaction();
@@ -456,6 +514,29 @@ public class ThuePhongService {
                     pendingItems.add(ctPhu);
                 }
 
+                // Phí phạt trả phòng sớm (nếu có)
+                double earlyCheckoutPenalty = 0;
+                if (roomPenalties != null) {
+                    String pKey = ct.getPhong() != null ? ct.getPhong().getMaPhong() : "";
+                    if (roomPenalties.containsKey(ct.getMaChiTiet())) {
+                        earlyCheckoutPenalty = roomPenalties.get(ct.getMaChiTiet());
+                    } else if (roomPenalties.containsKey(pKey)) {
+                        earlyCheckoutPenalty = roomPenalties.get(pKey);
+                    }
+                }
+                if (earlyCheckoutPenalty > 0) {
+                    tongPhuPhi += earlyCheckoutPenalty;
+                    ChiTietHoaDon ctPenalty = new ChiTietHoaDon();
+                    ctPenalty.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
+                    ctPenalty.setHoaDon(hd);
+                    ctPenalty.setLoaiChiTiet(LoaiChiTietHoaDon.PHU_PHI);
+                    ctPenalty.setNoiDung("Phạt trả phòng sớm P." + (ct.getPhong() != null ? ct.getPhong().getMaPhong() : "?"));
+                    ctPenalty.setSoLuong(1);
+                    ctPenalty.setDonGia(earlyCheckoutPenalty);
+                    ctPenalty.setThanhTien(earlyCheckoutPenalty);
+                    pendingItems.add(ctPenalty);
+                }
+
                 // 3. Dịch vụ
                 List<SuDungDichVu> dsDV = sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet());
                 for (SuDungDichVu s : dsDV) {
@@ -504,7 +585,8 @@ public class ThuePhongService {
             double tienGiam = 0;
             if (chosenKM != null) {
                 hd.setKhuyenMai(chosenKM);
-                tienGiam = chosenKM.tinhSoTienGiam(subTotal);
+                // Tiêu chuẩn PMS: Chỉ áp dụng giảm giá trên tổng tiền phòng (tongTienPhong)
+                tienGiam = chosenKM.tinhSoTienGiam(tongTienPhong);
             }
             hd.setTienGiamKhuyenMai(tienGiam);
 
@@ -608,6 +690,8 @@ public class ThuePhongService {
             ctNew.setDatPhong(ctOld.getDatPhong());
             ctNew.setPhong(newRoom);
             ctNew.setKhachHang(ctOld.getKhachHang());
+            ctNew.setNgayNhanDuKien(ctOld.getNgayNhanDuKien());
+            ctNew.setNgayTraDuKien(ctOld.getNgayTraDuKien());
             ctNew.setNgayNhanThucTe(LocalDateTime.now());
             double rate = keepPrice ? ctOld.getGiaThucTeChot() : bangGiaService.layGiaHienHanh(newRoom.getLoaiPhong().getMaLoaiPhong());
             ctNew.setGiaThucTeChot(rate);

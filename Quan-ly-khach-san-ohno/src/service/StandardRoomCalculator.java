@@ -27,8 +27,19 @@ public class StandardRoomCalculator implements ITinhTienPhong {
             donGia = ctdp.getPhong().getGiaTheoNgay();
         }
         
-        LocalDateTime checkOut = ctdp.getNgayTraThucTe() != null ? ctdp.getNgayTraThucTe() : LocalDateTime.now();
+        LocalDateTime checkOut = ctdp.getNgayTraThucTe();
+        if (checkOut == null && ctdp.getNgayTraDuKien() != null) {
+            checkOut = ctdp.getNgayTraDuKien();
+        }
+        if (checkOut == null && ctdp.getDatPhong() != null) {
+            checkOut = ctdp.getDatPhong().getNgayTraDuKien();
+        }
+        if (checkOut == null) checkOut = LocalDateTime.now();
+
         LocalDateTime checkIn = ctdp.getNgayNhanThucTe();
+        if (checkIn == null && ctdp.getNgayNhanDuKien() != null) {
+            checkIn = ctdp.getNgayNhanDuKien();
+        }
         if (checkIn == null && ctdp.getDatPhong() != null) {
             checkIn = ctdp.getDatPhong().getNgayNhanDuKien();
         }

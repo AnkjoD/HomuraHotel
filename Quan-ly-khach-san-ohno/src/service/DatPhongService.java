@@ -228,7 +228,10 @@ public class DatPhongService {
             if (rooms != null) {
                 for (ChiTietDatPhong ct : rooms) {
                     if (ct.getPhong() != null) {
-                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), dp.getNgayNhanDuKien(), dp.getNgayTraDuKien(), dp.getMaDatPhong())) {
+                        // Ưu tiên dùng ngày riêng của phòng; fallback về ngày cha của đơn
+                        LocalDateTime from = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : dp.getNgayNhanDuKien();
+                        LocalDateTime to   = ct.getNgayTraDuKien()  != null ? ct.getNgayTraDuKien()  : dp.getNgayTraDuKien();
+                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), from, to, dp.getMaDatPhong())) {
                             return false;
                         }
                     }
@@ -467,13 +470,23 @@ public class DatPhongService {
             return "Chỉ có thể sửa đơn ở trạng thái Chờ xác nhận hoặc Đã xác nhận!";
         }
 
+        // Tính khoảng lệch ngày nhận/trả để dịch chuyển ngày của từng phòng tương ứng
+        long checkinShiftSeconds = java.time.Duration.between(old.getNgayNhanDuKien(), dp.getNgayNhanDuKien()).getSeconds();
+        long checkoutShiftSeconds = java.time.Duration.between(old.getNgayTraDuKien(), dp.getNgayTraDuKien()).getSeconds();
+
         // Kiểm tra xung đột phòng khi chuyển sang CONFIRMED hoặc CHECKED_IN
         if (dp.getTrangThai() == TrangThaiDatPhong.CONFIRMED || dp.getTrangThai() == TrangThaiDatPhong.CHECKED_IN || dp.getTrangThai() == TrangThaiDatPhong.PARTIALLY_CHECKED_IN) {
             List<ChiTietDatPhong> rooms = ctDAO.getByDatPhong(dp.getMaDatPhong());
             if (rooms != null) {
                 for (ChiTietDatPhong ct : rooms) {
                     if (ct.getPhong() != null) {
-                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), dp.getNgayNhanDuKien(), dp.getNgayTraDuKien(), dp.getMaDatPhong())) {
+                        LocalDateTime rIn = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : old.getNgayNhanDuKien();
+                        LocalDateTime rOut = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : old.getNgayTraDuKien();
+                        
+                        LocalDateTime newIn = rIn.plusSeconds(checkinShiftSeconds);
+                        LocalDateTime newOut = rOut.plusSeconds(checkoutShiftSeconds);
+                        
+                        if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), newIn, newOut, dp.getMaDatPhong())) {
                             return "Phòng " + ct.getPhong().getSoPhongDisplay() + " đã có lịch đặt hoặc đang sử dụng trong khoảng thời gian này!";
                         }
                     }
@@ -481,8 +494,38 @@ public class DatPhongService {
             }
         }
 
-        // Thực hiện cập nhật
-        return datPhongDAO.update(dp) ? null : "Lỗi cập nhật cơ sở dữ liệu!";
+        // Thực hiện cập nhật trong transaction để đảm bảo tính nhất quán
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            if (!datPhongDAO.update(dp)) {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật đơn đặt phòng!";
+            }
+
+            List<ChiTietDatPhong> rooms = ctDAO.getByDatPhong(dp.getMaDatPhong());
+            if (rooms != null) {
+                for (ChiTietDatPhong ct : rooms) {
+                    LocalDateTime rIn = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : old.getNgayNhanDuKien();
+                    LocalDateTime rOut = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : old.getNgayTraDuKien();
+                    
+                    ct.setNgayNhanDuKien(rIn.plusSeconds(checkinShiftSeconds));
+                    ct.setNgayTraDuKien(rOut.plusSeconds(checkoutShiftSeconds));
+                    
+                    if (!ctDAO.update(ct)) {
+                        db.rollbackTransaction();
+                        return "Lỗi cập nhật lịch phòng " + (ct.getPhong() != null ? ct.getPhong().getSoPhongDisplay() : "") + "!";
+                    }
+                }
+            }
+
+            db.commitTransaction();
+            return null;
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi trong suaDatPhong", e);
+            return "Lỗi hệ thống: " + e.getMessage();
+        }
     }
 
     /**
