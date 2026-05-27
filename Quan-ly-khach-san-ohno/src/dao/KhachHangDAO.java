@@ -27,6 +27,16 @@ public class KhachHangDAO {
         return list;
     }
 
+    public List<KhachHang> getAllWithInactive() {
+        List<KhachHang> list = new ArrayList<>();
+        String sql = "SELECT * FROM KhachHang ORDER BY hoTen";
+        try (Statement st = getConn().createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) list.add(mapRow(rs));
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); }
+        return list;
+    }
+
     public List<KhachHang> timKiem(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) return getAll();
         
@@ -197,6 +207,14 @@ public class KhachHangDAO {
 
     public boolean delete(String maKhachHang) {
         String sql = "UPDATE KhachHang SET trangThai=0 WHERE maKhachHang=?";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maKhachHang);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); return false; }
+    }
+
+    public boolean activate(String maKhachHang) {
+        String sql = "UPDATE KhachHang SET trangThai=1 WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maKhachHang);
             return ps.executeUpdate() > 0;

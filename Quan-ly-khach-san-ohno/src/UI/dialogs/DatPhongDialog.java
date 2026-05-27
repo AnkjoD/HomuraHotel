@@ -24,19 +24,66 @@ public class DatPhongDialog extends JDialog {
     private final List<Phong> selectedRoomsList;
     private final Date checkIn;
     private final Date checkOut;
+    private final KhachHang prefilledKhachHang;
+    private final DatPhong editingDatPhong;
     private final Runnable onSuccess;
 
+    private JComboBox<String> cboLoaiKhach;
+    private ModernComboBox<String> cboTenDoan;
+    private ModernTextField txtGiamGia;
+    private ModernTextField txtSDT;
+    private ModernTextField txtHoTen;
+    private ModernTextField txtCCCD;
+    private ModernComboBox<String> cboQuocTich;
+    private ModernSpinner spnKhach;
+    private JComboBox<entity.KenhDatPhong> cboKenh;
+    private ModernTextField txtOTA;
+    private ui.components.DateTimePicker txtHanCoc;
+    private ModernTextField txtVoucher;
+    private JTextArea txtGhiChu;
+
     public DatPhongDialog(Frame owner, List<Phong> selectedRoomsList, Date checkIn, Date checkOut, Runnable onSuccess) {
+        this(owner, selectedRoomsList, checkIn, checkOut, (KhachHang) null, onSuccess);
+    }
+
+    public DatPhongDialog(Frame owner, List<Phong> selectedRoomsList, Date checkIn, Date checkOut, KhachHang prefilledKhachHang, Runnable onSuccess) {
         super(owner, true);
         this.selectedRoomsList = selectedRoomsList;
         this.checkIn = checkIn;
         this.checkOut = checkOut;
+        this.prefilledKhachHang = prefilledKhachHang;
+        this.editingDatPhong = null;
         this.onSuccess = onSuccess;
 
         String titleStr = selectedRoomsList.size() == 1
                 ? "P." + selectedRoomsList.get(0).getSoPhongDisplay()
                 : selectedRoomsList.size() + " phòng";
         setTitle("Đặt phòng — " + titleStr);
+        setSize(600, 720);
+        setLocationRelativeTo(owner);
+        setResizable(false);
+
+        buildUI(titleStr);
+    }
+
+    public DatPhongDialog(Frame owner, List<Phong> selectedRoomsList, Date checkIn, Date checkOut, DatPhong editingDatPhong, Runnable onSuccess) {
+        super(owner, true);
+        this.selectedRoomsList = selectedRoomsList;
+        this.checkIn = checkIn;
+        this.checkOut = checkOut;
+        this.editingDatPhong = editingDatPhong;
+        this.prefilledKhachHang = editingDatPhong != null ? editingDatPhong.getKhachHang() : null;
+        this.onSuccess = onSuccess;
+
+        String titleStr = selectedRoomsList.size() == 1
+                ? "P." + selectedRoomsList.get(0).getSoPhongDisplay()
+                : selectedRoomsList.size() + " phòng";
+        
+        if (editingDatPhong != null) {
+            setTitle("Chỉnh sửa đơn đặt phòng — " + editingDatPhong.getMaDatPhong());
+        } else {
+            setTitle("Đặt phòng — " + titleStr);
+        }
         setSize(600, 720);
         setLocationRelativeTo(owner);
         setResizable(false);
@@ -74,7 +121,7 @@ public class DatPhongDialog extends JDialog {
         if (roomNames.length() > 2)
             roomNames.setLength(roomNames.length() - 2);
 
-        JLabel bannerTitle = new JLabel("Xác nhận đặt phòng " + titleStr);
+        JLabel bannerTitle = new JLabel(editingDatPhong != null ? "Cập nhật đặt phòng " + editingDatPhong.getMaDatPhong() : "Xác nhận đặt phòng " + titleStr);
         bannerTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         bannerTitle.setForeground(UIConstants.TEXT_PRIMARY);
 
@@ -126,8 +173,8 @@ public class DatPhongDialog extends JDialog {
         g.weightx = 1.0;
         form.add(modernSectionLabel("Loại khách"), g);
 
-        JComboBox<String> cboLoaiKhach = new ModernComboBox<>(new String[] { "Khách lẻ (Cá nhân)", "Khách đoàn" });
-        ModernComboBox<String> cboTenDoan = new ModernComboBox<>(new String[] {
+        cboLoaiKhach = new ModernComboBox<>(new String[] { "Khách lẻ (Cá nhân)", "Khách đoàn" });
+        cboTenDoan = new ModernComboBox<>(new String[] {
                 "Đoàn tự do",
                 "FPT Software",
                 "Viettel Group",
@@ -150,7 +197,7 @@ public class DatPhongDialog extends JDialog {
         form.add(fieldGroup("Tên đoàn / Công ty", cboTenDoan), g);
         rowIdx++;
 
-        ModernTextField txtGiamGia = new ModernTextField("Giảm giá (%) - VD: 10");
+        txtGiamGia = new ModernTextField("Giảm giá (%) - VD: 10");
         txtGiamGia.setEnabled(false);
         txtGiamGia.setBackground(new Color(0xF1F5F9));
 
@@ -177,9 +224,9 @@ public class DatPhongDialog extends JDialog {
         form.add(modernSectionLabel("Thông tin khách hàng (Người đại diện)"), g);
 
         JLabel errHoTen = inlineErr();
-        ModernTextField txtHoTen = new ModernTextField("Nhập họ và tên...");
+        txtHoTen = new ModernTextField("Nhập họ và tên...");
         JLabel errSDT = inlineErr();
-        ModernTextField txtSDT = new ModernTextField("Nhập số điện thoại...");
+        txtSDT = new ModernTextField("Nhập số điện thoại...");
 
         g.gridwidth = 1;
         g.weightx = 0.5;
@@ -218,8 +265,8 @@ public class DatPhongDialog extends JDialog {
         txtSDT.addKeyListener(liveVal);
 
         JLabel errCCCD = inlineErr();
-        ModernTextField txtCCCD = new ModernTextField("CCCD/Hộ chiếu (tùy chọn)...");
-        ModernComboBox<String> cboQuocTich = new ModernComboBox<>();
+        txtCCCD = new ModernTextField("CCCD/Hộ chiếu (tùy chọn)...");
+        cboQuocTich = new ModernComboBox<>();
         for (String country : util.CountryList.getCountriesForInput()) {
             cboQuocTich.addItem(country);
         }
@@ -236,6 +283,15 @@ public class DatPhongDialog extends JDialog {
         form.add(fieldGroup("Quốc tịch", cboQuocTich), g);
         rowIdx++;
 
+        if (prefilledKhachHang != null) {
+            txtSDT.setText(prefilledKhachHang.getSdt() != null ? prefilledKhachHang.getSdt() : "");
+            txtHoTen.setText(prefilledKhachHang.getHoTen() != null ? prefilledKhachHang.getHoTen() : "");
+            txtCCCD.setText(prefilledKhachHang.getCccd() != null ? prefilledKhachHang.getCccd() : "");
+            if (prefilledKhachHang.getQuocTich() != null && !prefilledKhachHang.getQuocTich().isBlank()) {
+                cboQuocTich.setSelectedItem(prefilledKhachHang.getQuocTich());
+            }
+        }
+
         txtCCCD.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
@@ -250,11 +306,11 @@ public class DatPhongDialog extends JDialog {
             }
         });
 
-        ModernSpinner spnKhach = new ModernSpinner(new SpinnerNumberModel(1, 1, totalAbsMax > 0 ? totalAbsMax : 50, 1));
+        spnKhach = new ModernSpinner(new SpinnerNumberModel(1, 1, totalAbsMax > 0 ? totalAbsMax : 50, 1));
         spnKhach.setToolTipText("Lưu ý: Nếu số khách nhập vào lớn hơn tiêu chuẩn (" + totalSucChua
                 + "), phụ thu sẽ áp dụng khi nhận phòng.");
 
-        JComboBox<entity.KenhDatPhong> cboKenh = new ModernComboBox<>();
+        cboKenh = new ModernComboBox<>();
         try {
             for (entity.KenhDatPhong kenh : new dao.KenhDatPhongDAO().getAll()) {
                 cboKenh.addItem(kenh);
@@ -271,7 +327,7 @@ public class DatPhongDialog extends JDialog {
         form.add(fieldGroup("Kênh đặt phòng", cboKenh), g);
         rowIdx++;
 
-        ModernTextField txtOTA = new ModernTextField("Mã xác nhận OTA (nếu có)...");
+        txtOTA = new ModernTextField("Mã xác nhận OTA (nếu có)...");
         txtOTA.setEnabled(false);
         txtOTA.setBackground(new Color(0xF1F5F9));
 
@@ -421,8 +477,29 @@ public class DatPhongDialog extends JDialog {
             cboCoc.addItem("30% (" + String.format("%,.0fđ", total * 0.3) + ")");
             cboCoc.addItem("50% (" + String.format("%,.0fđ", total * 0.5) + ")");
             cboCoc.addItem("100% (" + String.format("%,.0fđ", total) + ")");
+
+            if (editingDatPhong != null) {
+                double oldTotal = 0;
+                if (editingDatPhong.getDsChiTiet() != null) {
+                    for (ChiTietDatPhong ct : editingDatPhong.getDsChiTiet()) {
+                        LocalDateTime rInLDT = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : editingDatPhong.getNgayNhanDuKien();
+                        LocalDateTime rOutLDT = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : editingDatPhong.getNgayTraDuKien();
+                        Date rCI = java.sql.Timestamp.valueOf(rInLDT);
+                        Date rCO = java.sql.Timestamp.valueOf(rOutLDT);
+                        long rNights = new ThuePhongService().tinhSoNgay(rCI, rCO);
+                        oldTotal += ct.getGiaThucTeChot() * rNights;
+                    }
+                }
+                if (oldTotal > 0) {
+                    double pct = editingDatPhong.getTienDatCoc() / oldTotal;
+                    cboCoc.addItem(String.format("Theo tỷ lệ cũ %.0f%% (%,.0fđ)", pct * 100, total * pct));
+                }
+            }
+
             if (selIdx >= 0 && selIdx < cboCoc.getItemCount()) {
                 cboCoc.setSelectedIndex(selIdx);
+            } else if (editingDatPhong != null && cboCoc.getItemCount() > 4) {
+                cboCoc.setSelectedIndex(4); // Select custom ratio by default
             } else {
                 cboCoc.setSelectedIndex(0);
             }
@@ -443,10 +520,10 @@ public class DatPhongDialog extends JDialog {
         rowIdx++;
 
         // Hạn nộp cọc
-        ui.components.DateTimePicker txtHanCoc = new ui.components.DateTimePicker(
+        txtHanCoc = new ui.components.DateTimePicker(
                 new Date(System.currentTimeMillis() + 86400000));
         txtHanCoc.setEnabled(false); // Default disabled because "Không đặt cọc" is selected
-        ModernTextField txtVoucher = new ModernTextField("Mã voucher...");
+        txtVoucher = new ModernTextField("Mã voucher...");
 
         cboCoc.addActionListener(e -> {
             boolean hasCoc = cboCoc.getSelectedIndex() > 0;
@@ -470,7 +547,7 @@ public class DatPhongDialog extends JDialog {
         g.insets = new Insets(0, 0, 16, 0);
         form.add(modernSectionLabel("Ghi chú / Yêu cầu đặc biệt"), g);
 
-        JTextArea txtGhiChu = new JTextArea(3, 0);
+        txtGhiChu = new JTextArea(3, 0);
         txtGhiChu.setFont(UIConstants.FONT_BODY);
         txtGhiChu.setLineWrap(true);
         txtGhiChu.setWrapStyleWord(true);
@@ -518,7 +595,7 @@ public class DatPhongDialog extends JDialog {
 
         RoundedButton btnCancel = new RoundedButton("Hủy", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
         btnCancel.setPreferredSize(new Dimension(90, 38));
-        RoundedButton btnOk = new RoundedButton("Xác nhận đặt phòng", UIConstants.PRIMARY, Color.WHITE);
+        RoundedButton btnOk = new RoundedButton(editingDatPhong != null ? "Xác nhận cập nhật" : "Xác nhận đặt phòng", UIConstants.PRIMARY, Color.WHITE);
         btnOk.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnOk.setPreferredSize(new Dimension(200, 38));
 
@@ -571,8 +648,19 @@ public class DatPhongDialog extends JDialog {
                 kh.setQuocTich((String) cboQuocTich.getSelectedItem());
                 khService.them(kh);
                 kh = khService.getByPhone(sdt);
-            } else if (!cccd.isEmpty() && (kh.getCccd() == null || kh.getCccd().isBlank())) {
-                kh.setCccd(cccd);
+            } else {
+                if ("Ngừng".equals(kh.getTrangThai())) {
+                    khService.activate(kh.getMaKhachHang());
+                    kh = khService.getByPhone(sdt);
+                }
+                if (!cccd.isEmpty() && (kh.getCccd() == null || kh.getCccd().isBlank())) {
+                    kh.setCccd(cccd);
+                    String suaErr = khService.sua(kh);
+                    if (suaErr != null) {
+                        NotificationManager.showError("Lỗi khách hàng", suaErr);
+                        return;
+                    }
+                }
             }
 
             // Tính toán tổng tiền thực tế trên tất cả phòng
@@ -665,17 +753,65 @@ public class DatPhongDialog extends JDialog {
                 dp.getDsChiTiet().add(ct);
             }
 
-            String err = datPhongService.datPhong(dp);
+            String err;
+            if (editingDatPhong != null) {
+                // Map the updated values onto editingDatPhong
+                editingDatPhong.setKhachHang(kh);
+                editingDatPhong.setNgayNhanDuKien(minCheckIn);
+                editingDatPhong.setNgayTraDuKien(maxCheckOut);
+                editingDatPhong.setSoLuongKhach(soKhach);
+                editingDatPhong.setTienDatCoc(totalCoc);
+                editingDatPhong.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
+                editingDatPhong.setHanNopCoc(txtHanCoc.getLocalDateTime());
+
+                editingDatPhong.setMaKenh(kenh != null ? kenh.getMaKenh() : "DIR");
+                editingDatPhong.setMaXacNhanKenh(ota.isEmpty() ? null : ota);
+
+                editingDatPhong.setLoaiKhach(isDoan ? "DOAN" : "CA_NHAN");
+                if (isDoan) {
+                    editingDatPhong.setTenDoan(cboTenDoan.getSelectedItem() != null ? cboTenDoan.getSelectedItem().toString().trim() : "");
+                } else {
+                    editingDatPhong.setTenDoan(null);
+                }
+
+                editingDatPhong.setMaKhuyenMai(vCode.isEmpty() ? null : vCode);
+
+                // Map ChiTietDatPhong onto editingDatPhong
+                editingDatPhong.getDsChiTiet().clear();
+                for (int i = 0; i < selectedRoomsList.size(); i++) {
+                    Phong ph = selectedRoomsList.get(i);
+                    LocalDateTime rCheckIn = roomDates.get(i)[0].getLocalDateTime();
+                    LocalDateTime rCheckOut = roomDates.get(i)[1].getLocalDateTime();
+
+                    ChiTietDatPhong ct = new ChiTietDatPhong();
+                    ct.setPhong(ph);
+                    ct.setDatPhong(editingDatPhong);
+                    ct.setNgayNhanDuKien(rCheckIn);
+                    ct.setNgayTraDuKien(rCheckOut);
+
+                    double base = bangGiaService.layGiaVaoThoiDiem(
+                            ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "", rCheckIn);
+                    ct.setGiaThucTeChot(finalDiscount > 0 ? base * (1 - finalDiscount / 100.0) : base);
+                    editingDatPhong.getDsChiTiet().add(ct);
+                }
+
+                err = datPhongService.capNhatDatPhongToanDien(editingDatPhong);
+            } else {
+                err = datPhongService.datPhong(dp);
+            }
+
             if (err == null) {
-                String successMsg = selectedRoomsList.size() == 1
-                        ? "Đặt phòng thành công!"
-                        : "Đã đặt " + selectedRoomsList.size() + " phòng trong 1 đơn (mỗi phòng có thể lệch ngày)!";
+                String successMsg = editingDatPhong != null
+                        ? "Đã cập nhật đơn đặt phòng thành công!"
+                        : (selectedRoomsList.size() == 1
+                                ? "Đặt phòng thành công!"
+                                : "Đã đặt " + selectedRoomsList.size() + " phòng trong 1 đơn (mỗi phòng có thể lệch ngày)!");
                 NotificationManager.showSuccess("Thành công", successMsg);
                 dispose();
                 if (onSuccess != null)
                     onSuccess.run();
             } else {
-                NotificationManager.showError("Lỗi", "Gặp sự cố khi đặt phòng: " + err);
+                NotificationManager.showError("Lỗi", "Gặp sự cố khi lưu đơn đặt phòng: " + err);
             }
         });
 
@@ -689,6 +825,62 @@ public class DatPhongDialog extends JDialog {
 
         root.add(formScroll, BorderLayout.CENTER);
         root.add(btns, BorderLayout.SOUTH);
+
+        if (editingDatPhong != null) {
+            if ("DOAN".equals(editingDatPhong.getLoaiKhach())) {
+                cboLoaiKhach.setSelectedIndex(1);
+                cboTenDoan.setSelectedItem(editingDatPhong.getTenDoan());
+                cboTenDoan.setEnabled(true);
+                double pctGiam = 0;
+                if (editingDatPhong.getDsChiTiet() != null && !editingDatPhong.getDsChiTiet().isEmpty()) {
+                    ChiTietDatPhong ct = editingDatPhong.getDsChiTiet().get(0);
+                    double base = bangGiaService.layGiaVaoThoiDiem(
+                            ct.getPhong() != null && ct.getPhong().getLoaiPhong() != null ? ct.getPhong().getLoaiPhong().getMaLoaiPhong() : "",
+                            ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : editingDatPhong.getNgayNhanDuKien());
+                    if (base > 0) {
+                        pctGiam = Math.round((1.0 - ct.getGiaThucTeChot() / base) * 100.0);
+                    }
+                }
+                if (pctGiam > 0) {
+                    txtGiamGia.setText(String.valueOf((int) pctGiam));
+                    txtGiamGia.setEnabled(true);
+                    txtGiamGia.setBackground(Color.WHITE);
+                }
+            } else {
+                cboLoaiKhach.setSelectedIndex(0);
+            }
+
+            spnKhach.setValue(editingDatPhong.getSoLuongKhach());
+
+            if (editingDatPhong.getMaKenh() != null) {
+                for (int i = 0; i < cboKenh.getItemCount(); i++) {
+                    entity.KenhDatPhong k = cboKenh.getItemAt(i);
+                    if (k != null && editingDatPhong.getMaKenh().equals(k.getMaKenh())) {
+                        cboKenh.setSelectedIndex(i);
+                        break;
+                    }
+                }
+            }
+
+            if (editingDatPhong.getMaXacNhanKenh() != null) {
+                txtOTA.setText(editingDatPhong.getMaXacNhanKenh());
+                txtOTA.setEnabled(true);
+                txtOTA.setBackground(Color.WHITE);
+            }
+
+            if (editingDatPhong.getHanNopCoc() != null) {
+                txtHanCoc.setDate(java.sql.Timestamp.valueOf(editingDatPhong.getHanNopCoc()));
+            }
+
+            if (editingDatPhong.getMaKhuyenMai() != null) {
+                txtVoucher.setText(editingDatPhong.getMaKhuyenMai());
+            }
+
+            if (editingDatPhong.getGhiChu() != null && !editingDatPhong.getGhiChu().isBlank()) {
+                txtGhiChu.setText(editingDatPhong.getGhiChu());
+                txtGhiChu.setForeground(UIConstants.TEXT_PRIMARY);
+            }
+        }
 
         setContentPane(root);
 

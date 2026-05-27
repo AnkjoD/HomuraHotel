@@ -87,6 +87,7 @@ public class ThuePhongService {
         if (existingCt != null) {
             existingCt.setNgayNhanThucTe(LocalDateTime.now());
             if (ct.getGiaThucTeChot() > 0) existingCt.setGiaThucTeChot(ct.getGiaThucTeChot());
+            existingCt.setKhachHang(ct.getKhachHang()); // Cập nhật người lưu trú thực tế cho phòng này
             ct.setMaChiTiet(existingCt.getMaChiTiet());
             if (!ctdpDAO.update(existingCt)) return "Lỗi cập nhật chi tiết đặt phòng!";
         } else {
@@ -125,6 +126,17 @@ public class ThuePhongService {
         s.setDonGiaLuu(gia > 0 ? gia : dv.getDonGia());
         s.setThoiDiem(LocalDateTime.now());
         return themDichVu(s);
+    }
+
+    public String xoaDichVu(SuDungDichVu sddv) {
+        if (sddv == null) return "Dữ liệu dịch vụ không hợp lệ!";
+        return sddvDAO.deleteOne(sddv) ? null : "Không thể xóa dịch vụ! Vui lòng thử lại.";
+    }
+
+    public String suaSoLuongDichVu(SuDungDichVu sddv, int newSoLuong) {
+        if (sddv == null) return "Dữ liệu dịch vụ không hợp lệ!";
+        if (newSoLuong <= 0) return "Số lượng phải lớn hơn 0!";
+        return sddvDAO.updateSoLuong(sddv, newSoLuong) ? null : "Không thể cập nhật số lượng! Vui lòng thử lại.";
     }
 
     public String extendStay(String maChiTiet, LocalDateTime newLDT) {
