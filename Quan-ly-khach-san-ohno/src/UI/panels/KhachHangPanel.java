@@ -35,6 +35,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
             cboQuocTich.setSelectedIndex(0);
         if (cboHang != null)
             cboHang.setSelectedIndex(0);
+        if (cboTrangThai != null)
+            cboTrangThai.setSelectedIndex(0);
         runFilter();
     }
 
@@ -47,6 +49,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     private ModernTextField txtSearch;
     private ModernComboBox<String> cboQuocTich;
     private ModernComboBox<String> cboHang;
+    private ModernComboBox<String> cboTrangThai;
     private JTable table;
     private DefaultTableModel tableModel;
     private PaginationPanel pagination;
@@ -188,7 +191,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     }
 
     private JPanel buildFilterBar() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
@@ -208,6 +211,12 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         cboHang.addItem("Hạng Thường (Bronze)");
         cboHang.addItem("Thân thiết (Silver)");
         cboHang.addItem("VIP (Gold)");
+
+        cboTrangThai = new ModernComboBox<>();
+        cboTrangThai.setPreferredSize(new Dimension(200, 40));
+        cboTrangThai.addItem("Trạng thái: Hoạt động");
+        cboTrangThai.addItem("Trạng thái: Vô hiệu hóa");
+        cboTrangThai.addItem("Trạng thái: Tất cả");
 
         DocumentListener dl = new DocumentListener() {
             @Override
@@ -230,15 +239,28 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         ActionListener al = e -> runFilter();
         cboQuocTich.addActionListener(al);
         cboHang.addActionListener(al);
+        cboTrangThai.addActionListener(al);
 
         p.add(txtSearch);
+        p.add(Box.createHorizontalStrut(12));
         p.add(cboQuocTich);
+        p.add(Box.createHorizontalStrut(12));
         p.add(cboHang);
+        p.add(Box.createHorizontalStrut(12));
+        p.add(cboTrangThai);
+        p.add(Box.createHorizontalStrut(12));
+
+        RoundedButton btnClear = new RoundedButton("Xóa lọc", new Color(0xF1F5F9), UIConstants.TEXT_PRIMARY);
+        btnClear.setPreferredSize(new Dimension(100, 40));
+        btnClear.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnClear.addActionListener(e -> resetFilters());
+        p.add(btnClear);
+
         return p;
     }
 
     private JPanel buildTableArea() {
-        String[] cols = { "Mã KH", "Họ tên", "Số ĐT", "Hạng khách", "Lượt ở", "Tổng chi tiêu", "Quốc tịch" };
+        String[] cols = { "Mã KH", "Họ tên", "Số ĐT", "Hạng khách", "Lượt ở", "Tổng chi tiêu", "Quốc tịch", "Trạng thái" };
         tableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int r, int c) {
@@ -260,10 +282,21 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                 int r = table.rowAtPoint(e.getPoint());
                 if (r >= 0)
                     table.setRowSelectionInterval(r, r);
+                showPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                showPopup(e);
+            }
+
+            private void showPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    JPopupMenu menu = buildContextMenu();
+                    menu.show(e.getComponent(), e.getX(), e.getY());
+                }
             }
         });
-
-        table.setComponentPopupMenu(buildContextMenu());
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
@@ -292,27 +325,21 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
  
         // --- Group 1: Profile & Info ---
         ModernMenuItem miXem = new ModernMenuItem("Xem hồ sơ chi tiết");
-        ModernMenuItem miCopy = new ModernMenuItem("Sao chép mã khách hàng");
+        ModernMenuItem miSua = new ModernMenuItem("Chỉnh sửa hồ sơ");
  
         // --- Group 2: Business actions ---
         ModernMenuItem miDat = new ModernMenuItem("Đặt phòng mới");
         ModernMenuItem miLichSu = new ModernMenuItem("Xem hóa đơn khách này");
  
         // --- Group 3: System / Dangerous ---
-        ModernMenuItem miXoa = new ModernMenuItem("Vô hiệu hóa hồ sơ");
+        KhachHang khSelected = getSelected();
+        boolean isNgung = khSelected != null && "Ngừng".equals(khSelected.getTrangThai());
+        ModernMenuItem miXoa = new ModernMenuItem(isNgung ? "Kích hoạt lại hồ sơ" : "Vô hiệu hóa hồ sơ");
         miXoa.setEnabled(AuthService.getInstance().isManager());
  
         // Logic actions
         miXem.addActionListener(e -> editSelected());
-        miCopy.addActionListener(e -> {
-            KhachHang kh = getSelected();
-            if (kh != null) {
-                java.awt.datatransfer.StringSelection ss = new java.awt.datatransfer.StringSelection(
-                        kh.getMaKhachHang());
-                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
-                NotificationManager.showSuccess("Thành công", "Đã sao chép mã: " + kh.getMaKhachHang());
-            }
-        });
+        miSua.addActionListener(e -> editSelected());
  
         miDat.addActionListener(e -> {
             KhachHang kh = getSelected();
@@ -334,10 +361,10 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
             }
         });
  
-        miXoa.addActionListener(e -> deleteSelected());
+        miXoa.addActionListener(e -> toggleActivationSelected());
  
         menu.add(miXem);
-        menu.add(miCopy);
+        menu.add(miSua);
         menu.addSeparator();
         menu.add(miDat);
         menu.add(miLichSu);
@@ -369,7 +396,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         table.getTableHeader().setDefaultRenderer(headerRenderer);
 
         // Thiết lập chiều rộng cột
-        int[] widths = { 100, 180, 110, 160, 80, 130, 120 };
+        int[] widths = { 90, 150, 100, 140, 70, 120, 100, 110 };
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -383,8 +410,18 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                 lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? Color.WHITE : new Color(0xFAFAFA)));
                 lbl.setForeground(UIConstants.TEXT_PRIMARY);
 
-                // Mặc định căn giữa cho hầu hết các cột định danh
-                if (col == 0 || col == 2 || col == 3 || col == 4 || col == 6) {
+                // Căn chỉnh và màu sắc dựa trên từng cột
+                if (col == 7) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    String status = val != null ? val.toString() : "Hoạt động";
+                    if ("Ngừng".equals(status) || "Vô hiệu hóa".equals(status)) {
+                        lbl.setForeground(new Color(0xEF4444)); // Đỏ
+                        lbl.setText("Vô hiệu hóa");
+                    } else {
+                        lbl.setForeground(new Color(0x10B981)); // Xanh lá
+                        lbl.setText("Hoạt động");
+                    }
+                } else if (col == 0 || col == 2 || col == 3 || col == 4 || col == 6) {
                     lbl.setHorizontalAlignment(SwingConstants.CENTER);
                 } else if (col == 5) {
                     lbl.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -401,7 +438,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         SwingWorker<List<KhachHang>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<KhachHang> doInBackground() throws Exception {
-                return service.getAll();
+                return service.getAllWithInactive();
             }
 
             @Override
@@ -421,11 +458,13 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
     private void updateStats() {
         if (tatCaKhachHang == null)
             return;
-        int total = tatCaKhachHang.size();
-        long vip = tatCaKhachHang.stream()
+        List<KhachHang> activeList = tatCaKhachHang.stream()
+                .filter(k -> !"Ngừng".equals(k.getTrangThai())).collect(Collectors.toList());
+        int total = activeList.size();
+        long vip = activeList.stream()
                 .filter(k -> k.getHangKhachHang() != null && k.getHangKhachHang().contains("VIP")).count();
-        long quen = tatCaKhachHang.stream().filter(k -> k.getSoLanO() > 1).count();
-        long qte = tatCaKhachHang.stream()
+        long quen = activeList.stream().filter(k -> k.getSoLanO() > 1).count();
+        long qte = activeList.stream()
                 .filter(k -> k.getQuocTich() != null && !k.getQuocTich().equalsIgnoreCase("Việt Nam")).count();
 
         lblTongKH.setText(String.format("%,d", total));
@@ -477,7 +516,15 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                     if (idxHang == 3 && !hang.contains("VIP"))
                         matchHang = false;
 
-                    return matchKw && matchQt && matchHang;
+                    boolean matchTrangThai = true;
+                    int idxTrangThai = cboTrangThai.getSelectedIndex();
+                    if (idxTrangThai == 0 && !"Hoạt động".equals(kh.getTrangThai())) {
+                        matchTrangThai = false;
+                    } else if (idxTrangThai == 1 && !"Ngừng".equals(kh.getTrangThai())) {
+                        matchTrangThai = false;
+                    }
+
+                    return matchKw && matchQt && matchHang && matchTrangThai;
                 })
                 .collect(Collectors.toList());
 
@@ -514,7 +561,8 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
                     kh.getHangKhachHang(),
                     kh.getSoLanO(),
                     String.format("%,.0f đ", kh.getTongChiTieu()),
-                    qte
+                    qte,
+                    kh.getTrangThai()
             });
         }
 
@@ -550,31 +598,48 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         showDialog(kh);
     }
 
-    private void deleteSelected() {
+    private void toggleActivationSelected() {
         if (!AuthService.getInstance().isManager()) {
-            NotificationManager.showWarning("Truy cập bị từ chối", "Bạn không có quyền vô hiệu hóa hồ sơ khách hàng!");
+            NotificationManager.showWarning("Truy cập bị từ chối", "Bạn không có quyền thay đổi trạng thái hồ sơ khách hàng!");
             return;
         }
         KhachHang kh = getSelected();
         if (kh == null) {
-            JOptionPane.showMessageDialog(this, "Chọn một hồ sơ khách hàng để xóa/khóa!");
+            JOptionPane.showMessageDialog(this, "Chọn một hồ sơ khách hàng!");
             return;
         }
 
-        int ok = JOptionPane.showConfirmDialog(this,
-                "Bạn có chắc chắn muốn xóa hồ sơ khách hàng: \"" + kh.getHoTen() + "\" (" + kh.getMaKhachHang() + ")?\n"
-                        + "Dữ liệu hóa đơn và phòng liên kết cũng có thể bị ảnh hưởng. Hành động này không thể hoàn tác!",
-                "Xác nhận vô hiệu hóa hồ sơ", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        boolean isNgung = "Ngừng".equals(kh.getTrangThai());
+        if (isNgung) {
+            int ok = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn kích hoạt lại hồ sơ khách hàng: \"" + kh.getHoTen() + "\" (" + kh.getMaKhachHang() + ")?",
+                    "Xác nhận kích hoạt lại hồ sơ", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
-        if (ok == JOptionPane.YES_OPTION) {
-            String err = service.xoa(kh.getMaKhachHang());
-            if (err == null) {
-                NotificationManager.showSuccess("Thành công", "Đã xóa hồ sơ khách hàng " + kh.getHoTen());
-                refresh();
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "Lỗi: " + err + "\nKhách hàng này có thể đang có Hóa đơn hoặc Phòng đang thuê.",
-                        "Không thể xóa", JOptionPane.ERROR_MESSAGE);
+            if (ok == JOptionPane.YES_OPTION) {
+                String err = service.activate(kh.getMaKhachHang());
+                if (err == null) {
+                    NotificationManager.showSuccess("Thành công", "Đã kích hoạt lại hồ sơ khách hàng " + kh.getHoTen());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Lỗi: " + err, "Không thể kích hoạt lại", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } else {
+            int ok = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn vô hiệu hóa hồ sơ khách hàng: \"" + kh.getHoTen() + "\" (" + kh.getMaKhachHang() + ")?\n"
+                            + "Dữ liệu hóa đơn và phòng liên kết cũng có thể bị ảnh hưởng.",
+                    "Xác nhận vô hiệu hóa hồ sơ", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+            if (ok == JOptionPane.YES_OPTION) {
+                String err = service.xoa(kh.getMaKhachHang());
+                if (err == null) {
+                    NotificationManager.showSuccess("Thành công", "Đã vô hiệu hóa hồ sơ khách hàng " + kh.getHoTen());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                            "Lỗi: " + err + "\nKhách hàng này có thể đang có Hóa đơn hoặc Phòng đang thuê.",
+                            "Không thể vô hiệu hóa", JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }
