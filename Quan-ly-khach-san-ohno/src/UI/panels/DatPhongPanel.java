@@ -91,6 +91,8 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
     private JPanel resultPanel;
 
     private Set<Phong> selectedRooms = new LinkedHashSet<>();
+    private Date lastSearchCheckIn = null;
+    private Date lastSearchCheckOut = null;
     private RoundedButton btnDatNhieuPhong;
     private JLabel lblSelectedCount;
 
@@ -101,7 +103,10 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
     private static final String CARD_SEARCH = "SEARCH";
 
     private KhachHang prefilledKhachHang;
+    private DatPhong editingDatPhong;
     private JPanel pnlBell;
+    private JPanel pnlEditBanner;
+    private JLabel lblEditBannerText;
 
     public void prefillKhachHang(KhachHang kh) {
         this.prefilledKhachHang = kh;
@@ -389,7 +394,10 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         lblBack.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
         lblBack.setContentAreaFilled(false);
         lblBack.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        lblBack.addActionListener(e -> cardLayout.show(cardContainer, CARD_LIST));
+        lblBack.addActionListener(e -> {
+            prefilledKhachHang = null;
+            cardLayout.show(cardContainer, CARD_LIST);
+        });
 
         lblBack.addMouseListener(new MouseAdapter() {
             @Override
@@ -422,6 +430,35 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         titleBox.setOpaque(false);
         titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
         titleBox.add(breadcrumb);
+        titleBox.add(Box.createVerticalStrut(8));
+
+        // ---- Edit Banner ----
+        pnlEditBanner = new RoundedPanel(8);
+        pnlEditBanner.setBackground(UIConstants.PRIMARY_LIGHT);
+        pnlEditBanner.setLayout(new BorderLayout(12, 0));
+        pnlEditBanner.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+        pnlEditBanner.setMaximumSize(new Dimension(800, 42));
+        pnlEditBanner.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pnlEditBanner.setVisible(false);
+
+        lblEditBannerText = new JLabel("Đang chỉnh sửa đơn...");
+        lblEditBannerText.setFont(UIConstants.FONT_BODY_BOLD);
+        lblEditBannerText.setForeground(UIConstants.PRIMARY);
+        pnlEditBanner.add(lblEditBannerText, BorderLayout.CENTER);
+
+        RoundedButton btnCancelEdit = new RoundedButton("Hủy sửa đơn", new Color(0xEF4444), Color.WHITE);
+        btnCancelEdit.setFont(UIConstants.FONT_SMALL_BOLD);
+        btnCancelEdit.setPreferredSize(new Dimension(110, 26));
+        btnCancelEdit.addActionListener(e -> {
+            editingDatPhong = null;
+            pnlEditBanner.setVisible(false);
+            prefilledKhachHang = null;
+            cardLayout.show(cardContainer, CARD_LIST);
+            refresh();
+        });
+        pnlEditBanner.add(btnCancelEdit, BorderLayout.EAST);
+
+        titleBox.add(pnlEditBanner);
         titleBox.add(Box.createVerticalStrut(8));
 
         JLabel title = new JLabel("Tìm phòng trống");
@@ -618,8 +655,18 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
     private void showSearchCard() {
         showResultPlaceholder();
-        if (prefilledKhachHang != null) {
-            // Optional: show a banner or toast message
+        selectedRooms.clear();
+        lastSearchCheckIn = null;
+        lastSearchCheckOut = null;
+        if (editingDatPhong != null) {
+            lblEditBannerText.setText("Bạn đang chỉnh sửa đơn đặt phòng: " + editingDatPhong.getMaDatPhong() + " (Khách hàng: " + editingDatPhong.getTenKhachHang() + ")");
+            pnlEditBanner.setVisible(true);
+            txtNgayNhan.setDate(java.sql.Timestamp.valueOf(editingDatPhong.getNgayNhanDuKien()));
+            txtNgayTra.setDate(java.sql.Timestamp.valueOf(editingDatPhong.getNgayTraDuKien()));
+            spnSoKhach.setValue(editingDatPhong.getSoLuongKhach());
+            SwingUtilities.invokeLater(() -> doSearch());
+        } else {
+            pnlEditBanner.setVisible(false);
         }
         cardLayout.show(cardContainer, CARD_SEARCH);
     }
@@ -633,6 +680,14 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         if (!checkOut.after(checkIn)) {
             NotificationManager.showWarning("Lỗi ngày tháng", "Ngày trả phải sau ngày nhận!");
             return;
+        }
+
+        // Clear selection only if search dates changed
+        if (lastSearchCheckIn == null || lastSearchCheckOut == null ||
+                !lastSearchCheckIn.equals(checkIn) || !lastSearchCheckOut.equals(checkOut)) {
+            selectedRooms.clear();
+            lastSearchCheckIn = checkIn;
+            lastSearchCheckOut = checkOut;
         }
 
         int soKhach = (int) spnSoKhach.getValue();
@@ -671,7 +726,6 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
     private void showResults(java.util.List<Phong> rooms, Date checkIn, Date checkOut) {
         resultPanel.removeAll();
-        selectedRooms.clear();
         if (rooms.isEmpty()) {
             JPanel empty = new JPanel();
             empty.setOpaque(false);
@@ -735,19 +789,56 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             selectionBar.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
             lblSelectedCount = new JLabel("Chưa chọn phòng nào");
             lblSelectedCount.setFont(UIConstants.FONT_BODY_BOLD);
-            btnDatNhieuPhong = new RoundedButton("Đặt phòng đã chọn", UIConstants.PRIMARY, Color.WHITE);
-            btnDatNhieuPhong.setEnabled(false);
-            btnDatNhieuPhong.setPreferredSize(new Dimension(180, 40));
+            lblSelectedCount.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            lblSelectedCount.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (!selectedRooms.isEmpty()) {
+                        new ui.dialogs.SelectedRoomsDialog(
+                                (Frame) SwingUtilities.getWindowAncestor(DatPhongPanel.this),
+                                selectedRooms,
+                                () -> {
+                                    updateSelectionBar();
+                                    doSearch();
+                                }
+                        ).setVisible(true);
+                    }
+                }
+            });
+            // ✅ Cập nhật label NGAY sau khi tạo (fix bug: label luôn hiện "Chưa chọn phòng nào")
+            updateSelectionBar();
+            String btnText = editingDatPhong != null ? "Cập nhật đơn đặt phòng (" + editingDatPhong.getMaDatPhong() + ")" : "Đặt phòng đã chọn";
+            btnDatNhieuPhong = new RoundedButton(btnText, UIConstants.PRIMARY, Color.WHITE);
+            btnDatNhieuPhong.setEnabled(!selectedRooms.isEmpty());
+            btnDatNhieuPhong.setPreferredSize(new Dimension(editingDatPhong != null ? 240 : 180, 40));
             btnDatNhieuPhong.addActionListener(e -> {
                 if (!selectedRooms.isEmpty()) {
-                    new DatPhongDialog(
-                            (Frame) SwingUtilities.getWindowAncestor(this),
-                            new ArrayList<>(selectedRooms),
-                            checkIn, checkOut,
-                            () -> {
-                                refresh();
-                                cardLayout.show(cardContainer, CARD_LIST);
-                            }).setVisible(true);
+                    DatPhongDialog dlg;
+                    if (editingDatPhong != null) {
+                        dlg = new DatPhongDialog(
+                                (Frame) SwingUtilities.getWindowAncestor(this),
+                                new ArrayList<>(selectedRooms),
+                                checkIn, checkOut,
+                                editingDatPhong,
+                                () -> {
+                                    editingDatPhong = null;
+                                    prefilledKhachHang = null;
+                                    pnlEditBanner.setVisible(false);
+                                    refresh();
+                                    cardLayout.show(cardContainer, CARD_LIST);
+                                });
+                    } else {
+                        dlg = new DatPhongDialog(
+                                (Frame) SwingUtilities.getWindowAncestor(this),
+                                new ArrayList<>(selectedRooms),
+                                checkIn, checkOut,
+                                prefilledKhachHang,
+                                () -> {
+                                    refresh();
+                                    cardLayout.show(cardContainer, CARD_LIST);
+                                });
+                    }
+                    dlg.setVisible(true);
                 }
             });
             selectionBar.add(lblSelectedCount, BorderLayout.WEST);
@@ -924,8 +1015,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
                 lblSelectedCount.setForeground(UIConstants.TEXT_MUTED);
                 btnDatNhieuPhong.setEnabled(false);
             } else {
-                lblSelectedCount.setText("Đã chọn " + selectedRooms.size() + " phòng");
-                lblSelectedCount.setForeground(UIConstants.PRIMARY);
+                lblSelectedCount.setText("<html>Đã chọn <font color='#10B981'><b>" + selectedRooms.size() + " phòng</b></font> <font color='#3B82F6'>(Xem chi tiết 🛒)</font></html>");
                 btnDatNhieuPhong.setEnabled(true);
             }
         }
@@ -1193,7 +1283,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             // ─── BATCH CHECK-IN BUTTON (nút nổi bật ở trên) ───
             if (pendingCount > 1) {
                 RoundedButton btnBatch = new RoundedButton(
-                        "⚡ Nhận tất cả " + pendingCount + " phòng cùng lúc",
+                        "Nhận tất cả " + pendingCount + " phòng cùng lúc",
                         UIConstants.SUCCESS, Color.WHITE);
                 btnBatch.setFont(UIConstants.FONT_BODY_BOLD);
                 btnBatch.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
@@ -1239,8 +1329,8 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
                 if (isOccupied || isDone) {
                     String lockLabel = isDone
-                            ? "P." + p.getSoPhongDisplay() + " — Đã hoàn thành ✓"
-                            : "P." + p.getSoPhongDisplay() + " — Đã nhận phòng ✓";
+                            ? "P." + p.getSoPhongDisplay() + " — Đã hoàn thành"
+                            : "P." + p.getSoPhongDisplay() + " — Đã nhận phòng";
                     btnRoom.setText(lockLabel);
                     btnRoom.setBackground(new Color(156, 163, 175));
                 } else {
@@ -1700,16 +1790,13 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         }
 
         // 2.1 Sửa đặt phòng (Mới khôi phục)
-        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {
+        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED || status == TrangThaiDatPhong.WAITLIST) {
             ModernMenuItem mnuEdit = createMenuItem("Sửa đặt phòng", UIConstants.PRIMARY);
             mnuEdit.addActionListener(e -> {
                 DatPhong dp = datPhongService.getById(ma);
                 if (dp != null) {
-                    ui.dialogs.EditDatPhongDialog dlg = new ui.dialogs.EditDatPhongDialog(
-                            (Frame) SwingUtilities.getWindowAncestor(this), dp);
-                    dlg.setVisible(true);
-                    if (dlg.isConfirmed())
-                        refresh();
+                    editingDatPhong = dp;
+                    showSearchCard();
                 }
             });
             menu.add(mnuEdit);

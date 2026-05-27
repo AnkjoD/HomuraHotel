@@ -78,30 +78,43 @@ public class HuyDatPhongDialog extends JDialog {
         main.add(Box.createVerticalStrut(20));
 
         // Penalty Section
-        JLabel lblPenalty = new JLabel("Phí phạt hủy muộn (VNĐ):");
-        lblPenalty.setFont(UIConstants.FONT_SMALL_BOLD);
-        main.add(lblPenalty);
-        main.add(Box.createVerticalStrut(8));
+        if (phiPhatDuyKien > 0) {
+            JLabel lblPenalty = new JLabel("Phí phạt hủy muộn (VNĐ):");
+            lblPenalty.setFont(UIConstants.FONT_SMALL_BOLD);
+            main.add(lblPenalty);
+            main.add(Box.createVerticalStrut(8));
 
-        txtPhiPhat = new ModernTextField("0");
-        txtPhiPhat.setText(String.format("%.0f", phiPhatDuyKien));
-        txtPhiPhat.setEditable(false);
-        txtPhiPhat.setBackground(new Color(0xF8FAFC));
-        txtPhiPhat.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        txtPhiPhat.setForeground(UIConstants.DANGER);
-        txtPhiPhat.setHorizontalAlignment(JTextField.RIGHT);
-        main.add(txtPhiPhat);
-        
-        chkOverride = new JCheckBox("Manager Override (Ghi đè phí phạt)");
-        chkOverride.setFont(UIConstants.FONT_TINY);
-        chkOverride.setForeground(UIConstants.TEXT_SECONDARY);
-        chkOverride.setOpaque(false);
-        chkOverride.addActionListener(e -> {
-            txtPhiPhat.setEditable(chkOverride.isSelected());
-            txtPhiPhat.setBackground(chkOverride.isSelected() ? Color.WHITE : new Color(0xF8FAFC));
-        });
-        main.add(chkOverride);
-        main.add(Box.createVerticalStrut(16));
+            txtPhiPhat = new ModernTextField("0");
+            txtPhiPhat.setText(String.format("%.0f", phiPhatDuyKien));
+            txtPhiPhat.setEditable(false);
+            txtPhiPhat.setBackground(new Color(0xF8FAFC));
+            txtPhiPhat.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            txtPhiPhat.setForeground(UIConstants.DANGER);
+            txtPhiPhat.setHorizontalAlignment(JTextField.RIGHT);
+            main.add(txtPhiPhat);
+            
+            chkOverride = new JCheckBox("Manager Override (Ghi đè phí phạt)");
+            chkOverride.setFont(UIConstants.FONT_TINY);
+            chkOverride.setForeground(UIConstants.TEXT_SECONDARY);
+            chkOverride.setOpaque(false);
+            chkOverride.addActionListener(e -> {
+                txtPhiPhat.setEditable(chkOverride.isSelected());
+                txtPhiPhat.setBackground(chkOverride.isSelected() ? Color.WHITE : new Color(0xF8FAFC));
+            });
+            main.add(chkOverride);
+            main.add(Box.createVerticalStrut(16));
+        } else {
+            // Không có phí phạt -> Ẩn hoàn toàn trường nhập và nút Ghi đè để tránh nhầm lẫn
+            JLabel lblHint = new JLabel("<html>💡 Đơn này đang ở trạng thái <b>Chờ xác nhận</b> (chưa đặt cọc), được hủy miễn phí 100%.</html>");
+            lblHint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            lblHint.setForeground(new Color(0x059669)); // Success emerald green
+            main.add(lblHint);
+            main.add(Box.createVerticalStrut(16));
+            
+            // Khởi tạo các trường ẩn để tránh lỗi NullPointerException khi xử lý dữ liệu
+            txtPhiPhat = new ModernTextField("0");
+            chkOverride = new JCheckBox();
+        }
 
         // Reason Section
         JLabel lblReason = new JLabel("Lý do hủy *:");

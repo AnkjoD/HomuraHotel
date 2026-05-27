@@ -77,7 +77,7 @@ public class AuthService {
     public boolean isManager() {
         if (currentAccount == null) return false;
         VaiTro role = currentAccount.getVaiTro();
-        return role == VaiTro.ADMIN || role == VaiTro.MANAGER;
+        return role == VaiTro.MANAGER;
     }
 
     public String getCurrentMaNV() {
@@ -92,17 +92,28 @@ public class AuthService {
 
     /**
      * Kiểm tra vai trò hiện tại có quyền truy cập (xem) module không.
-     * ADMIN & MANAGER: xem tất cả.
-     * RECEPTIONIST: chỉ nghiệp vụ cơ bản (tổng quan, đặt phòng, thuê phòng, hóa đơn, khách hàng).
+     * MANAGER: xem tất cả.
+     * ADMIN: chỉ xem các module kỹ thuật.
+     * RECEPTIONIST: chỉ nghiệp vụ cơ bản.
      */
     public boolean hasAccess(String moduleKey) {
         if (currentAccount == null) return false;
         VaiTro role = currentAccount.getVaiTro();
 
-        // ADMIN & MANAGER: full access
-        if (role == VaiTro.ADMIN || role == VaiTro.MANAGER) return true;
+        if (role == VaiTro.MANAGER) return true;
 
-        // RECEPTIONIST: chỉ 4 nghiệp vụ chính
+        if (role == VaiTro.ADMIN) {
+            switch (moduleKey) {
+                case "nhanvien":
+                case "qlhethong":
+                case "nhatky":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        // RECEPTIONIST
         switch (moduleKey) {
             case "tongquan":
             case "kehoach":
@@ -112,30 +123,33 @@ public class AuthService {
             case "khachhang":
                 return true;
             default:
-                return false; // nhanvien, qlhethong, thongke → ẩn
+                return false;
         }
     }
 
     /**
      * Kiểm tra có quyền chỉnh sửa (Thêm/Sửa/Xóa) trong module.
-     * - "nhanvien": chỉ ADMIN
-     * - "qlhethong": ADMIN + MANAGER
-     * - "thongke": không ai sửa (chỉ xem)
-     * - Các module còn lại: ai truy cập được thì sửa được
+     * - MANAGER: full permissions (except reports/statistics)
+     * - ADMIN: only accounts/permissions ('nhanvien')
      */
     public boolean canEdit(String moduleKey) {
         if (currentAccount == null) return false;
         VaiTro role = currentAccount.getVaiTro();
 
-        if (role == VaiTro.ADMIN) return true;
+        if (role == VaiTro.MANAGER) {
+            if ("thongke".equals(moduleKey)) return false;
+            return true;
+        }
+
+        if (role == VaiTro.ADMIN) {
+            return "nhanvien".equals(moduleKey);
+        }
 
         switch (moduleKey) {
             case "nhanvien":
-                return false; // Chỉ ADMIN mới sửa nhân viên/tài khoản
             case "thongke":
-                return false; // Không ai sửa báo cáo
             case "qlhethong":
-                return role == VaiTro.MANAGER;
+                return false;
             default:
                 return hasAccess(moduleKey);
         }

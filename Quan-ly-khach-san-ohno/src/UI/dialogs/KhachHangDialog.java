@@ -378,6 +378,72 @@ public class KhachHangDialog extends JDialog {
         String sdt = txtSDT.getText().trim();
         String cccd = txtCCCD.getText().trim();
 
+        // Kiểm tra trùng SĐT
+        if (!sdt.isEmpty()) {
+            KhachHang existingByPhone = service.getByPhone(sdt);
+            if (existingByPhone != null && (entity == null || !existingByPhone.getMaKhachHang().equals(entity.getMaKhachHang()))) {
+                if ("Hoạt động".equals(existingByPhone.getTrangThai())) {
+                    showError("Số điện thoại này đã được sử dụng bởi khách hàng đang hoạt động:\n" 
+                            + existingByPhone.getHoTen() + " (" + existingByPhone.getMaKhachHang() + ")");
+                    return;
+                } else {
+                    int choice = JOptionPane.showConfirmDialog(this,
+                            "Số điện thoại này thuộc về khách hàng: \"" + existingByPhone.getHoTen() + "\" (" + existingByPhone.getMaKhachHang() + ") đã bị vô hiệu hóa trước đó.\n"
+                            + "Bạn có muốn kích hoạt lại (khôi phục) hồ sơ này không?",
+                            "Khôi phục khách hàng", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (choice == JOptionPane.YES_OPTION) {
+                        existingByPhone.setTrangThai("Hoạt động");
+                        existingByPhone.setHoTen(ten);
+                        if (!cccd.isEmpty()) existingByPhone.setCccd(cccd);
+                        String err = service.sua(existingByPhone);
+                        if (err == null) {
+                            confirmed = true;
+                            dispose();
+                            return;
+                        } else {
+                            showError(err);
+                            return;
+                        }
+                    } else {
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Kiểm tra trùng CCCD
+        if (!cccd.isEmpty()) {
+            KhachHang existingByCCCD = service.getByCCCD(cccd);
+            if (existingByCCCD != null && (entity == null || !existingByCCCD.getMaKhachHang().equals(entity.getMaKhachHang()))) {
+                if ("Hoạt động".equals(existingByCCCD.getTrangThai())) {
+                    showError("Số CCCD này đã được sử dụng bởi khách hàng đang hoạt động:\n" 
+                            + existingByCCCD.getHoTen() + " (" + existingByCCCD.getMaKhachHang() + ")");
+                    return;
+                } else {
+                    int choice = JOptionPane.showConfirmDialog(this,
+                            "Số CCCD này thuộc về khách hàng: \"" + existingByCCCD.getHoTen() + "\" (" + existingByCCCD.getMaKhachHang() + ") đã bị vô hiệu hóa trước đó.\n"
+                            + "Bạn có muốn kích hoạt lại (khôi phục) hồ sơ này không?",
+                            "Khôi phục khách hàng", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (choice == JOptionPane.YES_OPTION) {
+                        existingByCCCD.setTrangThai("Hoạt động");
+                        existingByCCCD.setHoTen(ten);
+                        existingByCCCD.setSdt(sdt);
+                        String err = service.sua(existingByCCCD);
+                        if (err == null) {
+                            confirmed = true;
+                            dispose();
+                            return;
+                        } else {
+                            showError(err);
+                            return;
+                        }
+                    } else {
+                        return;
+                    }
+                }
+            }
+        }
+
         KhachHang kh = entity != null ? entity : new KhachHang();
         kh.setHoTen(ten);
         kh.setSdt(sdt);

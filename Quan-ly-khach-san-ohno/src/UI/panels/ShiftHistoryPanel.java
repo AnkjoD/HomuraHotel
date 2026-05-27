@@ -194,7 +194,7 @@ public class ShiftHistoryPanel extends JPanel {
     }
 
     private JPanel buildFilterBar() {
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         filterPanel.setOpaque(false);
 
         txtSearch = new ModernTextField("Tìm nhân viên, mã ca...");
@@ -210,6 +210,7 @@ public class ShiftHistoryPanel extends JPanel {
         cbStatus.addActionListener(e -> refresh());
 
         filterPanel.add(txtSearch);
+        filterPanel.add(Box.createHorizontalStrut(12));
         filterPanel.add(cbStatus);
         return filterPanel;
     }

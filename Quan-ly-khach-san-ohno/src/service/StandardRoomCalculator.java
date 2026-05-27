@@ -83,7 +83,8 @@ public class StandardRoomCalculator implements ITinhTienPhong {
         
         // --- PHỤ PHÍ TRẢ PHÒNG TRỄ (LATE CHECK-OUT) ---
         // Chính sách: >13h (30%), >15h (50%), >18h (100%)
-        if (gioTra.getHour() > 12) {
+        // Chỉ áp dụng khi ngày trả sau ngày nhận phòng (ít nhất ở qua đêm)
+        if (gioTra.toLocalDate().isAfter(gioNhan.toLocalDate()) && gioTra.getHour() > 12) {
             if (gioTra.getHour() >= 18) {
                 phuPhi = phuPhi.add(bdDonGia); // 100%
             } else if (gioTra.getHour() >= 15) {

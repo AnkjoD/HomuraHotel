@@ -30,12 +30,16 @@ public class HoaDonDialog extends JDialog {
     private boolean confirmed = false;
 
     private DefaultTableModel tableModel;
+    private JTable billTable;
     private JLabel lblTongPhong, lblTongDV, lblGiamGia, lblTienCoc, lblTongCong;
     private JTextField txtTienKhachDua;
     private JLabel lblTienThua;
     private JComboBox<String> cboDV;
     private JSpinner spnSL;
     private java.util.List<DichVu> dvList = new ArrayList<>();
+    private java.util.List<SuDungDichVu> dsDichVuHienTai = new ArrayList<>();
+    private int dvStartRow = 0; // chỉ số hàng đầu tiên là dịch vụ trong bảng
+    private int hoveredRow = -1;
     private JComboBox<String> cboHinhThuc;
     private JCheckBox chkDebt;
 
@@ -218,37 +222,137 @@ public class HoaDonDialog extends JDialog {
         hdr.setForeground(UIConstants.TEXT_MUTED);
         hdr.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
 
-        String[] cols = { "Khoản mục", "Đơn giá", "Số lượng", "Thành tiền" };
+        String[] cols = { "Khoản mục", "Đơn giá", "Số lượng", "Thành tiền", "" };
         tableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
-        JTable table = new JTable(tableModel);
-        table.setFont(UIConstants.FONT_BODY);
-        table.setRowHeight(32);
-        table.setShowGrid(false);
-        table.setBackground(Color.WHITE);
-        table.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
-        table.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
-        table.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
-        table.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
-        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+        billTable = new JTable(tableModel);
+        billTable.setFont(UIConstants.FONT_BODY);
+        billTable.setRowHeight(34);
+        billTable.setShowGrid(false);
+        billTable.setBackground(Color.WHITE);
+        billTable.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+        billTable.getTableHeader().setFont(UIConstants.FONT_SMALL_BOLD);
+        billTable.getTableHeader().setBackground(UIConstants.BG_TABLE_HEADER);
+        billTable.getTableHeader().setForeground(UIConstants.TEXT_SECONDARY);
+        billTable.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+
+        // Ẩn header cột action (cột 4)
+        billTable.getColumnModel().getColumn(4).setMaxWidth(0);
+        billTable.getColumnModel().getColumn(4).setMinWidth(0);
+        billTable.getColumnModel().getColumn(4).setWidth(0);
+        billTable.getColumnModel().getColumn(4).setPreferredWidth(0);
+
+        // Renderer chính — highlight hover + hiện nút khi là dòng dịch vụ
+        billTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int row,
                     int col) {
                 JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, row, col);
                 lbl.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : Color.WHITE);
+                boolean isDvRow = isDichVuRow(row);
+                boolean isHovered = (row == hoveredRow);
+
+                if (isHovered && isDvRow) {
+                    lbl.setBackground(new Color(0xEFF6FF)); // xanh nhạt khi hover
+                } else if (sel) {
+                    lbl.setBackground(UIConstants.PRIMARY_LIGHT);
+                } else {
+                    lbl.setBackground(Color.WHITE);
+                }
+
                 lbl.setFont(UIConstants.FONT_BODY);
                 if (col == 3) {
                     lbl.setFont(UIConstants.FONT_BODY_BOLD);
                     lbl.setForeground(UIConstants.SUCCESS);
-                } else
+                } else {
                     lbl.setForeground(UIConstants.TEXT_PRIMARY);
+                }
                 return lbl;
+            }
+        });
+
+        // Renderer riêng cho cột action — JLabel opaque để tránh bị "..."
+        billTable.getColumnModel().getColumn(4).setCellRenderer(new javax.swing.table.TableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int row, int col) {
+                JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 5));
+                boolean dvRow = isDichVuRow(row);
+                boolean hovered = (row == hoveredRow);
+                panel.setBackground(dvRow && hovered ? new Color(0xEFF6FF) : Color.WHITE);
+
+                if (dvRow && hovered) {
+                    JLabel lblSua = new JLabel("S\u1eeda");
+                    lblSua.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                    lblSua.setOpaque(true);
+                    lblSua.setBackground(UIConstants.PRIMARY);
+                    lblSua.setForeground(Color.WHITE);
+                    lblSua.setBorder(BorderFactory.createEmptyBorder(3, 7, 3, 7));
+                    lblSua.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                    JLabel lblXoa = new JLabel("X\u00f3a");
+                    lblXoa.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                    lblXoa.setOpaque(true);
+                    lblXoa.setBackground(UIConstants.DANGER);
+                    lblXoa.setForeground(Color.WHITE);
+                    lblXoa.setBorder(BorderFactory.createEmptyBorder(3, 7, 3, 7));
+                    lblXoa.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                    panel.add(lblSua);
+                    panel.add(lblXoa);
+                }
+                return panel;
+            }
+        });
+
+        // Mouse listener: hover tracking + click để sửa/xóa
+        billTable.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                int row = billTable.rowAtPoint(e.getPoint());
+                if (row != hoveredRow) {
+                    hoveredRow = row;
+                    billTable.repaint();
+                    // Bật/tắt cột action
+                    boolean show = isDichVuRow(row);
+                    int w = show ? 90 : 0;
+                    billTable.getColumnModel().getColumn(4).setMaxWidth(w);
+                    billTable.getColumnModel().getColumn(4).setMinWidth(show ? 90 : 0);
+                    billTable.getColumnModel().getColumn(4).setPreferredWidth(w);
+                }
+            }
+        });
+        billTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                hoveredRow = -1;
+                billTable.repaint();
+                billTable.getColumnModel().getColumn(4).setMaxWidth(0);
+                billTable.getColumnModel().getColumn(4).setMinWidth(0);
+                billTable.getColumnModel().getColumn(4).setPreferredWidth(0);
+            }
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                int row = billTable.rowAtPoint(e.getPoint());
+                int col = billTable.columnAtPoint(e.getPoint());
+                if (col == 4 && isDichVuRow(row)) {
+                    int dvIdx = row - dvStartRow;
+                    if (dvIdx < 0 || dvIdx >= dsDichVuHienTai.size()) return;
+                    SuDungDichVu sddv = dsDichVuHienTai.get(dvIdx);
+                    // Xác định xem click vào nút sửa hay xóa dựa vào vị trí X trong cell
+                    java.awt.Rectangle cellRect = billTable.getCellRect(row, col, false);
+                    int relX = e.getX() - cellRect.x;
+                    if (relX > cellRect.width / 2) {
+                        // Click nút xóa (bên phải)
+                        onXoaDichVu(sddv);
+                    } else {
+                        // Click nút sửa (bên trái)
+                        onSuaDichVu(sddv);
+                    }
+                }
             }
         });
 
@@ -269,14 +373,99 @@ public class HoaDonDialog extends JDialog {
 
         loadBillRows();
 
-        JScrollPane sp = new JScrollPane(table);
+        JScrollPane sp = new JScrollPane(billTable);
         sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
-        sp.setPreferredSize(new Dimension(0, 140));
-        sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140));
+        sp.setPreferredSize(new Dimension(0, 150));
+        sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+
+        JLabel hintLbl = new JLabel("(*) Rê chuột vào dịch vụ → hiện nút [Sửa] [Xóa]");
+        hintLbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        hintLbl.setForeground(new Color(0x94A3B8));
+        hintLbl.setBorder(BorderFactory.createEmptyBorder(4, 2, 0, 0));
+
+        JPanel tableWrap = new JPanel(new BorderLayout());
+        tableWrap.setOpaque(false);
+        tableWrap.add(sp, BorderLayout.CENTER);
+        tableWrap.add(hintLbl, BorderLayout.SOUTH);
 
         panel.add(hdr, BorderLayout.NORTH);
-        panel.add(sp, BorderLayout.CENTER);
+        panel.add(tableWrap, BorderLayout.CENTER);
         return panel;
+    }
+
+    /** Kiểm tra row trong bảng có phải là dòng dịch vụ (có thể sửa/xóa) không */
+    private boolean isDichVuRow(int row) {
+        if (row < dvStartRow || dsDichVuHienTai.isEmpty()) return false;
+        int dvIdx = row - dvStartRow;
+        return dvIdx >= 0 && dvIdx < dsDichVuHienTai.size();
+    }
+
+    /** Hiện dialog sửa số lượng dịch vụ */
+    private void onSuaDichVu(SuDungDichVu sddv) {
+        String tenDV = sddv.getTenDichVu();
+        JPanel pnl = new JPanel(new BorderLayout(0, 10));
+        pnl.setBackground(Color.WHITE);
+        pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel lTitle = new JLabel("Sua dich vu: " + tenDV);
+        lTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lTitle.setForeground(UIConstants.PRIMARY);
+
+        JLabel lInfo = new JLabel(String.format("Đơn giá: %,.0f đ  |  SL hiện tại: %d", sddv.getDonGia(), sddv.getSoLuong()));
+        lInfo.setFont(UIConstants.FONT_SMALL);
+        lInfo.setForeground(UIConstants.TEXT_MUTED);
+
+        JLabel lPrompt = new JLabel("Nhập số lượng mới:");
+        lPrompt.setFont(UIConstants.FONT_BODY);
+
+        JSpinner spn = new JSpinner(new SpinnerNumberModel(sddv.getSoLuong(), 1, 999, 1));
+        spn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        spn.setPreferredSize(new Dimension(120, 40));
+
+        JPanel north = new JPanel();
+        north.setOpaque(false);
+        north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
+        north.add(lTitle);
+        north.add(Box.createVerticalStrut(4));
+        north.add(lInfo);
+
+        JPanel center = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        center.setOpaque(false);
+        center.add(lPrompt);
+        center.add(spn);
+
+        pnl.add(north, BorderLayout.NORTH);
+        pnl.add(center, BorderLayout.CENTER);
+
+        Object[] opts = {"Lưu", "Huỷ"};
+        int res = JOptionPane.showOptionDialog(this, pnl, "Sửa số lượng dịch vụ",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, opts, opts[0]);
+
+        if (res == 0) {
+            int newSl = (int) spn.getValue();
+            String err = thuePhongService.suaSoLuongDichVu(sddv, newSl);
+            if (err != null) {
+                ui.components.NotificationManager.showError("Lỗi", err);
+            } else {
+                loadBillRows();
+            }
+        }
+    }
+
+    /** Xác nhận và xóa dịch vụ */
+    private void onXoaDichVu(SuDungDichVu sddv) {
+        String tenDV = sddv.getTenDichVu();
+        int ok = JOptionPane.showConfirmDialog(this,
+            "Xóa dịch vụ \"" + tenDV + "\" (" + sddv.getSoLuong() + "x) khỏi hóa đơn?",
+            "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = thuePhongService.xoaDichVu(sddv);
+            if (err != null) {
+                ui.components.NotificationManager.showError("Lỗi", err);
+            } else {
+                loadBillRows();
+            }
+        }
     }
 
     private void loadBillRows() {
@@ -340,14 +529,15 @@ public class HoaDonDialog extends JDialog {
                 "Tiền phòng – " + (thuePhong.getTenLoaiPhong() != null ? thuePhong.getTenLoaiPhong() : ""),
                 String.format("%,.0f đ/đêm", donGiaThang),
                 soNgay + " đêm",
-                String.format("%,.0f đ", tienPhong)
+                String.format("%,.0f đ", tienPhong),
+                ""
         });
 
         if (phiCheckinOut > 0) {
-            tableModel.addRow(new Object[] { "Phụ thu (Nhận sớm / Trả trễ)", "—", "—", String.format("%,.0f đ", phiCheckinOut) });
+            tableModel.addRow(new Object[] { "Phụ thu (Nhận sớm / Trả trễ)", "—", "—", String.format("%,.0f đ", phiCheckinOut), "" });
         }
         if (phiKhac > 0) {
-            tableModel.addRow(new Object[] { "Phí phát sinh khác", "—", "—", String.format("%,.0f đ", phiKhac) });
+            tableModel.addRow(new Object[] { "Phí phát sinh khác", "—", "—", String.format("%,.0f đ", phiKhac), "" });
         }
 
         if (actualNights < bookedNights && earlyCheckoutPenalty > 0) {
@@ -355,9 +545,14 @@ public class HoaDonDialog extends JDialog {
                 "Phí phạt trả phòng sớm (" + (bookedNights - actualNights) + " đêm)",
                 "—",
                 "—",
-                String.format("%,.0f đ", earlyCheckoutPenalty)
+                String.format("%,.0f đ", earlyCheckoutPenalty),
+                ""
             });
         }
+
+        // Lưu vị trí bắt đầu dòng dịch vụ + danh sách dịch vụ hiện tại
+        dvStartRow = tableModel.getRowCount();
+        dsDichVuHienTai = new java.util.ArrayList<>(dsDichVu);
 
         long totalDV = 0;
         for (SuDungDichVu sddv : dsDichVu) {
@@ -365,7 +560,8 @@ public class HoaDonDialog extends JDialog {
                     sddv.getTenDichVu() != null ? sddv.getTenDichVu() : "Dịch vụ",
                     String.format("%,.0f đ", (double) sddv.getDonGia()),
                     sddv.getSoLuong() + "x",
-                    String.format("%,.0f đ", (double) sddv.tinhThanhTien())
+                    String.format("%,.0f đ", (double) sddv.tinhThanhTien()),
+                    ""
             });
             totalDV += sddv.tinhThanhTien();
         }
@@ -419,7 +615,8 @@ public class HoaDonDialog extends JDialog {
                     "─────────────────────────",
                     String.format("-%,.0f đ", tienCoc),
                     "1",
-                    String.format("-%,.0f đ", tienCoc)
+                    String.format("-%,.0f đ", tienCoc),
+                    ""
             });
             // Override nội dung ô đầu tiên cho rõ nghĩa hơn bằng cách xoá & thêm lại
             int lastRow = tableModel.getRowCount() - 1;

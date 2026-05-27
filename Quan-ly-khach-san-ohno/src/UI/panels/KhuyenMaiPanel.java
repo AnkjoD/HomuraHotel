@@ -243,7 +243,7 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
     }
 
     private JPanel buildFilterBar() {
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         filterPanel.setOpaque(false);
 
         txtSearch = new ModernTextField("Tìm mã KM, tên chương trình...");
@@ -255,6 +255,7 @@ public class KhuyenMaiPanel extends JPanel implements ResettableFilter {
         cbStatus.addActionListener(e -> loadData());
 
         filterPanel.add(txtSearch);
+        filterPanel.add(Box.createHorizontalStrut(12));
         filterPanel.add(cbStatus);
         return filterPanel;
     }

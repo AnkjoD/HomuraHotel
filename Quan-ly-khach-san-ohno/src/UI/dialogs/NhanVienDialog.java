@@ -127,7 +127,7 @@ public class NhanVienDialog extends JDialog {
         });
 
         // Chức vụ hiển thị & vai trò hệ thống đồng nhất
-        cboChucVu = combo("Lễ tân", "Quản lý", "Quản trị viên");
+        cboChucVu = combo("Lễ tân", "Chủ khách sạn", "Nhân viên kỹ thuật");
         cboVaiTro = combo("RECEPTIONIST", "MANAGER", "ADMIN");
         cboGioiTinh = combo("Nam", "Nữ", "Khác");
         chkActive = new JCheckBox("Đang làm việc", true);
@@ -366,7 +366,7 @@ public class NhanVienDialog extends JDialog {
         }
 
         // Chức vụ từ combo
-        String[] chucVuMap = { "Lễ tân", "Quản lý", "Quản trị viên" };
+        String[] chucVuMap = { "Lễ tân", "Chủ khách sạn", "Nhân viên kỹ thuật" };
         int cvIdx = cboChucVu.getSelectedIndex();
         nv.setChucVu(cvIdx >= 0 ? chucVuMap[cvIdx] : "Lễ tân");
 

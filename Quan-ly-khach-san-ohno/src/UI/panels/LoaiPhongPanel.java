@@ -107,7 +107,7 @@ public class LoaiPhongPanel extends JPanel implements ResettableFilter {
     }
 
     private JPanel buildFilterBar() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
@@ -128,6 +128,7 @@ public class LoaiPhongPanel extends JPanel implements ResettableFilter {
         cboTrangThai.addActionListener(e -> runFilter());
 
         p.add(txtSearch);
+        p.add(Box.createHorizontalStrut(12));
         p.add(cboTrangThai);
         return p;
     }

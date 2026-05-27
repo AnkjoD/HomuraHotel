@@ -107,7 +107,10 @@ public class SuDungDichVuDAO {
 
     private SuDungDichVu mapRow(ResultSet rs) throws SQLException {
         SuDungDichVu sddv = new SuDungDichVu();
-        
+
+        // Đọc maSuDung nếu có
+        try { sddv.setMaSuDung(rs.getString("maSuDung")); } catch (SQLException ignored) {}
+
         String maDV;
         try {
             maDV = rs.getString("maDichVu");
@@ -149,6 +152,80 @@ public class SuDungDichVuDAO {
         if (ts != null) sddv.setThoiDiem(ts.toLocalDateTime());
 
         return sddv;
+    }
+
+    /**
+     * Xóa 1 dòng dịch vụ theo maSuDung (primary key).
+     * Nếu không có maSuDung, fallback xóa theo maChiTiet + maDV + soLuong.
+     */
+    public boolean deleteOne(SuDungDichVu sddv) {
+        // Thử xóa bằng maSuDung trước (chính xác nhất)
+        if (sddv.getMaSuDung() != null && !sddv.getMaSuDung().isBlank()) {
+            String[] queries = {
+                "DELETE FROM SuDungDichVu WHERE maSuDung=?",
+                "DELETE FROM SU_DUNG_DICH_VU WHERE maSuDung=?"
+            };
+            for (String sql : queries) {
+                try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+                    ps.setString(1, sddv.getMaSuDung());
+                    if (ps.executeUpdate() > 0) return true;
+                } catch (SQLException ignored) {}
+            }
+        }
+        // Fallback: xóa theo maChiTiet + maDV (xóa 1 hàng TOP 1)
+        String maChiTiet = sddv.getCtdp() != null ? sddv.getCtdp().getMaChiTiet() : null;
+        String maDV = sddv.getDichVu() != null ? sddv.getDichVu().getMaDichVu() : null;
+        if (maChiTiet == null || maDV == null) return false;
+        String[] fallbacks = {
+            "DELETE TOP(1) FROM SuDungDichVu WHERE maChiTiet=? AND maDichVu=?",
+            "DELETE TOP(1) FROM SU_DUNG_DICH_VU WHERE maChiTiet=? AND maDichVu=?",
+            "DELETE TOP(1) FROM SuDungDichVu WHERE maChiTiet=? AND maDV=?",
+        };
+        for (String sql : fallbacks) {
+            try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+                ps.setString(1, maChiTiet);
+                ps.setString(2, maDV);
+                if (ps.executeUpdate() > 0) return true;
+            } catch (SQLException ignored) {}
+        }
+        return false;
+    }
+
+    /**
+     * Cập nhật số lượng cho 1 dòng dịch vụ.
+     */
+    public boolean updateSoLuong(SuDungDichVu sddv, int newSoLuong) {
+        if (sddv.getMaSuDung() != null && !sddv.getMaSuDung().isBlank()) {
+            String[] queries = {
+                "UPDATE SuDungDichVu SET soLuong=? WHERE maSuDung=?",
+                "UPDATE SU_DUNG_DICH_VU SET soLuong=? WHERE maSuDung=?"
+            };
+            for (String sql : queries) {
+                try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+                    ps.setInt(1, newSoLuong);
+                    ps.setString(2, sddv.getMaSuDung());
+                    if (ps.executeUpdate() > 0) return true;
+                } catch (SQLException ignored) {}
+            }
+        }
+        // Fallback theo maChiTiet + maDV
+        String maChiTiet = sddv.getCtdp() != null ? sddv.getCtdp().getMaChiTiet() : null;
+        String maDV = sddv.getDichVu() != null ? sddv.getDichVu().getMaDichVu() : null;
+        if (maChiTiet == null || maDV == null) return false;
+        String[] fallbacks = {
+            "UPDATE TOP(1) SuDungDichVu SET soLuong=? WHERE maChiTiet=? AND maDichVu=?",
+            "UPDATE TOP(1) SU_DUNG_DICH_VU SET soLuong=? WHERE maChiTiet=? AND maDichVu=?",
+            "UPDATE TOP(1) SuDungDichVu SET soLuong=? WHERE maChiTiet=? AND maDV=?",
+        };
+        for (String sql : fallbacks) {
+            try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+                ps.setInt(1, newSoLuong);
+                ps.setString(2, maChiTiet);
+                ps.setString(3, maDV);
+                if (ps.executeUpdate() > 0) return true;
+            } catch (SQLException ignored) {}
+        }
+        return false;
     }
 
     private String generateMaSuDung() {

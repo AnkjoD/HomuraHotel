@@ -228,7 +228,7 @@ public class NhanVienPanel extends JPanel implements ResettableFilter {
         JPanel tabs = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         tabs.setOpaque(false);
         String[] dbRoles = { "Tất cả", "ADMIN", "MANAGER", "RECEPTIONIST" };
-        String[] displayRoles = { "Tất cả", "Quản trị viên", "Quản lý", "Lễ tân" };
+        String[] displayRoles = { "Tất cả", "Nhân viên kỹ thuật", "Chủ khách sạn", "Lễ tân" };
         ButtonGroup bg = new ButtonGroup();
         for (int i = 0; i < dbRoles.length; i++) {
             String dbRole = dbRoles[i];

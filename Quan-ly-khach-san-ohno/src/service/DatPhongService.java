@@ -128,6 +128,9 @@ public class DatPhongService {
         DatPhong dp = datPhongDAO.getById(maDatPhong);
         if (dp == null || dp.getNgayNhan() == null) return 0;
         
+        // Đơn PENDING (Chờ xác nhận / Chưa cọc) thì hủy luôn miễn phí, không phạt!
+        if (dp.getTrangThai() == TrangThaiDatPhong.PENDING) return 0;
+        
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime arrival = dp.getNgayNhan();
         java.time.Duration duration = java.time.Duration.between(now, arrival);
@@ -524,6 +527,71 @@ public class DatPhongService {
         } catch (Exception e) {
             db.rollbackTransaction();
             LOGGER.log(Level.SEVERE, "Lỗi trong suaDatPhong", e);
+            return "Lỗi hệ thống: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Cập nhật toàn bộ thông tin đơn đặt phòng và các phòng được chọn (Chỉnh sửa phòng/dates toàn diện).
+     */
+    public String capNhatDatPhongToanDien(DatPhong dp) {
+        if (dp == null || dp.getMaDatPhong() == null) return "Dữ liệu không hợp lệ!";
+        
+        DatPhong old = datPhongDAO.getById(dp.getMaDatPhong());
+        if (old == null) return "Không tìm thấy đơn đặt phòng!";
+        if (old.getTrangThai() != TrangThaiDatPhong.PENDING && old.getTrangThai() != TrangThaiDatPhong.CONFIRMED && old.getTrangThai() != TrangThaiDatPhong.WAITLIST) {
+            return "Chỉ có thể sửa đơn ở trạng thái Chờ xác nhận, Đã xác nhận hoặc Chờ xếp phòng!";
+        }
+
+        // Kiểm tra tính sẵn sàng của các phòng mới chọn
+        if (dp.getDsChiTiet() != null) {
+            for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                if (ct.getPhong() != null) {
+                    LocalDateTime rIn = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : dp.getNgayNhanDuKien();
+                    LocalDateTime rOut = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : dp.getNgayTraDuKien();
+                    
+                    if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), rIn, rOut, dp.getMaDatPhong())) {
+                        return "Phòng " + ct.getPhong().getSoPhongDisplay() + " đã có lịch đặt hoặc đang sử dụng trong khoảng thời gian này!";
+                    }
+                }
+            }
+        }
+
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+
+            // 1. Cập nhật DatPhong header
+            if (!datPhongDAO.update(dp)) {
+                db.rollbackTransaction();
+                return "Lỗi cập nhật đơn đặt phòng!";
+            }
+
+            // 2. Xóa các ChiTietDatPhong cũ
+            if (!ctDAO.deleteByDatPhong(dp.getMaDatPhong())) {
+                db.rollbackTransaction();
+                return "Lỗi xóa chi tiết phòng cũ!";
+            }
+
+            // 3. Thêm các ChiTietDatPhong mới
+            if (dp.getDsChiTiet() != null) {
+                for (ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                    if (ct.getMaChiTiet() == null || ct.getMaChiTiet().isEmpty()) {
+                        ct.setMaChiTiet(ctDAO.generateMaChiTiet());
+                    }
+                    ct.setDatPhong(dp);
+                    if (!ctDAO.insert(ct)) {
+                        db.rollbackTransaction();
+                        return "Lỗi thêm chi tiết phòng mới (" + (ct.getPhong() != null ? ct.getPhong().getSoPhongDisplay() : "?") + ")!";
+                    }
+                }
+            }
+
+            db.commitTransaction();
+            return null;
+        } catch (Exception e) {
+            db.rollbackTransaction();
+            LOGGER.log(Level.SEVERE, "Lỗi trong capNhatDatPhongToanDien", e);
             return "Lỗi hệ thống: " + e.getMessage();
         }
     }

@@ -171,9 +171,10 @@ public class PhongPanel extends JPanel implements ResettableFilter {
         });
         cboTrangThai.addActionListener(e -> loadData());
 
-        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         filterBar.setOpaque(false);
         filterBar.add(txtSearch);
+        filterBar.add(Box.createHorizontalStrut(12));
         filterBar.add(cboTrangThai);
 
         // Table

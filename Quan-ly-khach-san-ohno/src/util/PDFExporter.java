@@ -448,6 +448,693 @@ public class PDFExporter {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    //  MASTER BILL (GROUP CHECKOUT) PDF EXPORT
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Xuất hóa đơn đoàn (Master Bill) ra PDF cùng layout chuyên nghiệp với hóa đơn thường.
+     *
+     * @param parent       Component cha (để hiện dialog lưu file)
+     * @param maDatPhong   Mã đặt phòng
+     * @param tenDoan      Tên đoàn (có thể null)
+     * @param tenDaiDien   Họ tên người đại diện
+     * @param sdt          Số điện thoại
+     * @param soPhong      Số phòng (tổng)
+     * @param rows         Danh sách dòng: {tenPhong, noiDung, donGia, soLuong, thanhTien}
+     * @param tongPhong    Tổng tiền phòng
+     * @param tongPhuPhi   Tổng phụ phí
+     * @param tongDV       Tổng dịch vụ
+     * @param tienCoc      Tiền cọc khấu trừ
+     * @param tongCong     Tổng cộng cuối cùng
+     */
+    public static void exportMasterBillPDF(Component parent,
+                                           String maDatPhong,
+                                           String tenDoan,
+                                           String tenDaiDien,
+                                           String sdt,
+                                           int soPhong,
+                                           java.util.List<Object[]> rows,
+                                           double tongPhong,
+                                           double tongPhuPhi,
+                                           double tongDV,
+                                           double tienCoc,
+                                           double giamGia,
+                                           double tongCong) {
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Lưu hóa đơn đoàn PDF");
+        chooser.setSelectedFile(new java.io.File("MasterBill_" + maDatPhong + ".pdf"));
+        if (chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION) return;
+
+        java.io.File file = chooser.getSelectedFile();
+        if (!file.getName().toLowerCase().endsWith(".pdf"))
+            file = new java.io.File(file.getAbsolutePath() + ".pdf");
+
+        try {
+            Document doc = new Document(PageSize.A4, 28, 28, 28, 28);
+            PdfWriter.getInstance(doc, new FileOutputStream(file));
+            doc.open();
+
+            BaseFont bf  = BaseFont.createFont(FONT_REGULAR, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+            BaseFont bfb = BaseFont.createFont(FONT_BOLD,    BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+            BaseFont bfi = BaseFont.createFont(FONT_ITALIC,  BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+            Font fNorm      = new Font(bf,   10, Font.NORMAL, BaseColor.BLACK);
+            Font fSmall     = new Font(bf,    9, Font.NORMAL, BaseColor.BLACK);
+            Font fSmallGray = new Font(bf,    8, Font.NORMAL, BaseColor.GRAY);
+            Font fSmallIt   = new Font(bfi,   8, Font.ITALIC, BaseColor.GRAY);
+            Font fBold      = new Font(bfb,  10, Font.BOLD,   BaseColor.BLACK);
+            Font fBoldSm    = new Font(bfb,   9, Font.BOLD,   BaseColor.BLACK);
+            Font fTitle     = new Font(bfb,  15, Font.BOLD,   BaseColor.BLACK);
+            Font fSubTitle  = new Font(bf,   10, Font.ITALIC, BaseColor.BLACK);
+            Font fCompany   = new Font(bfb,  13, Font.BOLD,   BaseColor.BLACK);
+            Font fLink      = new Font(bf,    8, Font.NORMAL, CLR_LINK);
+            Font fFooterIt  = new Font(bfi,   8, Font.ITALIC, BaseColor.BLACK);
+            Font fSigValid  = new Font(bfb,   8, Font.BOLD,   new BaseColor(0, 100, 0));
+            Font fTotal     = new Font(bfb,  10, Font.BOLD,   BaseColor.BLACK);
+
+            // OUTER BORDER
+            PdfPTable outerTbl = new PdfPTable(1);
+            outerTbl.setWidthPercentage(100);
+            PdfPCell outerCell = new PdfPCell();
+            outerCell.setBorderColor(CLR_BORDER);
+            outerCell.setBorderWidth(2.5f);
+            outerCell.setPadding(3f);
+
+            PdfPTable inner = new PdfPTable(1);
+            inner.setWidthPercentage(100);
+
+            // ── PHẦN 1: HEADER ──────────────────────────────────────────────
+            PdfPTable hdr = new PdfPTable(2);
+            hdr.setWidthPercentage(100);
+            hdr.setWidths(new float[]{1.8f, 3.5f});
+
+            PdfPCell logoCell = new PdfPCell();
+            logoCell.setBorder(Rectangle.RIGHT);
+            logoCell.setBorderColor(CLR_BORDER);
+            logoCell.setBorderWidthRight(1f);
+            logoCell.setPadding(8f);
+            Paragraph logoTxt = new Paragraph("OHNO\nHOTEL",
+                    new Font(bfb, 22, Font.BOLD, new BaseColor(30, 80, 160)));
+            logoTxt.setAlignment(Element.ALIGN_CENTER);
+            logoCell.addElement(logoTxt);
+            Paragraph sloganP = new Paragraph("TÍN NHIỆM – TIỆN ÍCH – TẬN TÌNH",
+                    new Font(bf, 7, Font.NORMAL, BaseColor.GRAY));
+            sloganP.setAlignment(Element.ALIGN_CENTER);
+            logoCell.addElement(sloganP);
+            hdr.addCell(logoCell);
+
+            PdfPCell compCell = new PdfPCell();
+            compCell.setBorder(Rectangle.NO_BORDER);
+            compCell.setPadding(8f);
+            compCell.addElement(new Paragraph("KHÁCH SẠN OHNO – CÔNG TY CỔ PHẦN OHNO", fCompany));
+            compCell.addElement(mkLine("Mã số thuế: ", "0101243150-104", fSmall, fBoldSm));
+            compCell.addElement(mkLine("Địa chỉ: ", "12 Cao Lỗ, Phường 4, Quận 8, TP. Hồ Chí Minh", fSmall, fSmall));
+            compCell.addElement(mkLine("Điện thoại: ", "(028) 1234 5678", fSmall, fSmall));
+            compCell.addElement(mkLine("Số tài khoản: ", "0123456789 – Ngân hàng Vietcombank", fSmall, fSmall));
+            hdr.addCell(compCell);
+            wrapRow(inner, hdr, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+            // ── PHẦN 2: TIÊU ĐỀ ─────────────────────────────────────────────
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            PdfPTable titleRow = new PdfPTable(2);
+            titleRow.setWidthPercentage(100);
+            titleRow.setWidths(new float[]{4f, 1.5f});
+
+            PdfPCell titleCell = new PdfPCell();
+            titleCell.setBorder(Rectangle.NO_BORDER);
+            titleCell.setPaddingTop(10f);
+            titleCell.setPaddingBottom(4f);
+            Paragraph mainTitleP = new Paragraph("HÓA ĐƠN ĐOÀN (MASTER BILL)", fTitle);
+            mainTitleP.setAlignment(Element.ALIGN_CENTER);
+            titleCell.addElement(mainTitleP);
+            Paragraph dateP = new Paragraph(
+                    String.format("Ngày %02d tháng %02d năm %d",
+                            now.getDayOfMonth(), now.getMonthValue(), now.getYear()),
+                    fSubTitle);
+            dateP.setAlignment(Element.ALIGN_CENTER);
+            titleCell.addElement(dateP);
+            titleRow.addCell(titleCell);
+
+            PdfPCell kyHieuCell = new PdfPCell();
+            kyHieuCell.setBorder(Rectangle.NO_BORDER);
+            kyHieuCell.setPaddingTop(10f);
+            kyHieuCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            kyHieuCell.addElement(mkLine("Ký hiệu: ", "OHN-2025", fSmall, fBoldSm));
+            kyHieuCell.addElement(mkLine("Số: ", "HD-GRP-" + maDatPhong, fSmall, fBoldSm));
+            titleRow.addCell(kyHieuCell);
+            wrapRow(inner, titleRow, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+            // ── PHẦN 3: THÔNG TIN ĐOÀN + QR ─────────────────────────────────
+            PdfPTable custQrTbl = new PdfPTable(2);
+            custQrTbl.setWidthPercentage(100);
+            custQrTbl.setWidths(new float[]{3.5f, 1f});
+
+            PdfPCell custCell = new PdfPCell();
+            custCell.setBorder(Rectangle.NO_BORDER);
+            custCell.setPadding(5f);
+            addUnderlineRow(custCell, "Tên đoàn: " + (tenDoan != null && !tenDoan.isEmpty() ? tenDoan : "Khách đoàn"), fSmall);
+            addUnderlineRow(custCell, "Người đại diện: " + (tenDaiDien != null ? tenDaiDien : "Vãng lai"), fSmall);
+            addUnderlineRow(custCell, "Số điện thoại: " + (sdt != null ? sdt : ""), fSmall);
+            addUnderlineRow(custCell, "Mã đặt phòng: " + maDatPhong, fSmall);
+
+            PdfPTable row2 = new PdfPTable(2);
+            row2.setWidthPercentage(100);
+            addUnderlineCellTbl(row2, "Hình thức thanh toán: TM/CK", fSmall);
+            addUnderlineCellTbl(row2, "Số phòng: " + soPhong + " phòng", fSmall);
+            custCell.addElement(row2);
+            addUnderlineRow(custCell, "Đồng tiền thanh toán: VNĐ", fSmall);
+            custQrTbl.addCell(custCell);
+
+            PdfPCell qrCell = new PdfPCell();
+            qrCell.setBorder(Rectangle.NO_BORDER);
+            qrCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            qrCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            qrCell.setPadding(4f);
+            try {
+                String qrData = "OHNO|HD-GRP-" + maDatPhong + "|" + now.toLocalDate() + "|" + String.format("%.0f", tongCong);
+                Map<EncodeHintType, Object> hints = new HashMap<>();
+                hints.put(EncodeHintType.CHARACTER_SET, "UTF-8");
+                BarcodeQRCode qr = new BarcodeQRCode(qrData, 85, 85, hints);
+                Image qrImg = qr.getImage();
+                qrImg.scaleToFit(85, 85);
+                qrCell.addElement(qrImg);
+            } catch (Exception ignored) {
+                qrCell.addElement(new Paragraph("[QR]", fSmallGray));
+            }
+            custQrTbl.addCell(qrCell);
+            wrapRow(inner, custQrTbl, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+            // ── PHẦN 4: BẢNG CHI TIẾT 6 CỘT ─────────────────────────────────
+            PdfPTable detailTbl = new PdfPTable(6);
+            detailTbl.setWidthPercentage(100);
+            detailTbl.setWidths(new float[]{0.5f, 1.0f, 2.8f, 1.0f, 1.5f, 1.7f});
+            detailTbl.setHeaderRows(1);
+
+            String[] headers = {"STT", "Phòng", "Khoản mục", "Số lượng", "Đơn giá", "Thành tiền"};
+            int[] haligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER,
+                    Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
+            for (int i = 0; i < headers.length; i++)
+                addTblHeader(detailTbl, headers[i], haligns[i], fBoldSm, CLR_TBL_HEADER);
+
+            int stt = 1;
+            for (Object[] row : rows) {
+                // row: {tenPhong, noiDung, donGia, soLuong, thanhTien}
+                addTblCell(detailTbl, String.valueOf(stt++),     fSmall, Element.ALIGN_CENTER);
+                addTblCell(detailTbl, String.valueOf(row[0]),    fSmall, Element.ALIGN_CENTER);
+                addTblCell(detailTbl, String.valueOf(row[1]),    fSmall, Element.ALIGN_LEFT);
+                addTblCell(detailTbl, String.valueOf(row[3]),    fSmall, Element.ALIGN_CENTER);
+                addTblCell(detailTbl, String.valueOf(row[2]),    fSmall, Element.ALIGN_RIGHT);
+                addTblCell(detailTbl, String.valueOf(row[4]),    fSmall, Element.ALIGN_RIGHT);
+            }
+            int minRows = Math.max(0, 6 - rows.size());
+            for (int i = 0; i < minRows; i++)
+                for (int j = 0; j < 6; j++) addTblCell(detailTbl, " ", fSmall, Element.ALIGN_LEFT);
+
+            wrapRow(inner, detailTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+            // ── PHẦN 5: KHU VỰC TỔNG TIỀN ───────────────────────────────────
+            double subTotal = tongPhong + tongPhuPhi + tongDV;
+
+            PdfPTable sumOuter = new PdfPTable(2);
+            sumOuter.setWidthPercentage(100);
+            sumOuter.setWidths(new float[]{1f, 1f});
+
+            PdfPTable leftTax = new PdfPTable(2);
+            leftTax.setWidthPercentage(100);
+            leftTax.setWidths(new float[]{2f, 1f});
+            addTaxCell(leftTax, "Thuế TTĐB:",     true,  fSmall);
+            addTaxCell(leftTax, "%",               false, fSmall);
+            addTaxCell(leftTax, "Thuế suất GTGT:", true,  fSmall);
+            addTaxCell(leftTax, "0%",              false, fSmall);
+            PdfPCell ltWrap = new PdfPCell(leftTax);
+            ltWrap.setBorder(Rectangle.BOX);
+            ltWrap.setBorderColor(CLR_BORDER);
+            ltWrap.setBorderWidth(0.5f);
+            ltWrap.setPadding(0f);
+            sumOuter.addCell(ltWrap);
+
+            PdfPTable rightSum = new PdfPTable(2);
+            rightSum.setWidthPercentage(100);
+            rightSum.setWidths(new float[]{1.6f, 1.2f});
+            addSumRow(rightSum, "Tổng tiền phòng:",     fmtMoney(tongPhong),  fSmall, fSmall);
+            addSumRow(rightSum, "Tổng phụ phí:",        fmtMoney(tongPhuPhi), fSmall, fSmall);
+            addSumRow(rightSum, "Tổng dịch vụ:",        fmtMoney(tongDV),     fSmall, fSmall);
+            if (giamGia > 0)
+                addSumRow(rightSum, "Giảm giá (voucher):", "-" + fmtMoney(giamGia), fSmall, fSmall);
+            if (tienCoc > 0)
+                addSumRow(rightSum, "Tiền cọc (khấu trừ):", "-" + fmtMoney(tienCoc), fSmall, fSmall);
+            addSumRow(rightSum, "Tổng tiền thanh toán:", fmtMoney(tongCong), fTotal, fTotal);
+
+            PdfPCell rtWrap = new PdfPCell(rightSum);
+            rtWrap.setBorder(Rectangle.BOX);
+            rtWrap.setBorderColor(CLR_BORDER);
+            rtWrap.setBorderWidth(0.5f);
+            rtWrap.setPadding(0f);
+            sumOuter.addCell(rtWrap);
+            wrapRow(inner, sumOuter, Rectangle.BOX, CLR_BORDER, 0.5f);
+
+            // ── PHẦN 6: SỐ TIỀN BẰNG CHỮ ────────────────────────────────────
+            PdfPTable wordsTbl = new PdfPTable(1);
+            wordsTbl.setWidthPercentage(100);
+            PdfPCell wordsCell = new PdfPCell();
+            wordsCell.setBorder(Rectangle.BOTTOM);
+            wordsCell.setBorderColor(CLR_BORDER);
+            wordsCell.setBorderWidthBottom(0.5f);
+            wordsCell.setPadding(5f);
+            wordsCell.addElement(new Paragraph(
+                    "Số tiền viết bằng chữ: "
+                            + convertToVietnameseWords((long) tongCong)
+                            + " đồng chẵn.", fSmall));
+            wordsTbl.addCell(wordsCell);
+            wrapRow(inner, wordsTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+            // ── PHẦN 7: CHỮ KÝ ──────────────────────────────────────────────
+            PdfPTable sigTbl = new PdfPTable(2);
+            sigTbl.setWidthPercentage(100);
+
+            PdfPCell buyerCell = new PdfPCell();
+            buyerCell.setBorder(Rectangle.NO_BORDER);
+            buyerCell.setPadding(6f);
+            Paragraph buyerTitle = new Paragraph("Người mua hàng", fBoldSm);
+            buyerTitle.setAlignment(Element.ALIGN_CENTER);
+            buyerCell.addElement(buyerTitle);
+            Paragraph buyerSub = new Paragraph("(Chữ ký số (nếu có))", fSmallIt);
+            buyerSub.setAlignment(Element.ALIGN_CENTER);
+            buyerCell.addElement(buyerSub);
+            buyerCell.addElement(new Paragraph("\n\n\n\n"));
+            sigTbl.addCell(buyerCell);
+
+            PdfPCell sellerCell = new PdfPCell();
+            sellerCell.setBorder(Rectangle.NO_BORDER);
+            sellerCell.setPadding(6f);
+            Paragraph sellerTitle = new Paragraph("Người bán hàng", fBoldSm);
+            sellerTitle.setAlignment(Element.ALIGN_CENTER);
+            sellerCell.addElement(sellerTitle);
+            Paragraph sellerSub = new Paragraph("(Chữ ký điện tử, chữ ký số)", fSmallIt);
+            sellerSub.setAlignment(Element.ALIGN_CENTER);
+            sellerCell.addElement(sellerSub);
+            sellerCell.addElement(new Paragraph("\n"));
+
+            PdfPTable svTbl = new PdfPTable(1);
+            svTbl.setWidthPercentage(65);
+            svTbl.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            PdfPCell svCell = new PdfPCell();
+            svCell.setBackgroundColor(CLR_SIG_VALID);
+            svCell.setBorderColor(CLR_SIG_BORDER);
+            svCell.setBorderWidth(1f);
+            svCell.setPadding(5f);
+            Paragraph sv1 = new Paragraph("Signature Valid", fSigValid);
+            sv1.setAlignment(Element.ALIGN_CENTER);
+            svCell.addElement(sv1);
+            Paragraph sv2 = new Paragraph("Ký bởi: Công ty Cổ phần OHNO",
+                    new Font(bf, 7, Font.NORMAL, new BaseColor(0, 80, 0)));
+            sv2.setAlignment(Element.ALIGN_CENTER);
+            svCell.addElement(sv2);
+            Paragraph sv3 = new Paragraph(
+                    String.format("Ký ngày: %02d/%02d/%d",
+                            now.getDayOfMonth(), now.getMonthValue(), now.getYear()),
+                    new Font(bf, 7, Font.NORMAL, new BaseColor(0, 80, 0)));
+            sv3.setAlignment(Element.ALIGN_CENTER);
+            svCell.addElement(sv3);
+            svTbl.addCell(svCell);
+            sellerCell.addElement(svTbl);
+            sellerCell.addElement(new Paragraph("\n"));
+            sigTbl.addCell(sellerCell);
+            wrapRow(inner, sigTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+            // ── PHẦN 8: FOOTER ───────────────────────────────────────────────
+            PdfPTable footerTbl = new PdfPTable(1);
+            footerTbl.setWidthPercentage(100);
+            PdfPCell ftCell = new PdfPCell();
+            ftCell.setBorderColor(CLR_BORDER);
+            ftCell.setBorder(Rectangle.TOP);
+            ftCell.setBorderWidthTop(0.5f);
+            ftCell.setPadding(5f);
+
+            Phrase ftPhrase = new Phrase();
+            ftPhrase.add(new Chunk("Tra cứu tại Website: ", fSmallGray));
+            ftPhrase.add(new Chunk("https://ohno.vn/tra-cuu", fLink));
+            ftPhrase.add(new Chunk("  –  Mã tra cứu: HD-GRP-" + maDatPhong.toUpperCase(), fSmallGray));
+            ftCell.addElement(new Paragraph(ftPhrase));
+
+            Paragraph ft2 = new Paragraph("(Cần kiểm tra, đối chiếu khi lập, giao, nhận hóa đơn)", fFooterIt);
+            ft2.setAlignment(Element.ALIGN_CENTER);
+            ftCell.addElement(ft2);
+
+            Paragraph ft3 = new Paragraph(
+                    "Phát hành bởi phần mềm quản lý khách sạn OHNO (www.ohno.vn) – MST: 0101243150",
+                    fSmallGray);
+            ft3.setAlignment(Element.ALIGN_CENTER);
+            ftCell.addElement(ft3);
+            footerTbl.addCell(ftCell);
+            wrapRow(inner, footerTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+            // Gắn lại vào outer
+            outerCell.addElement(inner);
+            outerTbl.addCell(outerCell);
+            doc.add(outerTbl);
+            doc.close();
+
+            JOptionPane.showMessageDialog(parent,
+                    "Xuất hóa đơn đoàn thành công!\nFile: " + file.getAbsolutePath(),
+                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(parent,
+                    "Lỗi xuất file PDF: " + e.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  SINGLE ROOM IN GROUP (SEPARATE BILL) PDF EXPORT
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Xuất hóa đơn riêng lẻ cho từng phòng trong đoàn ra PDF.
+     */
+    public static void exportSingleRoomInvoiceFromGroupPDF(
+                                           String maDatPhong,
+                                           String tenDoan,
+                                           String tenDaiDien,
+                                           String sdt,
+                                           String roomId,
+                                           java.util.List<Object[]> rows,
+                                           double tongPhong,
+                                           double tongPhuPhi,
+                                           double tongDV,
+                                           double tienCoc,
+                                           double giamGia,
+                                           double tongCong,
+                                           java.io.File file) throws Exception {
+
+        Document doc = new Document(PageSize.A4, 28, 28, 28, 28);
+        PdfWriter.getInstance(doc, new FileOutputStream(file));
+        doc.open();
+
+        BaseFont bf  = BaseFont.createFont(FONT_REGULAR, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+        BaseFont bfb = BaseFont.createFont(FONT_BOLD,    BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+        BaseFont bfi = BaseFont.createFont(FONT_ITALIC,  BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+        Font fNorm      = new Font(bf,   10, Font.NORMAL, BaseColor.BLACK);
+        Font fSmall     = new Font(bf,    9, Font.NORMAL, BaseColor.BLACK);
+        Font fSmallGray = new Font(bf,    8, Font.NORMAL, BaseColor.GRAY);
+        Font fSmallIt   = new Font(bfi,   8, Font.ITALIC, BaseColor.GRAY);
+        Font fBold      = new Font(bfb,  10, Font.BOLD,   BaseColor.BLACK);
+        Font fBoldSm    = new Font(bfb,   9, Font.BOLD,   BaseColor.BLACK);
+        Font fTitle     = new Font(bfb,  15, Font.BOLD,   BaseColor.BLACK);
+        Font fSubTitle  = new Font(bf,   10, Font.ITALIC, BaseColor.BLACK);
+        Font fCompany   = new Font(bfb,  13, Font.BOLD,   BaseColor.BLACK);
+        Font fLink      = new Font(bf,    8, Font.NORMAL, CLR_LINK);
+        Font fFooterIt  = new Font(bfi,   8, Font.ITALIC, BaseColor.BLACK);
+        Font fSigValid  = new Font(bfb,   8, Font.BOLD,   new BaseColor(0, 100, 0));
+        Font fTotal     = new Font(bfb,  10, Font.BOLD,   BaseColor.BLACK);
+
+        // OUTER BORDER
+        PdfPTable outerTbl = new PdfPTable(1);
+        outerTbl.setWidthPercentage(100);
+        PdfPCell outerCell = new PdfPCell();
+        outerCell.setBorderColor(CLR_BORDER);
+        outerCell.setBorderWidth(2.5f);
+        outerCell.setPadding(3f);
+
+        PdfPTable inner = new PdfPTable(1);
+        inner.setWidthPercentage(100);
+
+        // ── PHẦN 1: HEADER ──────────────────────────────────────────────
+        PdfPTable hdr = new PdfPTable(2);
+        hdr.setWidthPercentage(100);
+        hdr.setWidths(new float[]{1.8f, 3.5f});
+
+        PdfPCell logoCell = new PdfPCell();
+        logoCell.setBorder(Rectangle.RIGHT);
+        logoCell.setBorderColor(CLR_BORDER);
+        logoCell.setBorderWidthRight(1f);
+        logoCell.setPadding(8f);
+        Paragraph logoTxt = new Paragraph("OHNO\nHOTEL",
+                new Font(bfb, 22, Font.BOLD, new BaseColor(30, 80, 160)));
+        logoTxt.setAlignment(Element.ALIGN_CENTER);
+        logoCell.addElement(logoTxt);
+        Paragraph sloganP = new Paragraph("TÍN NHIỆM – TIỆN ÍCH – TẬN TÌNH",
+                new Font(bf, 7, Font.NORMAL, BaseColor.GRAY));
+        sloganP.setAlignment(Element.ALIGN_CENTER);
+        logoCell.addElement(sloganP);
+        hdr.addCell(logoCell);
+
+        PdfPCell compCell = new PdfPCell();
+        compCell.setBorder(Rectangle.NO_BORDER);
+        compCell.setPadding(8f);
+        compCell.addElement(new Paragraph("KHÁCH SẠN OHNO – CÔNG TY CỔ PHẦN OHNO", fCompany));
+        compCell.addElement(mkLine("Mã số thuế: ", "0101243150-104", fSmall, fBoldSm));
+        compCell.addElement(mkLine("Địa chỉ: ", "12 Cao Lỗ, Phường 4, Quận 8, TP. Hồ Chí Minh", fSmall, fSmall));
+        compCell.addElement(mkLine("Điện thoại: ", "(028) 1234 5678", fSmall, fSmall));
+        compCell.addElement(mkLine("Số tài khoản: ", "0123456789 – Ngân hàng Vietcombank", fSmall, fSmall));
+        hdr.addCell(compCell);
+        wrapRow(inner, hdr, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+        // ── PHẦN 2: TIÊU ĐỀ ─────────────────────────────────────────────
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        PdfPTable titleRow = new PdfPTable(2);
+        titleRow.setWidthPercentage(100);
+        titleRow.setWidths(new float[]{4f, 1.5f});
+
+        PdfPCell titleCell = new PdfPCell();
+        titleCell.setBorder(Rectangle.NO_BORDER);
+        titleCell.setPaddingTop(10f);
+        titleCell.setPaddingBottom(4f);
+        Paragraph mainTitleP = new Paragraph("HÓA ĐƠN THANH TOÁN (PHÒNG " + roomId + ")", fTitle);
+        mainTitleP.setAlignment(Element.ALIGN_CENTER);
+        titleCell.addElement(mainTitleP);
+        Paragraph dateP = new Paragraph(
+                String.format("Ngày %02d tháng %02d năm %d",
+                        now.getDayOfMonth(), now.getMonthValue(), now.getYear()),
+                fSubTitle);
+        dateP.setAlignment(Element.ALIGN_CENTER);
+        titleCell.addElement(dateP);
+        titleRow.addCell(titleCell);
+
+        PdfPCell kyHieuCell = new PdfPCell();
+        kyHieuCell.setBorder(Rectangle.NO_BORDER);
+        kyHieuCell.setPaddingTop(10f);
+        kyHieuCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        kyHieuCell.addElement(mkLine("Ký hiệu: ", "OHN-2025", fSmall, fBoldSm));
+        kyHieuCell.addElement(mkLine("Số: ", "HD-" + maDatPhong + "-" + roomId, fSmall, fBoldSm));
+        titleRow.addCell(kyHieuCell);
+        wrapRow(inner, titleRow, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+        // ── PHẦN 3: THÔNG TIN ĐOÀN + QR ─────────────────────────────────
+        PdfPTable custQrTbl = new PdfPTable(2);
+        custQrTbl.setWidthPercentage(100);
+        custQrTbl.setWidths(new float[]{3.5f, 1f});
+
+        PdfPCell custCell = new PdfPCell();
+        custCell.setBorder(Rectangle.NO_BORDER);
+        custCell.setPadding(5f);
+        addUnderlineRow(custCell, "Khách hàng: " + (tenDaiDien != null ? tenDaiDien : "Vãng lai"), fSmall);
+        addUnderlineRow(custCell, "Số điện thoại: " + (sdt != null ? sdt : ""), fSmall);
+        addUnderlineRow(custCell, "Đoàn: " + (tenDoan != null && !tenDoan.isEmpty() ? tenDoan : "Khách đoàn"), fSmall);
+        addUnderlineRow(custCell, "Mã đặt phòng: " + maDatPhong, fSmall);
+
+        PdfPTable row2 = new PdfPTable(2);
+        row2.setWidthPercentage(100);
+        addUnderlineCellTbl(row2, "Hình thức thanh toán: TM/CK", fSmall);
+        addUnderlineCellTbl(row2, "Số phòng: " + roomId, fSmall);
+        custCell.addElement(row2);
+        addUnderlineRow(custCell, "Đồng tiền thanh toán: VNĐ", fSmall);
+        custQrTbl.addCell(custCell);
+
+        PdfPCell qrCell = new PdfPCell();
+        qrCell.setBorder(Rectangle.NO_BORDER);
+        qrCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        qrCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        qrCell.setPadding(4f);
+        try {
+            String qrData = "OHNO|HD-" + maDatPhong + "-" + roomId + "|" + now.toLocalDate() + "|" + String.format("%.0f", tongCong);
+            Map<EncodeHintType, Object> hints = new HashMap<>();
+            hints.put(EncodeHintType.CHARACTER_SET, "UTF-8");
+            BarcodeQRCode qr = new BarcodeQRCode(qrData, 85, 85, hints);
+            Image qrImg = qr.getImage();
+            qrImg.scaleToFit(85, 85);
+            qrCell.addElement(qrImg);
+        } catch (Exception ignored) {
+            qrCell.addElement(new Paragraph("[QR]", fSmallGray));
+        }
+        custQrTbl.addCell(qrCell);
+        wrapRow(inner, custQrTbl, Rectangle.BOTTOM, CLR_BORDER, 1f);
+
+        // ── PHẦN 4: BẢNG CHI TIẾT 6 CỘT ─────────────────────────────────
+        PdfPTable detailTbl = new PdfPTable(6);
+        detailTbl.setWidthPercentage(100);
+        detailTbl.setWidths(new float[]{0.5f, 1.0f, 2.8f, 1.0f, 1.5f, 1.7f});
+        detailTbl.setHeaderRows(1);
+
+        String[] headers = {"STT", "Phòng", "Khoản mục", "Số lượng", "Đơn giá", "Thành tiền"};
+        int[] haligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER,
+                Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
+        for (int i = 0; i < headers.length; i++)
+            addTblHeader(detailTbl, headers[i], haligns[i], fBoldSm, CLR_TBL_HEADER);
+
+        int stt = 1;
+        for (Object[] row : rows) {
+            // row: {tenPhong, noiDung, donGia, soLuong, thanhTien}
+            addTblCell(detailTbl, String.valueOf(stt++),     fSmall, Element.ALIGN_CENTER);
+            addTblCell(detailTbl, String.valueOf(row[0]),    fSmall, Element.ALIGN_CENTER);
+            addTblCell(detailTbl, String.valueOf(row[1]),    fSmall, Element.ALIGN_LEFT);
+            addTblCell(detailTbl, String.valueOf(row[3]),    fSmall, Element.ALIGN_CENTER);
+            addTblCell(detailTbl, String.valueOf(row[2]),    fSmall, Element.ALIGN_RIGHT);
+            addTblCell(detailTbl, String.valueOf(row[4]),    fSmall, Element.ALIGN_RIGHT);
+        }
+        int minRows = Math.max(0, 6 - rows.size());
+        for (int i = 0; i < minRows; i++)
+            for (int j = 0; j < 6; j++) addTblCell(detailTbl, " ", fSmall, Element.ALIGN_LEFT);
+
+        wrapRow(inner, detailTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+        // ── PHẦN 5: KHU VỰC TỔNG TIỀN ───────────────────────────────────
+        PdfPTable sumOuter = new PdfPTable(2);
+        sumOuter.setWidthPercentage(100);
+        sumOuter.setWidths(new float[]{1f, 1f});
+
+        PdfPTable leftTax = new PdfPTable(2);
+        leftTax.setWidthPercentage(100);
+        leftTax.setWidths(new float[]{2f, 1f});
+        addTaxCell(leftTax, "Thuế TTĐB:",     true,  fSmall);
+        addTaxCell(leftTax, "%",               false, fSmall);
+        addTaxCell(leftTax, "Thuế suất GTGT:", true,  fSmall);
+        addTaxCell(leftTax, "0%",              false, fSmall);
+        PdfPCell ltWrap = new PdfPCell(leftTax);
+        ltWrap.setBorder(Rectangle.BOX);
+        ltWrap.setBorderColor(CLR_BORDER);
+        ltWrap.setBorderWidth(0.5f);
+        ltWrap.setPadding(0f);
+        sumOuter.addCell(ltWrap);
+
+        PdfPTable rightSum = new PdfPTable(2);
+        rightSum.setWidthPercentage(100);
+        rightSum.setWidths(new float[]{1.6f, 1.2f});
+        addSumRow(rightSum, "Tiền phòng:",          fmtMoney(tongPhong),  fSmall, fSmall);
+        addSumRow(rightSum, "Phụ phí:",             fmtMoney(tongPhuPhi), fSmall, fSmall);
+        addSumRow(rightSum, "Dịch vụ phòng:",       fmtMoney(tongDV),     fSmall, fSmall);
+        if (giamGia > 0)
+            addSumRow(rightSum, "Giảm giá (voucher):", "-" + fmtMoney(giamGia), fSmall, fSmall);
+        if (tienCoc > 0)
+            addSumRow(rightSum, "Tiền cọc (khấu trừ):", "-" + fmtMoney(tienCoc), fSmall, fSmall);
+        addSumRow(rightSum, "Tổng tiền thanh toán:", fmtMoney(tongCong), fTotal, fTotal);
+
+        PdfPCell rtWrap = new PdfPCell(rightSum);
+        rtWrap.setBorder(Rectangle.BOX);
+        rtWrap.setBorderColor(CLR_BORDER);
+        rtWrap.setBorderWidth(0.5f);
+        rtWrap.setPadding(0f);
+        sumOuter.addCell(rtWrap);
+        wrapRow(inner, sumOuter, Rectangle.BOX, CLR_BORDER, 0.5f);
+
+        // ── PHẦN 6: SỐ TIỀN BẰNG CHỮ ────────────────────────────────────
+        PdfPTable wordsTbl = new PdfPTable(1);
+        wordsTbl.setWidthPercentage(100);
+        PdfPCell wordsCell = new PdfPCell();
+        wordsCell.setBorder(Rectangle.BOTTOM);
+        wordsCell.setBorderColor(CLR_BORDER);
+        wordsCell.setBorderWidthBottom(0.5f);
+        wordsCell.setPadding(5f);
+        wordsCell.addElement(new Paragraph(
+                "Số tiền viết bằng chữ: "
+                        + convertToVietnameseWords((long) tongCong)
+                        + " đồng chẵn.", fSmall));
+        wordsTbl.addCell(wordsCell);
+        wrapRow(inner, wordsTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+        // ── PHẦN 7: CHỮ KÝ ──────────────────────────────────────────────
+        PdfPTable sigTbl = new PdfPTable(2);
+        sigTbl.setWidthPercentage(100);
+
+        PdfPCell buyerCell = new PdfPCell();
+        buyerCell.setBorder(Rectangle.NO_BORDER);
+        buyerCell.setPadding(6f);
+        Paragraph buyerTitle = new Paragraph("Người mua hàng", fBoldSm);
+        buyerTitle.setAlignment(Element.ALIGN_CENTER);
+        buyerCell.addElement(buyerTitle);
+        Paragraph buyerSub = new Paragraph("(Chữ ký số (nếu có))", fSmallIt);
+        buyerSub.setAlignment(Element.ALIGN_CENTER);
+        buyerCell.addElement(buyerSub);
+        buyerCell.addElement(new Paragraph("\n\n\n\n"));
+        sigTbl.addCell(buyerCell);
+
+        PdfPCell sellerCell = new PdfPCell();
+        sellerCell.setBorder(Rectangle.NO_BORDER);
+        sellerCell.setPadding(6f);
+        Paragraph sellerTitle = new Paragraph("Người bán hàng", fBoldSm);
+        sellerTitle.setAlignment(Element.ALIGN_CENTER);
+        sellerCell.addElement(sellerTitle);
+        Paragraph sellerSub = new Paragraph("(Chữ ký điện tử, chữ ký số)", fSmallIt);
+        sellerSub.setAlignment(Element.ALIGN_CENTER);
+        sellerCell.addElement(sellerSub);
+        sellerCell.addElement(new Paragraph("\n"));
+
+        PdfPTable svTbl = new PdfPTable(1);
+        svTbl.setWidthPercentage(65);
+        svTbl.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        PdfPCell svCell = new PdfPCell();
+        svCell.setBackgroundColor(CLR_SIG_VALID);
+        svCell.setBorderColor(CLR_SIG_BORDER);
+        svCell.setBorderWidth(1f);
+        svCell.setPadding(5f);
+        Paragraph sv1 = new Paragraph("Signature Valid", fSigValid);
+        sv1.setAlignment(Element.ALIGN_CENTER);
+        svCell.addElement(sv1);
+        Paragraph sv2 = new Paragraph("Ký bởi: Công ty Cổ phần OHNO",
+                new Font(bf, 7, Font.NORMAL, new BaseColor(0, 80, 0)));
+        sv2.setAlignment(Element.ALIGN_CENTER);
+        svCell.addElement(sv2);
+        Paragraph sv3 = new Paragraph(
+                String.format("Ký ngày: %02d/%02d/%d",
+                        now.getDayOfMonth(), now.getMonthValue(), now.getYear()),
+                new Font(bf, 7, Font.NORMAL, new BaseColor(0, 80, 0)));
+        sv3.setAlignment(Element.ALIGN_CENTER);
+        svCell.addElement(sv3);
+        svTbl.addCell(svCell);
+        sellerCell.addElement(svTbl);
+        sellerCell.addElement(new Paragraph("\n"));
+        sigTbl.addCell(sellerCell);
+        wrapRow(inner, sigTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+        // ── PHẦN 8: FOOTER ───────────────────────────────────────────────
+        PdfPTable footerTbl = new PdfPTable(1);
+        footerTbl.setWidthPercentage(100);
+        PdfPCell ftCell = new PdfPCell();
+        ftCell.setBorderColor(CLR_BORDER);
+        ftCell.setBorder(Rectangle.TOP);
+        ftCell.setBorderWidthTop(0.5f);
+        ftCell.setPadding(5f);
+
+        Phrase ftPhrase = new Phrase();
+        ftPhrase.add(new Chunk("Tra cứu tại Website: ", fSmallGray));
+        ftPhrase.add(new Chunk("https://ohno.vn/tra-cuu", fLink));
+        ftPhrase.add(new Chunk("  –  Mã tra cứu: HD-" + maDatPhong.toUpperCase() + "-" + roomId, fSmallGray));
+        ftCell.addElement(new Paragraph(ftPhrase));
+
+        Paragraph ft2 = new Paragraph("(Cần kiểm tra, đối chiếu khi lập, giao, nhận hóa đơn)", fFooterIt);
+        ft2.setAlignment(Element.ALIGN_CENTER);
+        ftCell.addElement(ft2);
+
+        Paragraph ft3 = new Paragraph(
+                "Phát hành bởi phần mềm quản lý khách sạn OHNO (www.ohno.vn) – MST: 0101243150",
+                fSmallGray);
+        ft3.setAlignment(Element.ALIGN_CENTER);
+        ftCell.addElement(ft3);
+        footerTbl.addCell(ftCell);
+        wrapRow(inner, footerTbl, Rectangle.NO_BORDER, CLR_BORDER, 0f);
+
+        // Gắn lại vào outer
+        outerCell.addElement(inner);
+        outerTbl.addCell(outerCell);
+        doc.add(outerTbl);
+        doc.close();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     //  HELPER METHODS
     // ════════════════════════════════════════════════════════════════════════
 

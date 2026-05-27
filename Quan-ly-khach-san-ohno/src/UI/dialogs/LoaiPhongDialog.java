@@ -28,6 +28,7 @@ public class LoaiPhongDialog extends JDialog {
 
     // Amenity checkboxes
     private final Map<String, JCheckBox> checkboxMap = new LinkedHashMap<>(); // maTienNghi -> JCheckBox
+    private final Map<String, JCheckBox> groupAllMap = new LinkedHashMap<>(); // nhom -> Select All JCheckBox
     private List<TienNghi> allTienNghi;
 
     public LoaiPhongDialog(Frame parent, LoaiPhong lp) {
@@ -212,21 +213,36 @@ public class LoaiPhongDialog extends JDialog {
             String nhom = entry.getKey();
             List<TienNghi> items = entry.getValue();
 
-            // Group label
+            // Group header panel (BorderLayout)
+            JPanel groupHeader = new JPanel(new BorderLayout());
+            groupHeader.setBackground(Color.WHITE);
+            groupHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+            groupHeader.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xF1F5F9)),
+                    BorderFactory.createEmptyBorder(6, 0, 4, 0)));
+
             JLabel groupLabel = new JLabel("  " + nhom);
             groupLabel.setFont(new Font("Segoe UI", Font.BOLD, 11));
             groupLabel.setForeground(UIConstants.TEXT_SECONDARY);
-            groupLabel.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0xF1F5F9)),
-                    BorderFactory.createEmptyBorder(6, 0, 4, 0)));
-            groupLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            section.add(groupLabel);
+            groupHeader.add(groupLabel, BorderLayout.WEST);
+
+            JCheckBox cbAll = new JCheckBox("Tất cả");
+            cbAll.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+            cbAll.setForeground(UIConstants.PRIMARY);
+            cbAll.setBackground(Color.WHITE);
+            cbAll.setFocusPainted(false);
+            cbAll.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            groupHeader.add(cbAll, BorderLayout.EAST);
+            
+            groupAllMap.put(nhom, cbAll);
+            section.add(groupHeader);
 
             // Checkbox row (3 columns)
             JPanel checkboxRow = new JPanel(new GridLayout(0, 3, 8, 4));
             checkboxRow.setBackground(Color.WHITE);
             checkboxRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+            List<JCheckBox> cbList = new ArrayList<>();
             for (TienNghi tn : items) {
                 JCheckBox cb = new JCheckBox(tn.getDisplayText());
                 cb.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -235,7 +251,21 @@ public class LoaiPhongDialog extends JDialog {
                 cb.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 checkboxMap.put(tn.getMaTienNghi(), cb);
                 checkboxRow.add(cb);
+                cbList.add(cb);
+
+                cb.addActionListener(e -> {
+                    boolean allSelected = cbList.stream().allMatch(JCheckBox::isSelected);
+                    cbAll.setSelected(allSelected);
+                });
             }
+
+            cbAll.addActionListener(e -> {
+                boolean sel = cbAll.isSelected();
+                for (JCheckBox cb : cbList) {
+                    cb.setSelected(sel);
+                }
+            });
+
             section.add(checkboxRow);
         }
 
@@ -257,6 +287,20 @@ public class LoaiPhongDialog extends JDialog {
                 .collect(Collectors.toSet());
         for (Map.Entry<String, JCheckBox> e : checkboxMap.entrySet()) {
             e.getValue().setSelected(existingIds.contains(e.getKey()));
+        }
+
+        // Update group "Select all" checkboxes state based on initial checked values
+        for (Map.Entry<String, JCheckBox> entry : groupAllMap.entrySet()) {
+            String nhom = entry.getKey();
+            JCheckBox cbAll = entry.getValue();
+            List<TienNghi> items = allTienNghi.stream()
+                    .filter(tn -> nhom.equals(tn.getNhomTienNghi() != null ? tn.getNhomTienNghi() : "Khác"))
+                    .collect(Collectors.toList());
+            boolean allSelected = !items.isEmpty() && items.stream()
+                    .map(tn -> checkboxMap.get(tn.getMaTienNghi()))
+                    .filter(Objects::nonNull)
+                    .allMatch(JCheckBox::isSelected);
+            cbAll.setSelected(allSelected);
         }
     }
 

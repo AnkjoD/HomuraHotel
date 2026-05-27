@@ -138,8 +138,8 @@ public class UIConstants {
     public static String getVaiTroLabel(VaiTro v) {
         if (v == null) return "—";
         switch (v) {
-            case ADMIN:        return "Quản trị viên";
-            case MANAGER:      return "Quản lý";
+            case ADMIN:        return "Nhân viên kỹ thuật";
+            case MANAGER:      return "Chủ khách sạn";
             case RECEPTIONIST: return "Lễ tân";
             default:           return v.toString();
         }

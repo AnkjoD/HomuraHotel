@@ -224,8 +224,15 @@ public class HandoverDialog extends JDialog {
                     
                     AuthService.getInstance().setCurrentShift(null);
                     JOptionPane.showMessageDialog(this, "Đã hoàn thành bàn giao ca. " + 
-                        (variance == 0 ? "Số dư cân khớp." : "Số dư chênh lệch: " + String.format("%,.0f", variance)));
+                        (variance == 0 ? "Số dư cân khớp." : "Số dư chênh lệch: " + String.format("%,.0f", variance)) +
+                        "\nHệ thống sẽ tự động đăng xuất.");
                     dispose();
+                    
+                    AuthService.getInstance().dangXuat();
+                    if (getOwner() != null) {
+                        getOwner().dispose();
+                    }
+                    new ui.LoginFrame().setVisible(true);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

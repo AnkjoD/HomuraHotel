@@ -164,9 +164,10 @@ public class BangGiaPanel extends JPanel implements ResettableFilter {
         });
         cboTrangThai.addActionListener(e -> runFilter());
 
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         p.setOpaque(false);
         p.add(txtSearch);
+        p.add(Box.createHorizontalStrut(12));
         p.add(cboTrangThai);
         return p;
     }

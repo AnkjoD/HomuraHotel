@@ -75,7 +75,15 @@ public class MainFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowOpened(WindowEvent e) {
-                SwingUtilities.invokeLater(() -> navigateTo("tongquan"));
+                SwingUtilities.invokeLater(() -> {
+                    if (AuthService.getInstance().hasAccess("tongquan")) {
+                        navigateTo("tongquan");
+                    } else if (AuthService.getInstance().hasAccess("nhanvien")) {
+                        navigateTo("nhanvien");
+                    } else {
+                        navigateTo("nhatky");
+                    }
+                });
             }
         });
     }
@@ -203,8 +211,7 @@ public class MainFrame extends JFrame {
 
         // === PHÂN QUYỀN: Badge vai trò trong header ===
         VaiTro currentRole = AuthService.getInstance().getCurrentRole();
-        String roleName = currentRole == VaiTro.ADMIN ? "Quản trị viên"
-                : currentRole == VaiTro.MANAGER ? "Quản lý" : "Lễ tân";
+        String roleName = UIConstants.getVaiTroLabel(currentRole);
         Color roleColor = currentRole == VaiTro.ADMIN ? new Color(0x7C3AED)
                 : currentRole == VaiTro.MANAGER ? new Color(0x0EA5E9) : new Color(0x10B981);
 
@@ -361,10 +368,8 @@ public class MainFrame extends JFrame {
         entity.TaiKhoan acc = AuthService.getInstance().getCurrentAccount();
         String tenDN = acc != null ? acc.getTenDangNhap() : "—";
         String vaiTro = acc != null && acc.getVaiTro() != null
-                ? (acc.getVaiTro() == entity.enums.VaiTro.ADMIN ? "Quản trị viên"
-                        : acc.getVaiTro() == entity.enums.VaiTro.MANAGER ? "Quản lý"
-                                : "Nhân viên")
-                : "Nhân viên";
+                ? UIConstants.getVaiTroLabel(acc.getVaiTro())
+                : "—";
         // Màu badge vai trò
         Color badgeColor = acc != null && acc.getVaiTro() != null
                 && acc.getVaiTro() == entity.enums.VaiTro.ADMIN ? new Color(0x7C3AED)
@@ -665,7 +670,7 @@ public class MainFrame extends JFrame {
                 continue;
 
             if ("SEP".equals(key)) {
-                if (!authSvc.isManager())
+                if (!authSvc.isManager() && !authSvc.isAdmin())
                     continue; // Hide System separator for Staff
                 menuContainer.add(Box.createVerticalStrut(20));
                 JLabel lbl = new JLabel(label);

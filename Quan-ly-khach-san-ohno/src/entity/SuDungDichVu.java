@@ -3,6 +3,7 @@ package entity;
 import entity.*;
 
 public class SuDungDichVu {
+    private String maSuDung;
     private ChiTietDatPhong ctdp;
     private DichVu dichVu;
     private int soLuong;
@@ -16,6 +17,9 @@ public class SuDungDichVu {
     }
 
     // Getters and Setters
+    public String getMaSuDung() { return maSuDung; }
+    public void setMaSuDung(String maSuDung) { this.maSuDung = maSuDung; }
+
     public ChiTietDatPhong getCtdp() { return ctdp; }
     public void setCtdp(ChiTietDatPhong ctdp) { this.ctdp = ctdp; }
 

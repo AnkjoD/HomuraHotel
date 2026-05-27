@@ -144,7 +144,7 @@ public class GlobalNotificationBell extends JPanel {
         if (alerts.isEmpty()) {
             JPanel empty = new JPanel(new GridBagLayout());
             empty.setBackground(Color.WHITE);
-            JLabel lbl = new JLabel("✓ Không có thông báo nào");
+            JLabel lbl = new JLabel("Không có thông báo nào");
             lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
             lbl.setForeground(new Color(0x10B981));
             empty.add(lbl);

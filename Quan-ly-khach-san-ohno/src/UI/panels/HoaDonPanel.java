@@ -353,21 +353,51 @@ public class HoaDonPanel extends JPanel implements ResettableFilter {
         ModernPopupMenu menu = new ModernPopupMenu();
         ModernMenuItem miView = new ModernMenuItem("Xem chi tiết");
         ModernMenuItem miPrint = new ModernMenuItem("In lại hóa đơn");
+        ModernMenuItem miPay = new ModernMenuItem("Xác nhận đã thanh toán");
         ModernMenuItem miDelete = new ModernMenuItem("Xóa hóa đơn");
         
         miDelete.setForeground(UIConstants.DANGER);
         
         miView.addActionListener(e -> onView.run());
         miPrint.addActionListener(e -> onPrint.run());
+        
+        miPay.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row >= 0) {
+                String maHD = (String) tableModel.getValueAt(row, 0);
+                int confirm = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc chắn muốn xác nhận hóa đơn " + maHD + " đã được thanh toán?",
+                    "Xác nhận thanh toán", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                
+                if (confirm == JOptionPane.YES_OPTION) {
+                    HoaDon hd = tatCaHoaDon.stream().filter(h -> h.getMaHoaDon().equals(maHD)).findFirst().orElse(null);
+                    if (hd != null) {
+                        hd.setTrangThai(entity.enums.TrangThaiThanhToan.PAID);
+                        if (dao.update(hd)) {
+                            // Cập nhật CRM khách hàng
+                            if (hd.getKhachHang() != null) {
+                                new dao.KhachHangDAO().updateCRMStats(hd.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true);
+                            }
+                            NotificationManager.showSuccess("Thành công", "Đã xác nhận thanh toán cho hóa đơn " + maHD);
+                            loadData();
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật trạng thái thanh toán!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                }
+            }
+        });
+
         miDelete.addActionListener(e -> onDelete.run());
         
-        // Disable delete for PAID invoices
+        // Disable delete for PAID invoices, enable pay only for UNPAID invoices
         menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
                 int row = table.getSelectedRow();
                 if (row >= 0) {
                     String status = (String) tableModel.getValueAt(row, 9);
                     miDelete.setEnabled(!"Đã thanh toán".equals(status));
+                    miPay.setEnabled("Chưa thanh toán".equals(status));
                 }
             }
             public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
@@ -376,6 +406,7 @@ public class HoaDonPanel extends JPanel implements ResettableFilter {
         
         menu.add(miView);
         menu.add(miPrint);
+        menu.add(miPay);
         menu.addSeparator();
         menu.add(miDelete);
         return menu;
