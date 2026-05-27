@@ -27,6 +27,9 @@ public class LogPanel extends JPanel {
     private DefaultTableModel model;
     private ModernTextField txtSearch;
     private ModernComboBox<String> cbActionType;
+    private ModernComboBox<String> cbDateRange;
+    private ModernComboBox<String> cbSeverity;
+    private ModernComboBox<String> cbActor;
 
     private PaginationPanel pagination;
     private List<NhatKyHeThong> allLogs;
@@ -236,35 +239,75 @@ public class LogPanel extends JPanel {
     }
 
     private JPanel buildFilterBar() {
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         filterPanel.setOpaque(false);
 
         txtSearch = new ModernTextField("Tìm tài khoản, đối tượng...");
-        txtSearch.setPreferredSize(new Dimension(300, 40));
+        txtSearch.setPreferredSize(new Dimension(220, 40));
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) {
-                refresh();
-            }
-
+            public void insertUpdate(DocumentEvent e) { refresh(); }
             @Override
-            public void removeUpdate(DocumentEvent e) {
-                refresh();
-            }
-
+            public void removeUpdate(DocumentEvent e) { refresh(); }
             @Override
-            public void changedUpdate(DocumentEvent e) {
-                refresh();
-            }
+            public void changedUpdate(DocumentEvent e) { refresh(); }
         });
 
         cbActionType = new ModernComboBox<>();
-        cbActionType.setPreferredSize(new Dimension(200, 40));
-        updateActionTypes();
+        cbActionType.setPreferredSize(new Dimension(170, 40));
         cbActionType.addActionListener(e -> refresh());
 
+        cbDateRange = new ModernComboBox<>();
+        cbDateRange.setPreferredSize(new Dimension(170, 40));
+        cbDateRange.setModel(new DefaultComboBoxModel<>(new String[] {
+            "Thời gian (Tất cả)",
+            "Thời gian: Hôm nay",
+            "Thời gian: Hôm qua",
+            "Thời gian: 7 ngày qua",
+            "Thời gian: Tháng này"
+        }));
+        cbDateRange.addActionListener(e -> refresh());
+
+        cbSeverity = new ModernComboBox<>();
+        cbSeverity.setPreferredSize(new Dimension(170, 40));
+        cbSeverity.setModel(new DefaultComboBoxModel<>(new String[] {
+            "Mức độ: Tất cả",
+            "Mức độ: Thông thường",
+            "Mức độ: Cập nhật & Sửa",
+            "Mức độ: Cảnh báo & Hủy"
+        }));
+        cbSeverity.addActionListener(e -> refresh());
+
+        cbActor = new ModernComboBox<>();
+        cbActor.setPreferredSize(new Dimension(170, 40));
+        cbActor.addActionListener(e -> refresh());
+
+        updateActionTypes();
+
+        JButton btnReset = new ui.components.RoundedComponents.RoundedButton("Xóa lọc", new Color(0xF1F5F9), UIConstants.TEXT_PRIMARY);
+        btnReset.setPreferredSize(new Dimension(100, 40));
+        btnReset.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnReset.addActionListener(e -> {
+            txtSearch.setText("");
+            cbActionType.setSelectedIndex(0);
+            cbDateRange.setSelectedIndex(0);
+            cbSeverity.setSelectedIndex(0);
+            cbActor.setSelectedIndex(0);
+            refresh();
+        });
+
         filterPanel.add(txtSearch);
+        filterPanel.add(Box.createHorizontalStrut(12));
         filterPanel.add(cbActionType);
+        filterPanel.add(Box.createHorizontalStrut(12));
+        filterPanel.add(cbDateRange);
+        filterPanel.add(Box.createHorizontalStrut(12));
+        filterPanel.add(cbSeverity);
+        filterPanel.add(Box.createHorizontalStrut(12));
+        filterPanel.add(cbActor);
+        filterPanel.add(Box.createHorizontalStrut(12));
+        filterPanel.add(btnReset);
+
         return filterPanel;
     }
 
@@ -322,12 +365,71 @@ public class LogPanel extends JPanel {
         cbActionType.setModel(new DefaultComboBoxModel<>(types.toArray(String[]::new)));
         if (current != null && types.contains(current))
             cbActionType.setSelectedItem(current);
+
+        // Also update unique actors dropdown dynamically
+        List<NhatKyHeThong> all = service.getAllLogs();
+        List<String> users = all.stream()
+            .map(NhatKyHeThong::getTenDangNhap)
+            .filter(u -> u != null && !u.isEmpty())
+            .distinct()
+            .sorted()
+            .collect(java.util.stream.Collectors.toList());
+        
+        String curActor = cbActor != null ? (String) cbActor.getSelectedItem() : null;
+        users.add(0, "Tài khoản (Tất cả)");
+        if (cbActor != null) {
+            cbActor.setModel(new DefaultComboBoxModel<>(users.toArray(String[]::new)));
+            if (curActor != null && users.contains(curActor))
+                cbActor.setSelectedItem(curActor);
+        }
     }
 
     public void refresh() {
-        String keyword = txtSearch.getText();
+        String keyword = txtSearch.getText().trim();
+        if (keyword.equals("Tìm tài khoản, đối tượng...")) {
+            keyword = "";
+        }
         String actionType = (String) cbActionType.getSelectedItem();
-        allLogs = service.searchLogs(keyword, actionType);
+        List<NhatKyHeThong> dbLogs = service.searchLogs(keyword, actionType);
+
+        // Apply dynamic in-memory filters using streams
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int dateSel = cbDateRange != null ? cbDateRange.getSelectedIndex() : 0;
+        int sevSel = cbSeverity != null ? cbSeverity.getSelectedIndex() : 0;
+        String selectedActor = cbActor != null ? (String) cbActor.getSelectedItem() : null;
+
+        allLogs = dbLogs.stream().filter(log -> {
+            // 1. Filter by Date
+            if (dateSel == 1) { // Hôm nay
+                return log.getThoiGian().toLocalDate().equals(today);
+            } else if (dateSel == 2) { // Hôm qua
+                return log.getThoiGian().toLocalDate().equals(today.minusDays(1));
+            } else if (dateSel == 3) { // 7 ngày qua
+                return log.getThoiGian().toLocalDate().isAfter(today.minusDays(8));
+            } else if (dateSel == 4) { // Tháng này
+                return log.getThoiGian().toLocalDate().getYear() == today.getYear() &&
+                       log.getThoiGian().toLocalDate().getMonth() == today.getMonth();
+            }
+            return true;
+        }).filter(log -> {
+            // 2. Filter by Severity
+            String act = log.getHanhDong().toLowerCase();
+            if (sevSel == 1) { // Thông thường
+                return !act.contains("xóa") && !act.contains("hủy") && !act.contains("lỗi") && 
+                       !act.contains("thất bại") && !act.contains("sửa") && !act.contains("cập nhật");
+            } else if (sevSel == 2) { // Cập nhật & Sửa
+                return act.contains("sửa") || act.contains("cập nhật");
+            } else if (sevSel == 3) { // Cảnh báo nguy hiểm
+                return act.contains("xóa") || act.contains("hủy") || act.contains("lỗi") || act.contains("thất bại");
+            }
+            return true;
+        }).filter(log -> {
+            // 3. Filter by Actor
+            if (selectedActor != null && !selectedActor.equals("Tài khoản (Tất cả)")) {
+                return selectedActor.equals(log.getTenDangNhap());
+            }
+            return true;
+        }).collect(java.util.stream.Collectors.toList());
 
         if (pagination != null) {
             pagination.setCurrentPage(1);
