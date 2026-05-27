@@ -23,12 +23,17 @@ public class ChangeRepresentativeDialog extends JDialog {
     private ModernComboBox<String> cboQuocTich;
     private JLabel errHoTen, errSDT, errCCCD;
 
+    // ID Document capture
+    private java.util.List<String> selectedImagePaths = new java.util.ArrayList<>();
+    private JLabel lblImagePreview;
+    private boolean isImageCleared = false;
+
     public ChangeRepresentativeDialog(Frame owner, DatPhong dp, String soPhong) {
         super(owner, "Thay đổi người đại diện — Phòng " + soPhong, true);
         this.datPhong = dp;
         this.soPhong = soPhong;
         
-        setSize(500, 520);
+        setSize(500, 600);
         setLocationRelativeTo(owner);
         setResizable(false);
         buildUI();
@@ -58,7 +63,7 @@ public class ChangeRepresentativeDialog extends JDialog {
         root.add(header, BorderLayout.NORTH);
 
         // Form
-        JPanel form = new JPanel(new GridBagLayout());
+        ScrollablePanel form = new ScrollablePanel(new GridBagLayout());
         form.setBackground(Color.WHITE);
         form.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
         GridBagConstraints g = new GridBagConstraints();
@@ -119,7 +124,90 @@ public class ChangeRepresentativeDialog extends JDialog {
         g.gridy = row++;
         form.add(row4, g);
 
-        root.add(form, BorderLayout.CENTER);
+        // Photo upload box
+        JPanel idWrapper = new JPanel(new BorderLayout(0, 8));
+        idWrapper.setOpaque(false);
+        JLabel lblIdTitle = new JLabel("XÁC MINH DANH TÍNH (ẢNH CCCD/PASSPORT)");
+        lblIdTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+        lblIdTitle.setForeground(UIConstants.TEXT_SECONDARY);
+        idWrapper.add(lblIdTitle, BorderLayout.NORTH);
+
+        JPanel idBox = new JPanel(new BorderLayout(15, 0));
+        idBox.setBackground(Color.WHITE);
+        idBox.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(0xE2E8F0)),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+
+        lblImagePreview = new JLabel("Chưa có ảnh", SwingConstants.CENTER);
+        lblImagePreview.setPreferredSize(new Dimension(120, 80));
+        lblImagePreview.setOpaque(true);
+        lblImagePreview.setBackground(new Color(0xF1F5F9));
+        lblImagePreview.setFont(UIConstants.FONT_SMALL);
+        lblImagePreview.setBorder(BorderFactory.createLineBorder(new Color(0xCBD5E1), 1, true));
+
+        // Load existing image if any
+        if (datPhong.getKhachHang() != null && datPhong.getKhachHang().getAnhCCCD() != null && !datPhong.getKhachHang().getAnhCCCD().isEmpty()) {
+            displayExistingCCCD(datPhong.getKhachHang().getAnhCCCD());
+        }
+
+        JPanel idActions = new JPanel();
+        idActions.setLayout(new BoxLayout(idActions, BoxLayout.Y_AXIS));
+        idActions.setOpaque(false);
+
+        JPanel btnRow = new JPanel();
+        btnRow.setLayout(new BoxLayout(btnRow, BoxLayout.X_AXIS));
+        btnRow.setOpaque(false);
+
+        RoundedButton btnUpload = new RoundedButton("Chụp / Tải lên ảnh mới", UIConstants.PRIMARY, Color.WHITE);
+        btnUpload.setPreferredSize(new Dimension(180, 36));
+        btnUpload.setMinimumSize(new Dimension(180, 36));
+        btnUpload.setMaximumSize(new Dimension(180, 36));
+        btnUpload.addActionListener(e -> chooseCCCDImage());
+        btnRow.add(btnUpload);
+
+        btnRow.add(Box.createHorizontalStrut(10));
+
+        RoundedButton btnClear = new RoundedButton("Xóa ảnh", UIConstants.DANGER, Color.WHITE);
+        btnClear.setPreferredSize(new Dimension(90, 36));
+        btnClear.setMinimumSize(new Dimension(90, 36));
+        btnClear.setMaximumSize(new Dimension(90, 36));
+        btnClear.addActionListener(e -> {
+            selectedImagePaths.clear();
+            isImageCleared = true;
+            lblImagePreview.setIcon(null);
+            lblImagePreview.setText("Chưa có ảnh");
+            NotificationManager.showSuccess("Đã xóa", "Đã xóa ảnh xác minh.");
+        });
+        btnRow.add(btnClear);
+
+        btnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        idActions.add(btnRow);
+
+        idActions.add(Box.createVerticalStrut(8));
+
+        JLabel idHint = new JLabel(
+                "<html>Định dạng: JPG, PNG. Yêu cầu rõ nét mặt<br>và đầy đủ thông tin trên giấy tờ.</html>");
+        idHint.setFont(UIConstants.FONT_TINY);
+        idHint.setForeground(UIConstants.TEXT_MUTED);
+        idHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        idActions.add(idHint);
+
+        idBox.add(lblImagePreview, BorderLayout.WEST);
+        idBox.add(idActions, BorderLayout.CENTER);
+        idWrapper.add(idBox, BorderLayout.CENTER);
+
+        g.gridy = row++;
+        form.add(idWrapper, g);
+
+        JScrollPane scroll = new JScrollPane(form);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(15);
+
+        root.add(scroll, BorderLayout.CENTER);
 
         // Buttons
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
@@ -152,6 +240,7 @@ public class ChangeRepresentativeDialog extends JDialog {
                         txtHoTen.setText(kh.getHoTen());
                         txtCCCD.setText(kh.getCccd());
                         if (kh.getQuocTich() != null) cboQuocTich.setSelectedItem(kh.getQuocTich());
+                        displayExistingCCCD(kh.getAnhCCCD());
                         errSDT.setText(" ");
                     }
                 }
@@ -188,17 +277,45 @@ public class ChangeRepresentativeDialog extends JDialog {
             kh.setCccd(txtCCCD.getText().trim());
             kh.setQuocTich((String) cboQuocTich.getSelectedItem());
             
+            if (!selectedImagePaths.isEmpty()) {
+                String savedPath = saveCCCDImage("GUEST_" + System.currentTimeMillis());
+                kh.setAnhCCCD(savedPath);
+            } else if (isImageCleared) {
+                kh.setAnhCCCD(null);
+            }
+            
             String khErr = khService.them(kh);
             if (khErr != null) {
                 NotificationManager.showError("Lỗi khách hàng", "Không thể tạo khách hàng mới: " + khErr);
                 return;
             }
             kh = khService.getByPhone(sdt);
-        }
+        } else {
+            String currentName = kh.getHoTen().trim();
+            String inputName = txtHoTen.getText().trim();
+            if (!stripAccents(currentName).equals(stripAccents(inputName))) {
+                NotificationManager.showError("Trùng số điện thoại", 
+                    "Số điện thoại này đang được sử dụng bởi khách hàng khác: " + currentName + ".\n" +
+                    "Vui lòng dùng số điện thoại khác cho người đại diện mới.");
+                return;
+            }
 
-        if (kh == null) {
-            NotificationManager.showError("Lỗi", "Không tìm thấy thông tin khách hàng sau khi lưu!");
-            return;
+            kh.setHoTen(txtHoTen.getText().trim());
+            kh.setCccd(txtCCCD.getText().trim());
+            kh.setQuocTich((String) cboQuocTich.getSelectedItem());
+            
+            if (!selectedImagePaths.isEmpty()) {
+                String savedPath = saveCCCDImage(kh.getMaKhachHang());
+                kh.setAnhCCCD(savedPath);
+            } else if (isImageCleared) {
+                kh.setAnhCCCD(null);
+            }
+            
+            String suaErr = khService.sua(kh);
+            if (suaErr != null) {
+                NotificationManager.showError("Lỗi khách hàng", suaErr);
+                return;
+            }
         }
 
         String err = thuePhongService.updateRepresentative(datPhong.getMaDatPhong(), kh, soPhong);
@@ -304,5 +421,125 @@ public class ChangeRepresentativeDialog extends JDialog {
         return l;
     }
 
+    private void displayExistingCCCD(String paths) {
+        if (paths == null || paths.isEmpty()) {
+            lblImagePreview.setIcon(null);
+            lblImagePreview.setText("Chưa có ảnh");
+            return;
+        }
+        String firstPath = paths.split(";")[0];
+        java.io.File file = new java.io.File(firstPath);
+        if (file.exists()) {
+            try {
+                ImageIcon icon = new ImageIcon(file.getAbsolutePath());
+                Image img = icon.getImage().getScaledInstance(100, 64, Image.SCALE_SMOOTH);
+                lblImagePreview.setIcon(new ImageIcon(img));
+                lblImagePreview.setText("Đã có: " + paths.split(";").length + " ảnh");
+                lblImagePreview.setHorizontalTextPosition(SwingConstants.CENTER);
+                lblImagePreview.setVerticalTextPosition(SwingConstants.BOTTOM);
+            } catch (Exception e) {
+                lblImagePreview.setText("Lỗi ảnh");
+            }
+        } else {
+            lblImagePreview.setIcon(null);
+            lblImagePreview.setText("Không tìm thấy file");
+        }
+    }
+
+    private void chooseCCCDImage() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Chọn các ảnh CCCD/Passport");
+        chooser.setMultiSelectionEnabled(true);
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images", "jpg", "jpeg", "png"));
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File[] files = chooser.getSelectedFiles();
+            selectedImagePaths.clear();
+            isImageCleared = false;
+            for (java.io.File f : files) {
+                selectedImagePaths.add(f.getAbsolutePath());
+            }
+
+            // Preview thumbnail
+            if (!selectedImagePaths.isEmpty()) {
+                try {
+                    ImageIcon icon = new ImageIcon(selectedImagePaths.get(0));
+                    Image img = icon.getImage().getScaledInstance(100, 64, Image.SCALE_SMOOTH);
+                    lblImagePreview.setIcon(new ImageIcon(img));
+                    lblImagePreview.setText("Đã chọn: " + selectedImagePaths.size() + " ảnh");
+                    lblImagePreview.setHorizontalTextPosition(SwingConstants.CENTER);
+                    lblImagePreview.setVerticalTextPosition(SwingConstants.BOTTOM);
+                } catch (Exception e) {
+                    lblImagePreview.setText("Lỗi ảnh");
+                }
+            } else {
+                lblImagePreview.setIcon(null);
+                lblImagePreview.setText("Chưa có ảnh");
+            }
+        }
+    }
+
+    private String saveCCCDImage(String maKH) {
+        if (selectedImagePaths.isEmpty())
+            return null;
+        try {
+            java.nio.file.Path destDir = java.nio.file.Paths.get("img", "customers");
+            if (!java.nio.file.Files.exists(destDir))
+                java.nio.file.Files.createDirectories(destDir);
+
+            java.util.List<String> savedPaths = new java.util.ArrayList<>();
+            for (int i = 0; i < selectedImagePaths.size(); i++) {
+                String path = selectedImagePaths.get(i);
+                java.io.File source = new java.io.File(path);
+                String ext = path.substring(path.lastIndexOf("."));
+                String fileName = maKH + "_CCCD_" + i + ext;
+                java.nio.file.Path destPath = destDir.resolve(fileName);
+                java.nio.file.Files.copy(source.toPath(), destPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                savedPaths.add("img/customers/" + fileName);
+            }
+            return String.join(";", savedPaths);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public boolean isConfirmed() { return confirmed; }
+
+    private static class ScrollablePanel extends JPanel implements javax.swing.Scrollable {
+        public ScrollablePanel(LayoutManager layout) {
+            super(layout);
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 20;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 100;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
+    }
+
+    private String stripAccents(String s) {
+        if (s == null) return "";
+        String normalized = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD);
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(normalized).replaceAll("").replaceAll("Đ", "D").replaceAll("đ", "d").toLowerCase().trim();
+    }
 }

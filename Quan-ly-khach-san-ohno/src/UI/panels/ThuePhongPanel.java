@@ -252,7 +252,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         typeItems.add("Tất cả loại phòng");
         typeItems.addAll(types);
         ModernComboBox<String> cboType = new ModernComboBox<>(typeItems.toArray(new String[0]));
-        cboType.setPreferredSize(new Dimension(150, 38));
+        cboType.setPreferredSize(new Dimension(240, 38));
         cboType.setSelectedItem("ALL".equals(currentType) ? "Tất cả loại phòng" : currentType);
         cboType.addActionListener(e -> {
             String selected = (String) cboType.getSelectedItem();
@@ -266,7 +266,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         viewItems.add("Tất cả hướng");
         viewItems.addAll(views);
         ModernComboBox<String> cboView = new ModernComboBox<>(viewItems.toArray(new String[0]));
-        cboView.setPreferredSize(new Dimension(140, 38));
+        cboView.setPreferredSize(new Dimension(160, 38));
         cboView.setSelectedItem("ALL".equals(currentView) ? "Tất cả hướng" : currentView);
         cboView.addActionListener(e -> {
             String selected = (String) cboView.getSelectedItem();
@@ -1236,7 +1236,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         if (p == null) p = pOld;
 
         JDialog dlg = new JDialog(mainFrame, "Thông tin phòng " + p.getSoPhongDisplay(), true);
-        dlg.setSize(400, 480);
+        dlg.setSize(480, 520);
         dlg.setLocationRelativeTo(mainFrame);
         dlg.getContentPane().setBackground(Color.WHITE);
         dlg.setLayout(new BorderLayout());
@@ -1245,8 +1245,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         main.setBackground(Color.WHITE);
         main.setBorder(BorderFactory.createEmptyBorder(25, 25, 20, 25));
 
-        // Info Panel using BoxLayout for tight control
-        JPanel infoPanel = new JPanel();
+        // Info Panel using ScrollablePanel to ensure perfect viewport width tracking
+        ScrollablePanel infoPanel = new ScrollablePanel();
         infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
         infoPanel.setOpaque(false);
 
@@ -1263,11 +1263,12 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         infoPanel.add(sep1);
         infoPanel.add(Box.createVerticalStrut(15));
 
-        // helper to add rows
+        // helper to add standard rows
         java.util.function.BiConsumer<String, String> addRow = (label, value) -> {
             JPanel row = new JPanel(new BorderLayout());
             row.setOpaque(false);
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
+            row.setAlignmentX(Component.LEFT_ALIGNMENT);
             JLabel lblL = new JLabel(label);
             lblL.setFont(UIConstants.FONT_BODY);
             lblL.setForeground(UIConstants.TEXT_SECONDARY);
@@ -1276,6 +1277,27 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             lblV.setForeground(UIConstants.TEXT_PRIMARY);
             row.add(lblL, BorderLayout.WEST);
             row.add(lblV, BorderLayout.EAST);
+            infoPanel.add(row);
+            infoPanel.add(Box.createVerticalStrut(8));
+        };
+
+        // helper to add multiline rows
+        java.util.function.BiConsumer<String, String> addRowMultiline = (label, value) -> {
+            JPanel row = new JPanel(new BorderLayout(10, 0));
+            row.setOpaque(false);
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+            row.setAlignmentX(Component.LEFT_ALIGNMENT);
+            JLabel lblL = new JLabel(label);
+            lblL.setFont(UIConstants.FONT_BODY);
+            lblL.setForeground(UIConstants.TEXT_SECONDARY);
+            lblL.setPreferredSize(new Dimension(140, 20));
+            
+            JLabel lblV = new JLabel("<html><body style='width: 250px;'>" + value + "</body></html>");
+            lblV.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            lblV.setForeground(UIConstants.TEXT_PRIMARY);
+            
+            row.add(lblL, BorderLayout.WEST);
+            row.add(lblV, BorderLayout.CENTER);
             infoPanel.add(row);
             infoPanel.add(Box.createVerticalStrut(8));
         };
@@ -1291,6 +1313,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         JPanel ttRow = new JPanel(new BorderLayout());
         ttRow.setOpaque(false);
         ttRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
+        ttRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel lblTTTitle = new JLabel("Trạng thái:");
         lblTTTitle.setFont(UIConstants.FONT_BODY);
         lblTTTitle.setForeground(UIConstants.TEXT_SECONDARY);
@@ -1302,33 +1325,115 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         infoPanel.add(ttRow);
         infoPanel.add(Box.createVerticalStrut(20));
 
-        if (p.getTenKhachHienTai() != null) {
-            JLabel lblKhach = new JLabel("Khách đang thuê");
-            lblKhach.setFont(UIConstants.FONT_SMALL_BOLD);
-            lblKhach.setForeground(UIConstants.PRIMARY);
-            lblKhach.setAlignmentX(Component.LEFT_ALIGNMENT);
-            infoPanel.add(lblKhach);
-            infoPanel.add(Box.createVerticalStrut(5));
+        ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
+        if (tp != null) {
+            KhachHang kh = tp.resolveKhachHang();
+            if (kh != null) {
+                JLabel lblKhach = new JLabel("Người đại diện lưu trú");
+                lblKhach.setFont(UIConstants.FONT_SMALL_BOLD);
+                lblKhach.setForeground(UIConstants.PRIMARY);
+                lblKhach.setAlignmentX(Component.LEFT_ALIGNMENT);
+                infoPanel.add(lblKhach);
+                infoPanel.add(Box.createVerticalStrut(5));
 
-            JSeparator sep2 = new JSeparator();
-            sep2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-            infoPanel.add(sep2);
-            infoPanel.add(Box.createVerticalStrut(10));
+                JSeparator sep2 = new JSeparator();
+                sep2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                infoPanel.add(sep2);
+                infoPanel.add(Box.createVerticalStrut(10));
 
-            addRow.accept("Họ và tên:", p.getTenKhachHienTai());
+                addRow.accept("Họ và tên:", kh.getHoTen());
+                addRow.accept("Số điện thoại:", (kh.getSoDienThoai() != null && !kh.getSoDienThoai().isEmpty()) ? kh.getSoDienThoai() : "—");
+                addRow.accept("CCCD / Hộ chiếu:", kh.getSoGiayToChinhDisplay());
+                addRow.accept("Giới tính:", kh.getGioiTinh() != null ? kh.getGioiTinh() : "—");
+                addRow.accept("Quốc tịch:", kh.getQuocTich() != null ? kh.getQuocTich() : "—");
+                addRowMultiline.accept("Email:", (kh.getEmail() != null && !kh.getEmail().isEmpty()) ? kh.getEmail() : "—");
 
-            ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
-            if (tp != null && tp.getNgayNhanThucTe() != null) {
-                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
-                        .ofPattern("dd/MM/yyyy HH:mm");
-                addRow.accept("Ngày nhận:", tp.getNgayNhanThucTe().format(formatter));
-                if (tp.getNgayTraThucTe() != null) {
-                    addRow.accept("Ngày trả:", tp.getNgayTraThucTe().format(formatter));
+                if (tp.getNgayNhanThucTe() != null) {
+                    java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                            .ofPattern("dd/MM/yyyy HH:mm");
+                    addRow.accept("Ngày nhận:", tp.getNgayNhanThucTe().format(formatter));
+                    if (tp.getNgayTraThucTe() != null) {
+                        addRow.accept("Ngày trả:", tp.getNgayTraThucTe().format(formatter));
+                    }
+                }
+
+                // --- ACCCOMPANYING GUESTS ---
+                String dsKhachCung = "";
+                if (tp.getDatPhong() != null && tp.getDatPhong().getGhiChu() != null) {
+                    String gc = tp.getDatPhong().getGhiChu();
+                    String prefix = "Khách cùng P." + p.getSoPhong() + ": ";
+                    for (String line : gc.split("\n")) {
+                        if (line.trim().startsWith(prefix)) {
+                            dsKhachCung = line.trim().substring(prefix.length());
+                            break;
+                        }
+                    }
+                }
+                if (!dsKhachCung.isEmpty()) {
+                    infoPanel.add(Box.createVerticalStrut(10));
+                    JLabel lblCungTitle = new JLabel("Danh sách khách ở cùng");
+                    lblCungTitle.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lblCungTitle.setForeground(UIConstants.PRIMARY);
+                    lblCungTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    infoPanel.add(lblCungTitle);
+                    infoPanel.add(Box.createVerticalStrut(5));
+
+                    JSeparator sep3 = new JSeparator();
+                    sep3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                    infoPanel.add(sep3);
+                    infoPanel.add(Box.createVerticalStrut(10));
+
+                    addRowMultiline.accept("Khách ở cùng:", dsKhachCung);
+                }
+
+                // --- ACCORDION-STYLE CCCD IMAGES ---
+                String imgPaths = kh.getAnhCCCD();
+                if (imgPaths != null && !imgPaths.isEmpty()) {
+                    JPanel row = new JPanel(new BorderLayout());
+                    row.setOpaque(false);
+                    row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
+                    row.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    
+                    JLabel lblL = new JLabel("Giấy tờ xác minh:");
+                    lblL.setFont(UIConstants.FONT_BODY);
+                    lblL.setForeground(UIConstants.TEXT_SECONDARY);
+                    row.add(lblL, BorderLayout.WEST);
+
+                    JPanel pBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+                    pBtns.setOpaque(false);
+
+                    String[] paths = imgPaths.split(";");
+                    for (int i = 0; i < paths.length; i++) {
+                        if (paths[i].trim().isEmpty()) continue;
+                        String path = paths[i].trim();
+                        int idx = i + 1;
+                        
+                        JButton btnImg = new JButton("Ảnh " + idx);
+                        btnImg.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                        btnImg.setForeground(UIConstants.PRIMARY);
+                        btnImg.setBackground(new Color(0xF0F3FF));
+                        btnImg.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(UIConstants.PRIMARY, 1, true),
+                            BorderFactory.createEmptyBorder(2, 8, 2, 8)
+                        ));
+                        btnImg.setFocusPainted(false);
+                        btnImg.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                        btnImg.addActionListener(e -> showImagePopup(path, idx));
+                        pBtns.add(btnImg);
+                    }
+                    row.add(pBtns, BorderLayout.CENTER);
+                    infoPanel.add(row);
+                    infoPanel.add(Box.createVerticalStrut(8));
                 }
             }
         }
 
-        main.add(infoPanel, BorderLayout.CENTER);
+        JScrollPane scroll = new JScrollPane(infoPanel);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        main.add(scroll, BorderLayout.CENTER);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setOpaque(false);
@@ -1339,6 +1444,63 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
         dlg.add(main);
         dlg.setVisible(true);
+    }
+
+    /**
+     * Hộp thoại popup xem ảnh CCCD/Passport phóng to rõ nét.
+     */
+    private void showImagePopup(String path, int index) {
+        java.io.File imgFile = new java.io.File(path);
+        if (!imgFile.exists()) {
+            JOptionPane.showMessageDialog(mainFrame, "Không tìm thấy tệp ảnh CCCD lưu trữ tại:\n" + path, "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JDialog viewDlg = new JDialog(mainFrame, "Ảnh chụp xác minh danh tính #" + index, true);
+        viewDlg.setSize(600, 480);
+        viewDlg.setLocationRelativeTo(mainFrame);
+        viewDlg.getContentPane().setBackground(Color.WHITE);
+        viewDlg.setLayout(new BorderLayout());
+
+        try {
+            ImageIcon originalIcon = new ImageIcon(imgFile.getAbsolutePath());
+            Image img = originalIcon.getImage();
+            
+            // Scaled smoothly to fit dialog size
+            int targetWidth = 560;
+            int targetHeight = (int) ((double) img.getHeight(null) / img.getWidth(null) * targetWidth);
+            
+            JLabel lblImg = new JLabel();
+            lblImg.setHorizontalAlignment(SwingConstants.CENTER);
+            
+            if (targetHeight > 360) {
+                targetHeight = 360;
+                targetWidth = (int) ((double) img.getWidth(null) / img.getHeight(null) * targetHeight);
+            }
+            
+            Image scaledImg = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+            lblImg.setIcon(new ImageIcon(scaledImg));
+            
+            JPanel centerPanel = new JPanel(new GridBagLayout());
+            centerPanel.setBackground(Color.WHITE);
+            centerPanel.add(lblImg);
+            
+            viewDlg.add(centerPanel, BorderLayout.CENTER);
+            
+            JPanel pSouth = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+            pSouth.setBackground(new Color(0xF8FAFC));
+            pSouth.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
+            
+            RoundedButton btnClose = new RoundedButton("Đóng", UIConstants.PRIMARY, Color.WHITE);
+            btnClose.setPreferredSize(new Dimension(90, 32));
+            btnClose.addActionListener(e -> viewDlg.dispose());
+            pSouth.add(btnClose);
+            viewDlg.add(pSouth, BorderLayout.SOUTH);
+            
+            viewDlg.setVisible(true);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(mainFrame, "Lỗi khi xử lý hiển thị ảnh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // ---- Action: Thay đổi người đại diện ----
