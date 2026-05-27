@@ -16,6 +16,7 @@ import java.awt.event.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * TongQuanPanel — Dashboard tổng quan
@@ -173,7 +174,9 @@ public class TongQuanPanel extends JPanel {
             lblStatRevenue.setText(String.format("%,.1fM", doanhThu / 1_000_000.0));
 
         // ── 2. Room Grid ─────────────────────────────────────────────────────
-        allRooms = data.rooms != null ? data.rooms : new ArrayList<>();
+        allRooms = data.rooms != null ? data.rooms.stream()
+                .filter(p -> p.getTrangThai() != entity.enums.TrangThaiPhong.DELETED)
+                .collect(Collectors.toList()) : new ArrayList<>();
         reservedRoomNums.clear();
         if (data.reservedRooms != null) {
             reservedRoomNums.addAll(data.reservedRooms.keySet());

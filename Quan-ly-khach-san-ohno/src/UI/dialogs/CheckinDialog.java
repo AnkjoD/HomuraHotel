@@ -287,7 +287,9 @@ public class CheckinDialog extends JDialog {
 
         if (selectedPhong == null) {
             java.util.List<Phong> rooms = phongService.getAllPhong();
-            rooms.removeIf(r -> r.getTrangThai() == TrangThaiPhong.OCCUPIED);
+            rooms.removeIf(r -> r.getTrangThai() == TrangThaiPhong.OCCUPIED 
+                    || r.getTrangThai() == TrangThaiPhong.DELETED 
+                    || r.getTrangThai() == TrangThaiPhong.MAINTENANCE);
             cboPhong = new JComboBox<>(rooms.toArray(new Phong[0]));
             cboPhong.setFont(UIConstants.FONT_BODY);
             cboPhong.setPreferredSize(new Dimension(0, 34));

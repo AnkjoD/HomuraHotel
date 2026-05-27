@@ -16,6 +16,7 @@ public class BangGia {
     private String doiTuongApDung = "ALL";     // ALL, CA_NHAN, DOAN, CORPORATE, VIP
     private int mucUuTien = 100;               // Ưu tiên: số nhỏ = ưu tiên cao
     private String moTa;                       // Mô tả rate plan
+    private String ngayCuoiTuan = "SATURDAY,SUNDAY"; // Ngày cuối tuần áp dụng
 
     private List<ChiTietBangGia> dsChiTiet = new ArrayList<>();
 
@@ -58,6 +59,14 @@ public class BangGia {
 
     public String getMoTa() { return moTa; }
     public void setMoTa(String moTa) { this.moTa = moTa; }
+
+    public String getNgayCuoiTuan() { return ngayCuoiTuan; }
+    public void setNgayCuoiTuan(String ngayCuoiTuan) { this.ngayCuoiTuan = ngayCuoiTuan; }
+
+    public boolean isNgayCuoiTuan(java.time.DayOfWeek day) {
+        if (ngayCuoiTuan == null) return false;
+        return ngayCuoiTuan.contains(day.name());
+    }
 
     /** Label hiển thị cho loại bảng giá */
     public String getLoaiBangGiaLabel() {

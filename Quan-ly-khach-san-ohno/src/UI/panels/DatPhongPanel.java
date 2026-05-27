@@ -1805,12 +1805,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             menu.add(mnuEdit);
         }
 
-        // 2.2 Thu tiền cọc (Quick action)
-        if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.WAITLIST) {
-            ModernMenuItem mnuDeposit = createMenuItem("Thu tiền cọc", new Color(0xF59E0B));
-            mnuDeposit.addActionListener(e -> doNopCoc(ma, ten));
-            menu.add(mnuDeposit);
-        }
+
 
         // 2.3 Chuyển sang chờ xếp phòng (Waitlist)
         if (status == TrangThaiDatPhong.PENDING || status == TrangThaiDatPhong.CONFIRMED) {

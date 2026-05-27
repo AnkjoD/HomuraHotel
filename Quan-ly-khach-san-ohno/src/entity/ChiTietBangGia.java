@@ -27,7 +27,7 @@ public class ChiTietBangGia {
      * @return giá áp dụng
      */
     public double getGiaTheoNgayTrongTuan(java.time.DayOfWeek dayOfWeek) {
-        if (giaCuoiTuan > 0 && (dayOfWeek == java.time.DayOfWeek.SATURDAY || dayOfWeek == java.time.DayOfWeek.SUNDAY)) {
+        if (giaCuoiTuan > 0 && bangGia != null && bangGia.isNgayCuoiTuan(dayOfWeek)) {
             return giaCuoiTuan;
         }
         return giaNgay;

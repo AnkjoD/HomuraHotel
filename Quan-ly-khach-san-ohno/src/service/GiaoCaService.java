@@ -11,11 +11,16 @@ public class GiaoCaService {
     private final dao.ChiPhiDAO cpDAO = new dao.ChiPhiDAO();
 
     public GiaoCa moCa(NhanVien nv, double tienDauCa) {
+        return moCa(nv, tienDauCa, null);
+    }
+
+    public GiaoCa moCa(NhanVien nv, double tienDauCa, String ghiChu) {
         GiaoCa gc = new GiaoCa();
         gc.setMaGiaoCa(dao.generateMaGiaoCa());
         gc.setNhanVien(nv);
         gc.setThoiGianBatDau(LocalDateTime.now());
         gc.setTienMatDauCa(tienDauCa);
+        gc.setGhiChu(ghiChu);
         gc.setTrangThai("OPEN");
         
         if (dao.insert(gc)) {
@@ -73,5 +78,14 @@ public class GiaoCaService {
 
     public java.util.Map<Integer, Integer> getDenominations(String maGiaoCa) {
         return dao.getDenominations(maGiaoCa);
+    }
+
+    public GiaoCa getLastClosedShift() {
+        return dao.getLastClosedShift();
+    }
+
+    /** Ưu tiên lấy ca được bàn giao cho nhân viên chỉ định; fallback về ca mới nhất nếu không tìm thấy. */
+    public GiaoCa getLastClosedShift(String maNhanVienNhan) {
+        return dao.getLastClosedShift(maNhanVienNhan);
     }
 }

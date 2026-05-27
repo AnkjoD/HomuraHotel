@@ -7,6 +7,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 import javax.swing.*;
 import service.*;
 import ui.MainFrame;
@@ -164,7 +165,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         filterTabsPanel.setLayout(new GridBagLayout());
         filterTabsPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        java.util.List<Phong> allPhong = phongService.getAllPhong();
+        java.util.List<Phong> allPhong = phongService.getAllPhong().stream()
+                .filter(p -> p.getTrangThai() != TrangThaiPhong.DELETED)
+                .collect(Collectors.toList());
         GridBagConstraints g = new GridBagConstraints();
         g.fill = GridBagConstraints.BOTH;
         g.weighty = 0;
@@ -436,6 +439,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         // Group by floor, apply filter
         Map<Integer, java.util.List<Phong>> byFloor = new TreeMap<>();
         for (Phong p : allPhong) {
+            if (p.getTrangThai() == TrangThaiPhong.DELETED) continue;
             boolean showStatus = false;
             TrangThaiPhong tt = p.getTrangThai();
             if ("ALL".equals(currentFilter))

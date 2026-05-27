@@ -49,8 +49,7 @@ public class PhongDAO {
             "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
-            "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
-            "WHERE p.trangThai <> 'DELETED'";
+            "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin";
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
@@ -245,7 +244,7 @@ public class PhongDAO {
             "FROM Phong p " +
             "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
             "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
-            "WHERE p.trangThai <> 'DELETED' ");
+            "WHERE 1=1 ");
         if (kw != null && !kw.isEmpty()) sb.append("AND (p.maPhong LIKE ?) ");
         if (tang != null && !tang.isEmpty()) sb.append("AND p.tang = ? ");
         if (huongNhin != null && !huongNhin.isEmpty()) sb.append("AND hn.tenHuongNhin = ? ");

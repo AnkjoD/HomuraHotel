@@ -77,6 +77,7 @@ public class UIConstants {
             case OCCUPIED:    return "Đang thuê";
             case MAINTENANCE: return "Bảo trì";
             case CLEANING:    return "Vệ sinh";
+            case DELETED:     return "Ngưng hoạt động";
             default:          return tt.toString();
         }
     }
@@ -88,6 +89,7 @@ public class UIConstants {
             case OCCUPIED:    return PRIMARY;
             case MAINTENANCE: return DANGER;
             case CLEANING:    return new Color(0x06B6D4);
+            case DELETED:     return TEXT_MUTED;
             default:          return TEXT_MUTED;
         }
     }
@@ -99,6 +101,7 @@ public class UIConstants {
             case OCCUPIED:    return PRIMARY_LIGHT;
             case MAINTENANCE: return DANGER_LIGHT;
             case CLEANING:    return new Color(0xCFFAFE);
+            case DELETED:     return new Color(0xF1F5F9);
             default:          return BG_CARD;
         }
     }

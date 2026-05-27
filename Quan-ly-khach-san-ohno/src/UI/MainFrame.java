@@ -83,9 +83,32 @@ public class MainFrame extends JFrame {
                     } else {
                         navigateTo("nhatky");
                     }
+                    
+                    checkShiftStatus();
                 });
             }
         });
+    }
+
+    private void checkShiftStatus() {
+        entity.enums.VaiTro role = AuthService.getInstance().getCurrentRole();
+        // Chỉ RECEPTIONIST mới bắt buộc bắt đầu ca trực
+        // ADMIN và MANAGER được miễn — không quản lý két tiền ca trực
+        if (role != entity.enums.VaiTro.RECEPTIONIST) {
+            return;
+        }
+
+        if (AuthService.getInstance().getCurrentShift() == null) {
+            SwingUtilities.invokeLater(() -> {
+                ui.dialogs.StartShiftDialog dlg = new ui.dialogs.StartShiftDialog(this);
+                dlg.setVisible(true);
+                if (!dlg.isConfirmed()) {
+                    AuthService.getInstance().dangXuat();
+                    dispose();
+                    new ui.LoginFrame().setVisible(true);
+                }
+            });
+        }
     }
 
     private void initUI() {

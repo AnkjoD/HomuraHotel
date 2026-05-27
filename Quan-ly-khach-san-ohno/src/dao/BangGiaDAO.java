@@ -51,7 +51,7 @@ public class BangGiaDAO {
     }
 
     public boolean insert(BangGia bg) {
-        String sql = "INSERT INTO BangGia(maBangGia, tenBangGia, ngayBatDau, ngayKetThuc, isKichHoat, loaiBangGia, doiTuongApDung, mucUuTien, moTa) VALUES(?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO BangGia(maBangGia, tenBangGia, ngayBatDau, ngayKetThuc, isKichHoat, loaiBangGia, doiTuongApDung, mucUuTien, moTa, ngayCuoiTuan) VALUES(?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, bg.getMaBangGia());
             ps.setString(2, bg.getTenBangGia());
@@ -62,6 +62,7 @@ public class BangGiaDAO {
             ps.setString(7, bg.getDoiTuongApDung() != null ? bg.getDoiTuongApDung() : "ALL");
             ps.setInt(8, bg.getMucUuTien());
             ps.setString(9, bg.getMoTa());
+            ps.setString(10, bg.getNgayCuoiTuan() != null ? bg.getNgayCuoiTuan() : "SATURDAY,SUNDAY");
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             // Fallback for old schema
@@ -85,7 +86,7 @@ public class BangGiaDAO {
     }
 
     public boolean update(BangGia bg) {
-        String sql = "UPDATE BangGia SET tenBangGia=?, ngayBatDau=?, ngayKetThuc=?, isKichHoat=?, loaiBangGia=?, doiTuongApDung=?, mucUuTien=?, moTa=? WHERE maBangGia=?";
+        String sql = "UPDATE BangGia SET tenBangGia=?, ngayBatDau=?, ngayKetThuc=?, isKichHoat=?, loaiBangGia=?, doiTuongApDung=?, mucUuTien=?, moTa=?, ngayCuoiTuan=? WHERE maBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, bg.getTenBangGia());
             ps.setTimestamp(2, Timestamp.valueOf(bg.getNgayBatDau()));
@@ -95,7 +96,8 @@ public class BangGiaDAO {
             ps.setString(6, bg.getDoiTuongApDung() != null ? bg.getDoiTuongApDung() : "ALL");
             ps.setInt(7, bg.getMucUuTien());
             ps.setString(8, bg.getMoTa());
-            ps.setString(9, bg.getMaBangGia());
+            ps.setString(9, bg.getNgayCuoiTuan() != null ? bg.getNgayCuoiTuan() : "SATURDAY,SUNDAY");
+            ps.setString(10, bg.getMaBangGia());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             // Fallback
@@ -254,15 +256,28 @@ public class BangGiaDAO {
     }
 
     public String generateMaBangGia() {
+        int maxVal = 0;
+        String sql = "SELECT maBangGia FROM BangGia WHERE maBangGia LIKE 'BG%'";
         try (Statement st = getConn().createStatement();
-                ResultSet rs = st.executeQuery(
-                        "SELECT MAX(CAST(SUBSTRING(maBangGia,3,10) AS INT)) FROM BangGia WHERE maBangGia LIKE 'BG%'")) {
-            if (rs.next() && rs.getObject(1) != null)
-                return String.format("BG%03d", rs.getInt(1) + 1);
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                String id = rs.getString(1);
+                if (id != null && id.length() > 2) {
+                    String numPart = id.substring(2);
+                    if (numPart.matches("\\d+")) {
+                        try {
+                            int val = Integer.parseInt(numPart);
+                            if (val > maxVal) {
+                                maxVal = val;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e);
         }
-        return "BG001";
+        return String.format("BG%03d", maxVal + 1);
     }
 
     private BangGia mapRow(ResultSet rs) throws SQLException {
@@ -299,6 +314,11 @@ public class BangGiaDAO {
         try {
             bg.setMoTa(rs.getString("moTa"));
         } catch (SQLException ignored) {
+        }
+        try {
+            bg.setNgayCuoiTuan(rs.getString("ngayCuoiTuan"));
+        } catch (SQLException ignored) {
+            bg.setNgayCuoiTuan("SATURDAY,SUNDAY");
         }
 
         return bg;

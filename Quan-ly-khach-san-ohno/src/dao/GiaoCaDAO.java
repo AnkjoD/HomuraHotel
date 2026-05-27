@@ -29,13 +29,14 @@ public class GiaoCaDAO {
     }
 
     public boolean insert(GiaoCa gc) {
-        String sql = "INSERT INTO GiaoCa (maGiaoCa, maNhanVien, thoiGianBatDau, tienMatDauCa, trangThai) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO GiaoCa (maGiaoCa, maNhanVien, thoiGianBatDau, tienMatDauCa, trangThai, ghiChu) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, gc.getMaGiaoCa());
             ps.setString(2, gc.getNhanVien().getMaNhanVien());
             ps.setTimestamp(3, Timestamp.valueOf(gc.getThoiGianBatDau()));
             ps.setDouble(4, gc.getTienMatDauCa());
             ps.setString(5, "OPEN");
+            ps.setString(6, gc.getGhiChu());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -65,6 +66,48 @@ public class GiaoCaDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maNV);
             ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return mapRow(rs);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Lấy ca CLOSED được bàn giao cho nhân viên chỉ định.
+     * Ưu tiên ca có maNhanVienNhan trùng với người đang đăng nhập.
+     * Nếu không có ca nào được chỉ định, fallback lấy ca CLOSED mới nhất.
+     */
+    public GiaoCa getLastClosedShift(String maNhanVienNhan) {
+        // Ưu tiên 1: Ca mới nhất được bàn giao đúng người
+        String sql = "SELECT TOP 1 gc.*, nv.hoTen FROM GiaoCa gc " +
+                     "JOIN NhanVien nv ON gc.maNhanVien = nv.maNhanVien " +
+                     "WHERE gc.trangThai='CLOSED' AND gc.maNhanVienNhan=? " +
+                     "ORDER BY gc.thoiGianKetThuc DESC";
+        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
+            ps.setString(1, maNhanVienNhan);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return mapRow(rs);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // Ưu tiên 2: Fallback - Ca CLOSED mới nhất bất kỳ (dùng để hiển thị số tiền két)
+        return getLastClosedShift();
+    }
+
+    /**
+     * Fallback: Lấy ca CLOSED mới nhất bất kỳ (không lọc người nhận).
+     */
+    public GiaoCa getLastClosedShift() {
+        String sql = "SELECT TOP 1 gc.*, nv.hoTen FROM GiaoCa gc " +
+                     "JOIN NhanVien nv ON gc.maNhanVien = nv.maNhanVien " +
+                     "WHERE gc.trangThai='CLOSED' " +
+                     "ORDER BY gc.thoiGianKetThuc DESC";
+        try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (rs.next()) {
                 return mapRow(rs);
             }

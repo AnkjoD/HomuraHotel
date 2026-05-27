@@ -40,6 +40,7 @@ public class DatPhongDialog extends JDialog {
     private ModernTextField txtOTA;
     private ui.components.DateTimePicker txtHanCoc;
     private ModernTextField txtVoucher;
+    private ModernTextField txtTienCocTay;
     private JTextArea txtGhiChu;
 
     public DatPhongDialog(Frame owner, List<Phong> selectedRoomsList, Date checkIn, Date checkOut, Runnable onSuccess) {
@@ -201,12 +202,15 @@ public class DatPhongDialog extends JDialog {
         txtGiamGia.setEnabled(false);
         txtGiamGia.setBackground(new Color(0xF1F5F9));
 
+        // Group discount is commented out/hidden as requested
+        /*
         g.gridx = 0;
         g.gridy = rowIdx++;
         g.gridwidth = 1;
         g.weightx = 0.5;
         g.insets = new Insets(0, 0, 24, 8);
         form.add(fieldGroup("Giảm giá đoàn (%)", txtGiamGia), g);
+        */
 
         cboLoaiKhach.addActionListener(e -> {
             boolean isDoan = cboLoaiKhach.getSelectedIndex() == 1;
@@ -389,6 +393,7 @@ public class DatPhongDialog extends JDialog {
 
         final java.util.List<ui.components.DateTimePicker[]> roomDates = new java.util.ArrayList<>();
         final Runnable[] updateEstTotal = new Runnable[1];
+        final Runnable[] updateHanCocHint = new Runnable[1];
 
         for (Phong ph : selectedRoomsList) {
             ui.components.DateTimePicker pickNhan = new ui.components.DateTimePicker(checkIn);
@@ -430,11 +435,15 @@ public class DatPhongDialog extends JDialog {
                 checkAvailability.run();
                 if (updateEstTotal[0] != null)
                     updateEstTotal[0].run();
+                if (updateHanCocHint[0] != null)
+                    updateHanCocHint[0].run();
             });
             pickTra.addChangeListener(ev -> {
                 checkAvailability.run();
                 if (updateEstTotal[0] != null)
                     updateEstTotal[0].run();
+                if (updateHanCocHint[0] != null)
+                    updateHanCocHint[0].run();
             });
 
             // Initial check
@@ -454,7 +463,27 @@ public class DatPhongDialog extends JDialog {
         txtTongTien.setEditable(false);
         txtTongTien.setBackground(new Color(0xF1F5F9));
 
+        txtTienCocTay = new ModernTextField("Nhập số tiền đặt cọc (VNĐ)...");
+        txtTienCocTay.setVisible(false);
+        if (editingDatPhong != null && editingDatPhong.getTienDatCoc() > 0) {
+            txtTienCocTay.setText(String.format("%.0f", editingDatPhong.getTienDatCoc()));
+        }
+
         JComboBox<String> cboCoc = new ModernComboBox<>();
+
+        JPanel pnlCocContainer = new JPanel(new GridBagLayout());
+        pnlCocContainer.setOpaque(false);
+        GridBagConstraints gcCoc = new GridBagConstraints();
+        gcCoc.fill = GridBagConstraints.HORIZONTAL;
+        gcCoc.weightx = 1.0;
+        gcCoc.gridx = 0;
+        gcCoc.gridy = 0;
+        gcCoc.insets = new Insets(0, 0, 0, 0);
+        pnlCocContainer.add(cboCoc, gcCoc);
+
+        gcCoc.gridy = 1;
+        gcCoc.insets = new Insets(8, 0, 0, 0);
+        pnlCocContainer.add(txtTienCocTay, gcCoc);
 
         updateEstTotal[0] = () -> {
             double total = 0;
@@ -477,6 +506,7 @@ public class DatPhongDialog extends JDialog {
             cboCoc.addItem("30% (" + String.format("%,.0fđ", total * 0.3) + ")");
             cboCoc.addItem("50% (" + String.format("%,.0fđ", total * 0.5) + ")");
             cboCoc.addItem("100% (" + String.format("%,.0fđ", total) + ")");
+            cboCoc.addItem("Nhập số tiền...");
 
             if (editingDatPhong != null) {
                 double oldTotal = 0;
@@ -498,8 +528,8 @@ public class DatPhongDialog extends JDialog {
 
             if (selIdx >= 0 && selIdx < cboCoc.getItemCount()) {
                 cboCoc.setSelectedIndex(selIdx);
-            } else if (editingDatPhong != null && cboCoc.getItemCount() > 4) {
-                cboCoc.setSelectedIndex(4); // Select custom ratio by default
+            } else if (editingDatPhong != null && cboCoc.getItemCount() > 5) {
+                cboCoc.setSelectedIndex(5); // Select custom ratio by default
             } else {
                 cboCoc.setSelectedIndex(0);
             }
@@ -516,24 +546,119 @@ public class DatPhongDialog extends JDialog {
         form.add(fieldGroup("Tổng tiền phòng (ước tính)", txtTongTien), g);
         g.gridx = 1;
         g.insets = new Insets(0, 8, 16, 0);
-        form.add(fieldGroup("Đặt cọc", cboCoc), g);
+        form.add(fieldGroup("Đặt cọc", pnlCocContainer), g);
         rowIdx++;
 
         // Hạn nộp cọc
-        txtHanCoc = new ui.components.DateTimePicker(
-                new Date(System.currentTimeMillis() + 86400000));
+        Date defaultHanCoc;
+        long nowMs = System.currentTimeMillis();
+        long checkInMs = checkIn.getTime();
+        if (checkInMs - nowMs > 86400000) {
+            defaultHanCoc = new Date(nowMs + 86400000);
+        } else {
+            long targetMs = checkInMs - 2 * 3600000; // Check-in minus 2 hours
+            if (targetMs > nowMs) {
+                defaultHanCoc = new Date(targetMs);
+            } else {
+                defaultHanCoc = new Date(nowMs); // If too close, set to now
+            }
+        }
+
+        txtHanCoc = new ui.components.DateTimePicker(defaultHanCoc);
         txtHanCoc.setEnabled(false); // Default disabled because "Không đặt cọc" is selected
         txtVoucher = new ModernTextField("Mã voucher...");
 
+        JLabel lblHanCocHint = new JLabel(" ");
+        lblHanCocHint.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblHanCocHint.setForeground(UIConstants.TEXT_MUTED);
+
+        updateHanCocHint[0] = () -> {
+            if (!txtHanCoc.isEnabled()) {
+                lblHanCocHint.setText(" ");
+                return;
+            }
+            LocalDateTime hanCoc = txtHanCoc.getLocalDateTime();
+            LocalDateTime now = LocalDateTime.now();
+            
+            LocalDateTime minIn = null;
+            for (int i = 0; i < selectedRoomsList.size(); i++) {
+                LocalDateTime rCI = roomDates.get(i)[0].getLocalDateTime();
+                if (minIn == null || rCI.isBefore(minIn)) {
+                    minIn = rCI;
+                }
+            }
+            
+            if (minIn == null) {
+                lblHanCocHint.setText(" ");
+                return;
+            }
+            
+            if (hanCoc.isAfter(minIn)) {
+                lblHanCocHint.setText("Lỗi: Hạn nộp cọc phải TRƯỚC ngày nhận phòng!");
+                lblHanCocHint.setForeground(new Color(0xEF4444)); // Error red
+                return;
+            }
+            
+            if (hanCoc.isBefore(now.minusHours(2))) {
+                lblHanCocHint.setText("Lỗi: Hạn nộp cọc không được ở quá khứ!");
+                lblHanCocHint.setForeground(new Color(0xEF4444)); // Error red
+                return;
+            }
+
+            if (hanCoc.isBefore(now)) {
+                lblHanCocHint.setText("Đến hạn nộp cọc (hạn nộp lúc " + hanCoc.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) + ").");
+                lblHanCocHint.setForeground(new Color(0xF59E0B)); // Warning orange
+                return;
+            }
+            
+            java.time.Duration duration = java.time.Duration.between(now, hanCoc);
+            long days = duration.toDays();
+            long hours = duration.toHours() % 24;
+            long minutes = duration.toMinutes() % 60;
+            
+            String text = "Còn ";
+            if (days > 0) {
+                text += days + " ngày " + hours + " giờ";
+            } else if (hours > 0) {
+                text += hours + " giờ " + minutes + " phút";
+            } else {
+                text += minutes + " phút";
+            }
+            text += " đến hạn nộp cọc.";
+            
+            lblHanCocHint.setText(text);
+            lblHanCocHint.setForeground(new Color(0x10B981)); // Success green
+        };
+
+        txtHanCoc.addChangeListener(ev -> {
+            if (updateHanCocHint[0] != null) {
+                updateHanCocHint[0].run();
+            }
+        });
+
         cboCoc.addActionListener(e -> {
+            String selCoc = (String) cboCoc.getSelectedItem();
+            boolean isCustom = selCoc != null && selCoc.startsWith("Nhập số tiền");
+            txtTienCocTay.setVisible(isCustom);
+
             boolean hasCoc = cboCoc.getSelectedIndex() > 0;
             txtHanCoc.setEnabled(hasCoc);
+            
+            if (updateHanCocHint[0] != null) {
+                updateHanCocHint[0].run();
+            }
+
+            form.revalidate();
+            form.repaint();
         });
+
+        // Run initial update for Han Coc Hint
+        updateHanCocHint[0].run();
 
         g.gridy = rowIdx;
         g.gridx = 0;
         g.insets = new Insets(0, 0, 24, 8);
-        form.add(fieldGroup("Hạn nộp cọc (Deadline)", txtHanCoc), g);
+        form.add(fieldGroup("Hạn nộp cọc (Deadline)", txtHanCoc, lblHanCocHint), g);
         g.gridx = 1;
         g.insets = new Insets(0, 8, 24, 0);
         form.add(fieldGroup("Mã voucher", txtVoucher), g);
@@ -677,8 +802,56 @@ public class DatPhongDialog extends JDialog {
                 overallTotal += base * rNights;
             }
 
-            double cocPercent = (new double[] { 0, 0.3, 0.5, 1.0 })[cboCoc.getSelectedIndex()];
-            double totalCoc = overallTotal * cocPercent;
+            double totalCoc = 0;
+            String selCoc = (String) cboCoc.getSelectedItem();
+            if (selCoc != null) {
+                if (selCoc.startsWith("30%")) {
+                    totalCoc = overallTotal * 0.3;
+                } else if (selCoc.startsWith("50%")) {
+                    totalCoc = overallTotal * 0.5;
+                } else if (selCoc.startsWith("100%")) {
+                    totalCoc = overallTotal;
+                } else if (selCoc.startsWith("Nhập số tiền")) {
+                    String rawVal = txtTienCocTay.getText().trim();
+                    if (rawVal.isEmpty()) {
+                        NotificationManager.showError("Lỗi đặt cọc", "Vui lòng nhập số tiền đặt cọc!");
+                        return;
+                    }
+                    String cleanVal = rawVal.replace(".", "").replace(",", "").replace("đ", "").replace("đ", "").trim();
+                    try {
+                        totalCoc = Double.parseDouble(cleanVal);
+                    } catch (Exception ex) {
+                        NotificationManager.showError("Lỗi đặt cọc", "Số tiền đặt cọc nhập tay không hợp lệ! Vui lòng chỉ nhập số.");
+                        return;
+                    }
+                    if (totalCoc < 0) {
+                        NotificationManager.showError("Lỗi đặt cọc", "Số tiền đặt cọc không được nhỏ hơn 0đ!");
+                        return;
+                    }
+                    if (totalCoc > overallTotal) {
+                        NotificationManager.showError("Lỗi đặt cọc", "Số tiền đặt cọc không được vượt quá tổng tiền phòng (" + String.format("%,.0fđ", overallTotal) + ")!");
+                        return;
+                    }
+                } else if (selCoc.startsWith("Theo tỷ lệ cũ")) {
+                    if (editingDatPhong != null) {
+                        double oldTotal = 0;
+                        if (editingDatPhong.getDsChiTiet() != null) {
+                            for (ChiTietDatPhong ct : editingDatPhong.getDsChiTiet()) {
+                                LocalDateTime rInLDT = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : editingDatPhong.getNgayNhanDuKien();
+                                LocalDateTime rOutLDT = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : editingDatPhong.getNgayTraDuKien();
+                                Date rCI = java.sql.Timestamp.valueOf(rInLDT);
+                                Date rCO = java.sql.Timestamp.valueOf(rOutLDT);
+                                long rNights = new ThuePhongService().tinhSoNgay(rCI, rCO);
+                                oldTotal += ct.getGiaThucTeChot() * rNights;
+                            }
+                        }
+                        if (oldTotal > 0) {
+                            double pct = editingDatPhong.getTienDatCoc() / oldTotal;
+                            totalCoc = overallTotal * pct;
+                        }
+                    }
+                }
+            }
 
             double discount = 0;
             boolean isDoan = cboLoaiKhach.getSelectedIndex() == 1;
@@ -698,6 +871,19 @@ public class DatPhongDialog extends JDialog {
                     minCheckIn = rCI;
                 if (maxCheckOut == null || rCO.isAfter(maxCheckOut))
                     maxCheckOut = rCO;
+            }
+
+            if (cboCoc.getSelectedIndex() > 0) {
+                LocalDateTime hanCoc = txtHanCoc.getLocalDateTime();
+                LocalDateTime now = LocalDateTime.now();
+                if (hanCoc.isAfter(minCheckIn)) {
+                    NotificationManager.showError("Lỗi hạn nộp cọc", "Hạn nộp cọc phải trước ngày nhận phòng (check-in)!");
+                    return;
+                }
+                if (hanCoc.isBefore(now.minusHours(2))) {
+                    NotificationManager.showError("Lỗi hạn nộp cọc", "Hạn nộp cọc không được ở quá khứ!");
+                    return;
+                }
             }
 
             DatPhong dp = new DatPhong();

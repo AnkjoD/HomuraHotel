@@ -154,6 +154,7 @@ public class PhongPanel extends JPanel implements ResettableFilter {
         cboTrangThai.addItem("Đã đặt");
         cboTrangThai.addItem("Vệ sinh");
         cboTrangThai.addItem("Bảo trì");
+        cboTrangThai.addItem("Ngưng hoạt động");
         cboTrangThai.setPreferredSize(new Dimension(200, 40));
 
         txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -231,15 +232,142 @@ public class PhongPanel extends JPanel implements ResettableFilter {
         ModernPopupMenu menu = new ModernPopupMenu();
         ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
         ModernMenuItem miAdd = new ModernMenuItem("Thêm phòng mới");
+        ModernMenuItem miMaintenance = new ModernMenuItem("Đánh dấu bảo trì");
+        ModernMenuItem miEndMaintenance = new ModernMenuItem("Hoàn tất bảo trì");
+        ModernMenuItem miDeactivate = new ModernMenuItem("Ngưng hoạt động");
+        ModernMenuItem miReactivate = new ModernMenuItem("Kích hoạt lại hoạt động");
         ModernMenuItem miDel = new ModernMenuItem("Xóa phòng");
+
         miDel.setForeground(UIConstants.DANGER);
+        miDeactivate.setForeground(UIConstants.TEXT_MUTED);
+
         miEdit.addActionListener(e -> editSelected());
         miAdd.addActionListener(e -> showDialog(null));
         miDel.addActionListener(e -> deleteSelected());
+
+        miMaintenance.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.MAINTENANCE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã đánh dấu bảo trì phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        miEndMaintenance.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.AVAILABLE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã hoàn tất bảo trì phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        miDeactivate.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Ngưng hoạt động phòng " + p.getSoPhong() + "?\nPhòng sẽ bị ẩn khỏi sơ đồ phòng.",
+                        "Xác nhận ngưng hoạt động", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.DELETED);
+                    if (ok) {
+                        NotificationManager.showSuccess("Thành công", "Đã dừng hoạt động phòng " + p.getSoPhong());
+                        refresh();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+
+        miReactivate.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.AVAILABLE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã kích hoạt lại phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
         menu.add(miEdit);
         menu.add(miAdd);
         menu.addSeparator();
+        menu.add(miMaintenance);
+        menu.add(miEndMaintenance);
+        menu.add(miDeactivate);
+        menu.add(miReactivate);
+        menu.addSeparator();
         menu.add(miDel);
+
+        menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                Phong p = getSelected();
+                if (p == null) {
+                    miEdit.setEnabled(false);
+                    miDel.setEnabled(false);
+                    miMaintenance.setVisible(false);
+                    miEndMaintenance.setVisible(false);
+                    miDeactivate.setVisible(false);
+                    miReactivate.setVisible(false);
+                    return;
+                }
+
+                miEdit.setEnabled(true);
+                miDel.setEnabled(true);
+
+                TrangThaiPhong status = p.getTrangThai();
+
+                if (status == TrangThaiPhong.MAINTENANCE) {
+                    miMaintenance.setVisible(false);
+                    miEndMaintenance.setVisible(true);
+                    miEndMaintenance.setEnabled(true);
+                } else if (status == TrangThaiPhong.OCCUPIED || status == TrangThaiPhong.DELETED) {
+                    miMaintenance.setVisible(true);
+                    miMaintenance.setEnabled(false);
+                    miEndMaintenance.setVisible(false);
+                } else {
+                    miMaintenance.setVisible(true);
+                    miMaintenance.setEnabled(true);
+                    miEndMaintenance.setVisible(false);
+                }
+
+                if (status == TrangThaiPhong.DELETED) {
+                    miDeactivate.setVisible(false);
+                    miReactivate.setVisible(true);
+                    miReactivate.setEnabled(true);
+                    miDel.setEnabled(true);
+                } else if (status == TrangThaiPhong.OCCUPIED) {
+                    miDeactivate.setVisible(true);
+                    miDeactivate.setEnabled(false);
+                    miReactivate.setVisible(false);
+                } else {
+                    miDeactivate.setVisible(true);
+                    miDeactivate.setEnabled(true);
+                    miReactivate.setVisible(false);
+                }
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+
         return menu;
     }
 
@@ -309,6 +437,8 @@ public class PhongPanel extends JPanel implements ResettableFilter {
                         lbl.setForeground(UIConstants.DANGER);
                     } else if (v.contains("Vệ sinh")) {
                         lbl.setForeground(new Color(0x06B6D4));
+                    } else if (v.contains("Ngưng hoạt động")) {
+                        lbl.setForeground(UIConstants.TEXT_MUTED);
                     }
                 }
                 return lbl;

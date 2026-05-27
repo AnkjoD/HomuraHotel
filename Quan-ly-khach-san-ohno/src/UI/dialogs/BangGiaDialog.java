@@ -32,6 +32,7 @@ public class BangGiaDialog extends JDialog {
     private ModernSpinner spnUuTien;
     private JCheckBox cbTrangThai;
     private ModernComboBox<String> cboLoaiBangGia, cboDoiTuong;
+    private JCheckBox chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun;
     private DefaultTableModel chiTietModel;
     private List<LoaiPhong> allLoaiPhong;
 
@@ -89,8 +90,8 @@ public class BangGiaDialog extends JDialog {
         body.setBackground(Color.WHITE);
         body.setBorder(BorderFactory.createEmptyBorder(16, 24, 8, 24));
 
-        // -- Top form: 3 rows --
-        JPanel topForm = new JPanel(new GridLayout(3, 2, 14, 8));
+        // -- Top form: 4 rows --
+        JPanel topForm = new JPanel(new GridLayout(4, 2, 14, 8));
         topForm.setBackground(Color.WHITE);
 
         txtTen = new ModernTextField("Bảng giá mới...");
@@ -135,11 +136,21 @@ public class BangGiaDialog extends JDialog {
             }
         });
 
+        cboLoaiBangGia.addActionListener(e -> {
+            String selectedLoai = (String) cboLoaiBangGia.getSelectedItem();
+            if ("CORPORATE".equals(selectedLoai)) {
+                cboDoiTuong.setSelectedItem("DOAN");
+                cboDoiTuong.setEnabled(false);
+            } else {
+                cboDoiTuong.setEnabled(true);
+            }
+        });
+
         spnBatDau = new DatePicker(new java.util.Date());
         spnKetThuc = new DatePicker(new java.util.Date());
 
         // Mức ưu tiên
-        spnUuTien = new ModernSpinner(new SpinnerNumberModel(100, 1, 999, 10));
+        spnUuTien = new ModernSpinner(new SpinnerNumberModel(100, 0, 999, 1));
         spnUuTien.setPreferredSize(new Dimension(0, 40));
         spnUuTien.setToolTipText("Số nhỏ = ưu tiên cao. VD: 30 (mùa cao điểm) > 50 (doanh nghiệp) > 100 (rack rate)");
 
@@ -161,6 +172,40 @@ public class BangGiaDialog extends JDialog {
         priorityRow.add(createFormField("Mức ưu tiên", spnUuTien));
         priorityRow.add(createFormField("Trạng thái", cbTrangThai));
         topForm.add(priorityRow);
+
+        // Checkbox ngày cuối tuần
+        chkMon = new JCheckBox("T2");
+        chkTue = new JCheckBox("T3");
+        chkWed = new JCheckBox("T4");
+        chkThu = new JCheckBox("T5");
+        chkFri = new JCheckBox("T6");
+        chkSat = new JCheckBox("T7");
+        chkSun = new JCheckBox("CN");
+
+        JCheckBox[] checkboxes = { chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun };
+        for (JCheckBox cb : checkboxes) {
+            cb.setFont(UIConstants.FONT_BODY);
+            cb.setOpaque(false);
+            cb.setForeground(UIConstants.TEXT_PRIMARY);
+        }
+        chkSat.setSelected(true);
+        chkSun.setSelected(true);
+
+        JPanel weekendPanel = new JPanel(new GridLayout(1, 7, 2, 0));
+        weekendPanel.setOpaque(false);
+        weekendPanel.add(chkMon);
+        weekendPanel.add(chkTue);
+        weekendPanel.add(chkWed);
+        weekendPanel.add(chkThu);
+        weekendPanel.add(chkFri);
+        weekendPanel.add(chkSat);
+        weekendPanel.add(chkSun);
+        topForm.add(createFormField("Ngày cuối tuần *", weekendPanel));
+
+        // Mô tả
+        txtMoTa = new ModernTextField("Mô tả / ghi chú...");
+        txtMoTa.setPreferredSize(new Dimension(0, 40));
+        topForm.add(createFormField("Mô tả / Ghi chú", txtMoTa));
 
         // -- Bottom: Chi tiết giá cho từng loại phòng --
         JPanel tablePanel = new JPanel(new BorderLayout(0, 8));
@@ -303,7 +348,7 @@ public class BangGiaDialog extends JDialog {
         scrollTable.setPreferredSize(new Dimension(0, 200));
 
         JLabel hintLbl = new JLabel(
-                "<html><b>Giá cơ sở</b> từ Loại phòng. <b>Giá cuối tuần</b> áp dụng T7-CN. Để trống = dùng giá cơ sở. <b>Mức ưu tiên</b>: số nhỏ = ưu tiên cao hơn.</html>");
+                "<html><b>Giá cơ sở</b> từ Loại phòng. <b>Giá cuối tuần</b> áp dụng theo cấu hình lựa chọn ở trên. Để trống = dùng giá cơ sở. <b>Mức ưu tiên</b>: số nhỏ = ưu tiên cao hơn.</html>");
         hintLbl.setFont(UIConstants.FONT_SMALL);
         hintLbl.setForeground(UIConstants.TEXT_SECONDARY);
 
@@ -388,6 +433,30 @@ public class BangGiaDialog extends JDialog {
         if (entity.getLoaiBangGia() != null) cboLoaiBangGia.setSelectedItem(entity.getLoaiBangGia());
         if (entity.getDoiTuongApDung() != null) cboDoiTuong.setSelectedItem(entity.getDoiTuongApDung());
         spnUuTien.setValue(entity.getMucUuTien());
+        if (entity.getMoTa() != null) {
+            txtMoTa.setText(entity.getMoTa());
+        } else {
+            txtMoTa.setText("");
+        }
+
+        String nct = entity.getNgayCuoiTuan();
+        if (nct != null) {
+            chkMon.setSelected(nct.contains("MONDAY"));
+            chkTue.setSelected(nct.contains("TUESDAY"));
+            chkWed.setSelected(nct.contains("WEDNESDAY"));
+            chkThu.setSelected(nct.contains("THURSDAY"));
+            chkFri.setSelected(nct.contains("FRIDAY"));
+            chkSat.setSelected(nct.contains("SATURDAY"));
+            chkSun.setSelected(nct.contains("SUNDAY"));
+        } else {
+            chkMon.setSelected(false);
+            chkTue.setSelected(false);
+            chkWed.setSelected(false);
+            chkThu.setSelected(false);
+            chkFri.setSelected(false);
+            chkSat.setSelected(true);
+            chkSun.setSelected(true);
+        }
 
         // Load existing chi tiet
         List<ChiTietBangGia> existingCT = service.getChiTiet(entity.getMaBangGia());
@@ -453,10 +522,28 @@ public class BangGiaDialog extends JDialog {
         bg.setNgayKetThuc(d2.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
         bg.setTrangThai(cbTrangThai.isSelected());
 
+        // Collect weekend days
+        List<String> listDays = new ArrayList<>();
+        if (chkMon.isSelected()) listDays.add("MONDAY");
+        if (chkTue.isSelected()) listDays.add("TUESDAY");
+        if (chkWed.isSelected()) listDays.add("WEDNESDAY");
+        if (chkThu.isSelected()) listDays.add("THURSDAY");
+        if (chkFri.isSelected()) listDays.add("FRIDAY");
+        if (chkSat.isSelected()) listDays.add("SATURDAY");
+        if (chkSun.isSelected()) listDays.add("SUNDAY");
+
+        if (listDays.isEmpty()) {
+            err("Vui lòng chọn ít nhất một ngày áp dụng giá cuối tuần!");
+            return;
+        }
+        String ngayCuoiTuanStr = String.join(",", listDays);
+
         // Rate Plan fields
         bg.setLoaiBangGia((String) cboLoaiBangGia.getSelectedItem());
         bg.setDoiTuongApDung((String) cboDoiTuong.getSelectedItem());
         bg.setMucUuTien((Integer) spnUuTien.getValue());
+        bg.setMoTa(txtMoTa.getText().trim());
+        bg.setNgayCuoiTuan(ngayCuoiTuanStr);
 
         String error;
         if (entity == null) {
