@@ -86,7 +86,8 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
 
     // ---- Card 2: Tìm & Đặt phòng ----
     private DateTimePicker txtNgayNhan, txtNgayTra;
-    private JComboBox<String> cboTang, cboView, cboLoaiPhong;
+    private JComboBox<String> cboTang, cboView;
+    private ModernComboBox<String> cboLoaiPhong;
     private JSpinner spnSoKhach;
     private JPanel resultPanel;
 
@@ -523,6 +524,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             typeArr[ti++] = t;
         cboLoaiPhong = new ModernComboBox<>(typeArr);
         cboLoaiPhong.setPreferredSize(new Dimension(150, 40));
+        cboLoaiPhong.setPopupWidth(260);
 
         spnSoKhach = new ModernSpinner(new SpinnerNumberModel(1, 1, 10, 1));
         spnSoKhach.setPreferredSize(new Dimension(80, 40));
@@ -1401,6 +1403,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             if (cancelDlg.isConfirmed()) {
                 dlg.dispose();
                 refresh();
+                mainFrame.notifyDataChanged();
             }
         });
 
@@ -1881,8 +1884,10 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         ui.dialogs.HuyDatPhongDialog dlg = new ui.dialogs.HuyDatPhongDialog(
                 (Frame) SwingUtilities.getWindowAncestor(this), ma, ten);
         dlg.setVisible(true);
-        if (dlg.isConfirmed())
+        if (dlg.isConfirmed()) {
             refresh();
+            mainFrame.notifyDataChanged();
+        }
     }
 
     private void doDelete(String ma, String ten) {
@@ -1913,6 +1918,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             String err = datPhongService.markNoShow(ma, maNV, phi);
             if (err == null) {
                 loadDatPhongTable();
+                mainFrame.notifyDataChanged();
                 NotificationManager.showSuccess("Thành công",
                         "Đã đánh dấu khách không đến"
                                 + (phi > 0 ? " (Phí: " + String.format("%,.0fđ", phi) + ")" : ""));
@@ -1955,7 +1961,16 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
                 JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
             try {
-                double amount = Double.parseDouble(txtCoc.getText().replace(",", ""));
+                double amount = Double.parseDouble(txtCoc.getText().replace(",", "").trim());
+                if (amount < 0) {
+                    showError("Số tiền cọc không được nhỏ hơn 0!");
+                    return;
+                }
+                double maxAllow = getDatPhongEstTotal(dp);
+                if (maxAllow > 0 && amount > maxAllow) {
+                    showError("Số tiền cọc không được vượt quá tổng tiền phòng dự kiến (" + String.format("%,.0f VNĐ", maxAllow) + ")!");
+                    return;
+                }
                 dp.setTienDatCoc(amount);
                 dp.setTrangThai(TrangThaiDatPhong.CONFIRMED);
                 if (datPhongService.suaDatPhong(dp) == null) {
@@ -1973,6 +1988,30 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
                 showError("Số tiền không hợp lệ!");
             }
         }
+    }
+
+    private double getDatPhongEstTotal(DatPhong dp) {
+        if (dp.getTongTienTamTinh() > 0) {
+            return dp.getTongTienTamTinh();
+        }
+        double total = 0;
+        try {
+            service.ThuePhongService tpSvc = new service.ThuePhongService();
+            if (dp.getDsChiTiet() != null) {
+                for (entity.ChiTietDatPhong ct : dp.getDsChiTiet()) {
+                    java.time.LocalDateTime rIn = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : dp.getNgayNhanDuKien();
+                    java.time.LocalDateTime rOut = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : dp.getNgayTraDuKien();
+                    if (rIn != null && rOut != null) {
+                        java.util.Date dIn = java.sql.Timestamp.valueOf(rIn);
+                        java.util.Date dOut = java.sql.Timestamp.valueOf(rOut);
+                        long nights = Math.max(1, tpSvc.tinhSoNgay(dIn, dOut));
+                        total += ct.getGiaThucTeChot() * nights;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return total;
     }
 
     private void doConfirmWaitlist(String ma, String ten) {

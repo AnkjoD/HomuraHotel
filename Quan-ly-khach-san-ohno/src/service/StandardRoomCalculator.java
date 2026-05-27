@@ -45,8 +45,9 @@ public class StandardRoomCalculator implements ITinhTienPhong {
         }
         if (checkIn == null) checkIn = checkOut.minusDays(1); // Fallback safe
         
-        long soNgay = java.time.temporal.ChronoUnit.DAYS.between(checkIn.toLocalDate(), checkOut.toLocalDate());
-        if (soNgay <= 0) soNgay = 1; // Minimum 1 night
+        // Tính số ngày dựa trên giờ thực tế để tránh overcharge khi đổi phòng cùng ngày
+        long soGio = java.time.temporal.ChronoUnit.HOURS.between(checkIn, checkOut);
+        long soNgay = Math.max(1, (soGio + 23) / 24); // Round up: tối thiểu 1 đêm
         
         BigDecimal basePrice = BigDecimal.valueOf(donGia);
         BigDecimal days = BigDecimal.valueOf(soNgay);

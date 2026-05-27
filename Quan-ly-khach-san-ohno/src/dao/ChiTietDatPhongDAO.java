@@ -197,9 +197,14 @@ public class ChiTietDatPhongDAO {
                      "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
                      "WHERE ct.maPhong = ? " +
                      "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
+                     "AND ( " +
+                     "  (dp.trangThai IN ('PENDING', 'CONFIRMED') AND ct.ngayTraThucTe IS NULL) " +
+                     "  OR " +
+                     "  (dp.trangThai IN ('CHECKED_IN', 'PARTIALLY_CHECKED_IN') AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL) " +
+                     ") " +
                      "AND dp.maDatPhong != ? " +
-                     "AND dp.ngayNhanDuKien < ? " +
-                     "AND dp.ngayTraDuKien > ?";
+                     "AND COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) < ? " +
+                     "AND COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) > ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
             ps.setString(2, excludeMaDatPhong != null ? excludeMaDatPhong : "");

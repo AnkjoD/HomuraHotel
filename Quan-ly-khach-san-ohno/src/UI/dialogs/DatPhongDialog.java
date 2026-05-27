@@ -706,6 +706,7 @@ public class DatPhongDialog extends JDialog {
             dp.setNgayTraDuKien(maxCheckOut);
             dp.setSoLuongKhach(soKhach);
             dp.setTienDatCoc(totalCoc);
+            dp.setTongTienTamTinh(overallTotal);
             dp.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
             dp.setTrangThai(TrangThaiDatPhong.PENDING);
             dp.setHanNopCoc(txtHanCoc.getLocalDateTime());
@@ -761,6 +762,7 @@ public class DatPhongDialog extends JDialog {
                 editingDatPhong.setNgayTraDuKien(maxCheckOut);
                 editingDatPhong.setSoLuongKhach(soKhach);
                 editingDatPhong.setTienDatCoc(totalCoc);
+                editingDatPhong.setTongTienTamTinh(overallTotal);
                 editingDatPhong.setGhiChu(ghiChuText.isEmpty() ? null : ghiChuText);
                 editingDatPhong.setHanNopCoc(txtHanCoc.getLocalDateTime());
 

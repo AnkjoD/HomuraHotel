@@ -190,7 +190,12 @@ public class PhongDAO {
             "AND p.maPhong NOT IN (" +
             "  SELECT ctdp.maPhong FROM ChiTietDatPhong ctdp " +
             "  JOIN DatPhong dp ON ctdp.maDatPhong = dp.maDatPhong " +
-            "  WHERE dp.trangThai NOT IN ('CANCELLED','CHECKED_OUT') " +
+            "  WHERE dp.trangThai NOT IN ('CANCELLED','CHECKED_OUT','NO_SHOW','WAITLIST') " +
+            "  AND ( " +
+            "    (dp.trangThai IN ('PENDING', 'CONFIRMED') AND ctdp.ngayTraThucTe IS NULL) " +
+            "    OR " +
+            "    (dp.trangThai IN ('CHECKED_IN', 'PARTIALLY_CHECKED_IN') AND ctdp.ngayNhanThucTe IS NOT NULL AND ctdp.ngayTraThucTe IS NULL) " +
+            "  ) " +
             "  AND dp.ngayNhanDuKien < ? " +
             "  AND dp.ngayTraDuKien > ? " +
             ")";
@@ -327,6 +332,11 @@ public class PhongDAO {
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
             "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
+            "AND ( " +
+            "  (dp.trangThai IN ('PENDING', 'CONFIRMED') AND ct.ngayTraThucTe IS NULL) " +
+            "  OR " +
+            "  (dp.trangThai IN ('CHECKED_IN', 'PARTIALLY_CHECKED_IN') AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL) " +
+            ") " +
             "AND COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) < ? " +
             "AND COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) > ?"
         );

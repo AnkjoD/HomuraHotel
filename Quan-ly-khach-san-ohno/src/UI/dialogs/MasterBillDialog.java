@@ -53,9 +53,23 @@ public class MasterBillDialog extends JDialog {
         this.allRooms = new ArrayList<>();
         if (rooms != null) {
             for (ChiTietDatPhong ct : rooms) {
-                if (!ct.isDaThanhToan()) {
-                    this.allRooms.add(ct);
+                if (ct.isDaThanhToan()) continue;
+                
+                // Hậu mãi: Nếu phòng đã trả/đổi trong cùng ngày nhận và có phòng khác thay thế, bỏ qua không tính tiền
+                if (ct.getNgayTraThucTe() != null && ct.getNgayNhanThucTe() != null) {
+                    if (ct.getNgayNhanThucTe().toLocalDate().isEqual(ct.getNgayTraThucTe().toLocalDate())) {
+                        boolean hasReplacement = rooms.stream().anyMatch(other -> 
+                            !other.getMaChiTiet().equals(ct.getMaChiTiet()) 
+                            && other.getNgayNhanThucTe() != null 
+                            && !other.getNgayNhanThucTe().isBefore(ct.getNgayNhanThucTe())
+                        );
+                        if (hasReplacement) {
+                            continue; // Bỏ qua phòng cũ này!
+                        }
+                    }
                 }
+                
+                this.allRooms.add(ct);
             }
         }
         

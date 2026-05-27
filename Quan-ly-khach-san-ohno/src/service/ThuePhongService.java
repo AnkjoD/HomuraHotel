@@ -492,6 +492,23 @@ public class ThuePhongService {
             for (ChiTietDatPhong ct : rooms) {
                 if (ct.isDaThanhToan()) continue;
                 
+                // Hậu mãi: Nếu phòng đã trả/đổi trong cùng ngày nhận và có phòng khác thay thế, bỏ qua không tính tiền
+                if (ct.getNgayTraThucTe() != null && ct.getNgayNhanThucTe() != null) {
+                    if (ct.getNgayNhanThucTe().toLocalDate().isEqual(ct.getNgayTraThucTe().toLocalDate())) {
+                        boolean hasReplacement = rooms.stream().anyMatch(other -> 
+                            !other.getMaChiTiet().equals(ct.getMaChiTiet()) 
+                            && other.getNgayNhanThucTe() != null 
+                            && !other.getNgayNhanThucTe().isBefore(ct.getNgayNhanThucTe())
+                        );
+                        if (hasReplacement) {
+                            // Tự động đánh dấu đã thanh toán để dọn dẹp DB và giải phóng trạng thái phòng
+                            ct.setDaThanhToan(true);
+                            ctdpDAO.update(ct);
+                            continue; 
+                        }
+                    }
+                }
+
                 // 1. Tiền phòng
                 LocalDateTime ngayNhan = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe() : dp.getNgayNhanDuKien();
                 LocalDateTime ngayTra = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe() : LocalDateTime.now();
@@ -691,8 +708,21 @@ public class ThuePhongService {
             Phong newRoom = phongDAO.getById(maP);
             if (newRoom == null || newRoom.getTrangThai() != TrangThaiPhong.AVAILABLE) { dbConn.rollbackTransaction(); return "Phòng không khả dụng!"; }
 
-            ctOld.setNgayTraThucTe(LocalDateTime.now());
-            ctOld.setDaThanhToan(false);
+            LocalDateTime now = LocalDateTime.now();
+            ctOld.setNgayTraThucTe(now);
+            
+            // Nếu khách đổi phòng khi chưa qua đêm nào ở phòng cũ (ở cùng một ngày calendar),
+            // đánh dấu phòng cũ đã thanh toán (daThanhToan = true) để Master Bill không tính tiền phòng cũ.
+            long soDemOld = 0;
+            if (ctOld.getNgayNhanThucTe() != null) {
+                if (ctOld.getNgayNhanThucTe().toLocalDate().isEqual(now.toLocalDate())) {
+                    soDemOld = 0;
+                } else {
+                    soDemOld = tinhSoNgay(ctOld.getNgayNhanThucTe(), now);
+                }
+            }
+            ctOld.setDaThanhToan(soDemOld == 0);
+            
             ctdpDAO.update(ctOld);
             Phong oldR = ctOld.getPhong();
             if (oldR != null) { oldR.setTrangThai(TrangThaiPhong.CLEANING); phongDAO.update(oldR); }
@@ -703,12 +733,32 @@ public class ThuePhongService {
             ctNew.setPhong(newRoom);
             ctNew.setKhachHang(ctOld.getKhachHang());
             ctNew.setNgayNhanDuKien(ctOld.getNgayNhanDuKien());
-            ctNew.setNgayTraDuKien(ctOld.getNgayTraDuKien());
-            ctNew.setNgayNhanThucTe(LocalDateTime.now());
+            // Nếu đổi phòng cùng ngày, checkout của phòng mới = checkout của phòng cũ
+            // Để tính phí chính xác (không tính thêm đêm)
+            if (ctOld.getNgayTraDuKien() != null && now.toLocalDate().isEqual(ctOld.getNgayTraDuKien().toLocalDate())) {
+                ctNew.setNgayTraDuKien(ctOld.getNgayTraDuKien()); // Giữ checkout time
+            } else {
+                ctNew.setNgayTraDuKien(ctOld.getNgayTraDuKien());
+            }
+            ctNew.setNgayNhanThucTe(now);
             double rate = keepPrice ? ctOld.getGiaThucTeChot() : bangGiaService.layGiaHienHanh(newRoom.getLoaiPhong().getMaLoaiPhong());
             ctNew.setGiaThucTeChot(rate);
             ctNew.setDaThanhToan(false);
             ctdpDAO.insert(ctNew);
+
+            // Copy dịch vụ từ phòng cũ sang phòng mới và xoá dịch vụ ở phòng cũ để tránh double billing
+            java.util.List<SuDungDichVu> oldServices = sddvDAO.getByChiTietDatPhong(ctOld.getMaChiTiet());
+            for (SuDungDichVu oldService : oldServices) {
+                SuDungDichVu newService = new SuDungDichVu();
+                newService.setCtdp(ctNew);
+                newService.setDichVu(oldService.getDichVu());
+                newService.setSoLuong(oldService.getSoLuong());
+                newService.setDonGiaLuu(oldService.getDonGiaLuu());
+                newService.setThoiDiem(oldService.getThoiDiem());
+                sddvDAO.insert(newService);
+                
+                sddvDAO.deleteOne(oldService);
+            }
 
             newRoom.setTrangThai(TrangThaiPhong.OCCUPIED);
             newRoom.setTenKhachHienTai(ctNew.getKhachHang() != null ? ctNew.getKhachHang().getHoTen() : "Khách");

@@ -19,7 +19,9 @@ public class HuyDatPhongDialog extends JDialog {
     private final DatPhongService datPhongService = new DatPhongService();
     private final String maDatPhong;
     private final String tenKhach;
+    private DatPhong datPhong;
     private double phiPhatDuyKien = 0;
+    private double tienDatCoc = 0;
     private boolean confirmed = false;
 
     private ModernTextField txtPhiPhat;
@@ -31,6 +33,11 @@ public class HuyDatPhongDialog extends JDialog {
         this.maDatPhong = maDatPhong;
         this.tenKhach = tenKhach;
         this.phiPhatDuyKien = datPhongService.tinhPhiHuyDien(maDatPhong);
+
+        this.datPhong = datPhongService.getById(maDatPhong);
+        if (this.datPhong != null) {
+            this.tienDatCoc = this.datPhong.getTienDatCoc();
+        }
 
         setSize(500, 520);
         setLocationRelativeTo(parent);
@@ -105,7 +112,11 @@ public class HuyDatPhongDialog extends JDialog {
             main.add(Box.createVerticalStrut(16));
         } else {
             // Không có phí phạt -> Ẩn hoàn toàn trường nhập và nút Ghi đè để tránh nhầm lẫn
-            JLabel lblHint = new JLabel("<html>💡 Đơn này đang ở trạng thái <b>Chờ xác nhận</b> (chưa đặt cọc), được hủy miễn phí 100%.</html>");
+            String statusText = "Chờ xác nhận";
+            if (this.datPhong != null && this.datPhong.getTrangThai() == entity.enums.TrangThaiDatPhong.CONFIRMED) {
+                statusText = "Đã xác nhận";
+            }
+            JLabel lblHint = new JLabel("<html>💡 Đơn này đang ở trạng thái <b>" + statusText + "</b> (chưa đặt cọc), được hủy miễn phí 100%.</html>");
             lblHint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
             lblHint.setForeground(new Color(0x059669)); // Success emerald green
             main.add(lblHint);
@@ -113,6 +124,7 @@ public class HuyDatPhongDialog extends JDialog {
             
             // Khởi tạo các trường ẩn để tránh lỗi NullPointerException khi xử lý dữ liệu
             txtPhiPhat = new ModernTextField("0");
+            txtPhiPhat.setText("0");
             chkOverride = new JCheckBox();
         }
 
@@ -158,11 +170,24 @@ public class HuyDatPhongDialog extends JDialog {
             return;
         }
 
+        String penaltyText = txtPhiPhat.getText().trim().replace(",", "").replace(".", "");
         double penalty = 0;
-        try {
-            penalty = Double.parseDouble(txtPhiPhat.getText().trim().replace(",", "").replace(".", ""));
-        } catch (Exception e) {
-            NotificationManager.showError("Lỗi", "Số tiền phạt không hợp lệ!");
+        if (!penaltyText.isEmpty()) {
+            try {
+                penalty = Double.parseDouble(penaltyText);
+            } catch (Exception e) {
+                NotificationManager.showError("Lỗi", "Số tiền phạt không hợp lệ!");
+                return;
+            }
+        }
+
+        if (penalty < 0) {
+            NotificationManager.showError("Lỗi", "Số tiền phạt không được là số âm!");
+            return;
+        }
+
+        if (penalty > tienDatCoc) {
+            NotificationManager.showError("Lỗi ghi đè", "Phí phạt ghi đè không được vượt quá số tiền đã đặt cọc (" + String.format("%,.0f VNĐ", tienDatCoc) + ")!");
             return;
         }
 

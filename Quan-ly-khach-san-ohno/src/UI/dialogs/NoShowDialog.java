@@ -3,6 +3,8 @@ package ui.dialogs;
 import ui.components.UIConstants;
 import ui.components.RoundedComponents.RoundedButton;
 import ui.components.RoundedComponents.ModernTextField;
+import service.DatPhongService;
+import entity.DatPhong;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,9 +15,11 @@ import java.awt.*;
  */
 public class NoShowDialog extends JDialog {
 
+    private final DatPhongService datPhongService = new DatPhongService();
     private final String maDatPhong;
     private final String tenKhach;
     private double phiPhat = 0;
+    private double tienDatCoc = 0;
     private boolean confirmed = false;
 
     private ModernTextField txtPhiPhat;
@@ -25,7 +29,12 @@ public class NoShowDialog extends JDialog {
         this.maDatPhong = maDatPhong;
         this.tenKhach = tenKhach;
 
-        setSize(450, 380); // Tăng chiều cao để không bị khuất
+        DatPhong dp = datPhongService.getById(maDatPhong);
+        if (dp != null) {
+            this.tienDatCoc = dp.getTienDatCoc();
+        }
+
+        setSize(450, 410); // Tăng thêm chiều cao để chứa gợi ý
         setLocationRelativeTo(parent);
         setResizable(false);
         setLayout(new BorderLayout());
@@ -99,7 +108,54 @@ public class NoShowDialog extends JDialog {
         inputPanel.add(txtPhiPhat, BorderLayout.CENTER);
         main.add(inputPanel);
 
-        JLabel lblNotice = new JLabel("* Hệ thống sẽ chuyển trạng thái đơn sang CANCELLED.");
+        // Quick suggestions based on deposit
+        if (tienDatCoc > 0) {
+            main.add(Box.createVerticalStrut(8));
+            JPanel suggestPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            suggestPanel.setOpaque(false);
+            
+            JLabel lblSuggest = new JLabel("Gợi ý theo cọc (" + String.format("%,.0fđ", tienDatCoc) + "):");
+            lblSuggest.setFont(UIConstants.FONT_TINY);
+            lblSuggest.setForeground(UIConstants.TEXT_MUTED);
+            suggestPanel.add(lblSuggest);
+            
+            double[] percentages = { 0.3, 0.5, 1.0 };
+            String[] labels = { "30%", "50%", "100%" };
+            
+            for (int i = 0; i < percentages.length; i++) {
+                double pct = percentages[i];
+                String lbl = labels[i];
+                double value = tienDatCoc * pct;
+                
+                JButton btnPct = new JButton(lbl) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(new Color(0xF8FAFC));
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                        g2.setColor(new Color(0xCBD5E1));
+                        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                        g2.dispose();
+                        super.paintComponent(g);
+                    }
+                };
+                btnPct.setFont(UIConstants.FONT_TINY);
+                btnPct.setForeground(UIConstants.TEXT_SECONDARY);
+                btnPct.setContentAreaFilled(false);
+                btnPct.setBorderPainted(false);
+                btnPct.setFocusPainted(false);
+                btnPct.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                btnPct.setPreferredSize(new Dimension(50, 22));
+                btnPct.addActionListener(e -> {
+                    txtPhiPhat.setText(String.format("%.0f", value));
+                });
+                suggestPanel.add(btnPct);
+            }
+            main.add(suggestPanel);
+        }
+
+        JLabel lblNotice = new JLabel("* Hệ thống sẽ chuyển trạng thái đơn sang NO_SHOW (Khách không đến).");
         lblNotice.setFont(UIConstants.FONT_TINY);
         lblNotice.setForeground(UIConstants.TEXT_MUTED);
         main.add(Box.createVerticalStrut(10));
@@ -124,16 +180,27 @@ public class NoShowDialog extends JDialog {
 
     private void handleConfirm() {
         String input = txtPhiPhat.getText().trim().replace(",", "").replace(".", "");
-        if (input.isEmpty()) {
-            phiPhat = 0;
-        } else {
+        double penalty = 0;
+        if (!input.isEmpty()) {
             try {
-                phiPhat = Double.parseDouble(input);
+                penalty = Double.parseDouble(input);
             } catch (NumberFormatException e) {
                 JOptionPane.showMessageDialog(this, "Số tiền không hợp lệ!", "Lỗi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
         }
+
+        if (penalty < 0) {
+            JOptionPane.showMessageDialog(this, "Số tiền phạt không được là số âm!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (penalty > tienDatCoc) {
+            JOptionPane.showMessageDialog(this, "Số tiền phạt không được vượt quá số tiền đặt cọc (" + String.format("%,.0f VNĐ", tienDatCoc) + ")!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        phiPhat = penalty;
         confirmed = true;
         dispose();
     }

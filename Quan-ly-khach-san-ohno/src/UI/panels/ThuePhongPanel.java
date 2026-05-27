@@ -1,11 +1,5 @@
 package ui.panels;
 
-import ui.MainFrame;
-import ui.components.UIConstants;
-import ui.components.RoundedComponents;
-import static ui.components.RoundedComponents.*;
-import ui.components.*;
-import ui.dialogs.*;
 import dao.*;
 import entity.*;
 import entity.enums.TrangThaiPhong;
@@ -14,8 +8,16 @@ import java.awt.event.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import javax.swing.*;
-
 import service.*;
+import ui.MainFrame;
+import ui.components.*;
+import static ui.components.RoundedComponents.*;
+import ui.components.RoundedComponents.ModernComboBox;
+import ui.components.RoundedComponents.ModernTextField;
+import ui.components.RoundedComponents.RoundedBorder;
+import ui.components.RoundedComponents.RoundedButton;
+import ui.components.RoundedComponents.RoundedPanel;
+import ui.dialogs.*;
 
 public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
@@ -49,7 +51,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
     }
 
     private void startTimer() {
-        if (countdownTimer != null && countdownTimer.isRunning()) return;
+        if (countdownTimer != null && countdownTimer.isRunning())
+            return;
         countdownTimer = new javax.swing.Timer(60000, e -> refreshGrid());
         countdownTimer.start();
     }
@@ -57,7 +60,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
     @Override
     public void removeNotify() {
         super.removeNotify();
-        if (countdownTimer != null) countdownTimer.stop();
+        if (countdownTimer != null)
+            countdownTimer.stop();
     }
 
     public void resetFilters() {
@@ -123,17 +127,17 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         JPanel left = new JPanel();
         left.setOpaque(false);
         left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
-        
+
         JLabel title = new JLabel("Sơ đồ phòng");
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(UIConstants.TEXT_PRIMARY);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
-        
+
         JLabel sub = new JLabel("Click vào phòng để nhận/trả phòng, chuột phải để xem thêm");
         sub.setFont(UIConstants.FONT_BODY);
         sub.setForeground(UIConstants.TEXT_SECONDARY);
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
-        
+
         left.add(title);
         left.add(Box.createVerticalStrut(4));
         left.add(sub);
@@ -166,8 +170,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         g.weighty = 0;
 
         // --- ROW 1: Status Chips + Search ---
-        g.gridy = 0; g.insets = new Insets(0, 0, 10, 0); 
-        
+        g.gridy = 0;
+        g.insets = new Insets(0, 0, 10, 0);
+
         // Status panel
         JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         statusPanel.setOpaque(false);
@@ -183,7 +188,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         statusPanel.add(statusChip("Vệ sinh", "CLEANING", cleaning, new Color(0xF59E0B)));
         statusPanel.add(statusChip("Bảo trì", "MAINTENANCE", maint, new Color(0xEF4444)));
 
-        g.gridx = 0; g.weightx = 1.0; g.gridwidth = 2;
+        g.gridx = 0;
+        g.weightx = 1.0;
+        g.gridwidth = 2;
         filterTabsPanel.add(statusPanel, g);
 
         // Search & Clear
@@ -199,7 +206,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         txtSearch.setPreferredSize(new Dimension(180, 36));
         txtSearch.setText(searchRoom);
         txtSearch.addKeyListener(new KeyAdapter() {
-            @Override public void keyReleased(KeyEvent e) {
+            @Override
+            public void keyReleased(KeyEvent e) {
                 searchRoom = txtSearch.getText().trim();
                 refreshGrid();
             }
@@ -208,7 +216,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         rightTools.add(btnClear);
         rightTools.add(txtSearch);
 
-        g.gridx = 2; g.weightx = 0; g.gridwidth = 1;
+        g.gridx = 2;
+        g.weightx = 0;
+        g.gridwidth = 1;
         g.fill = GridBagConstraints.VERTICAL;
         g.anchor = GridBagConstraints.EAST;
         filterTabsPanel.add(rightTools, g);
@@ -216,16 +226,19 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         // --- ROW 2: Floors + Dropdowns (Consolidated) ---
         g.fill = GridBagConstraints.BOTH;
         g.anchor = GridBagConstraints.CENTER;
-        g.gridy = 1; g.insets = new Insets(0, 0, 0, 0);
-        
+        g.gridy = 1;
+        g.insets = new Insets(0, 0, 0, 0);
+
         // Collect data
         Set<Integer> floors = new TreeSet<>();
         Set<String> types = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         Set<String> views = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         for (Phong p : allPhong) {
             floors.add(p.getTang());
-            if (p.getTenLoaiPhong() != null && !p.getTenLoaiPhong().isBlank()) types.add(p.getTenLoaiPhong());
-            if (p.getView() != null && !p.getView().isBlank()) views.add(p.getView());
+            if (p.getTenLoaiPhong() != null && !p.getTenLoaiPhong().isBlank())
+                types.add(p.getTenLoaiPhong());
+            if (p.getView() != null && !p.getView().isBlank())
+                views.add(p.getView());
         }
 
         // Left Container for Floor + Dropdowns
@@ -239,8 +252,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         lblFloor.setForeground(UIConstants.TEXT_SECONDARY);
         floorPanel.add(lblFloor);
         floorPanel.add(floorChip("Tất cả", 0, currentFloor == 0));
-        for (int f : floors) floorPanel.add(floorChip("T" + f, f, currentFloor == f));
-        
+        for (int f : floors)
+            floorPanel.add(floorChip("T" + f, f, currentFloor == f));
+
         subFilterPanel.add(floorPanel, BorderLayout.WEST);
 
         // Dropdowns on the same row, pushed to the right but close to each other
@@ -277,7 +291,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
         subFilterPanel.add(dropPanel, BorderLayout.EAST);
 
-        g.gridx = 0; g.gridwidth = 3; g.weightx = 1.0;
+        g.gridx = 0;
+        g.gridwidth = 3;
+        g.weightx = 1.0;
         filterTabsPanel.add(subFilterPanel, g);
 
         return filterTabsPanel;
@@ -325,7 +341,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             lblCount.setFont(new Font("Segoe UI", Font.BOLD, 10));
             lblCount.setForeground(active ? accent : Color.WHITE);
             JPanel badge = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0)) {
-                @Override protected void paintComponent(Graphics g) {
+                @Override
+                protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2.setColor(active ? Color.WHITE : accent);
@@ -436,7 +453,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                     || (p.getTenLoaiPhong() != null && p.getTenLoaiPhong().equalsIgnoreCase(currentType));
             boolean showSearch = searchRoom.isEmpty()
                     || (p.getSoPhong() != null && p.getSoPhong().toLowerCase().contains(searchRoom.toLowerCase()))
-                    || (p.getTenKhachHienTai() != null && p.getTenKhachHienTai().toLowerCase().contains(searchRoom.toLowerCase()))
+                    || (p.getTenKhachHienTai() != null
+                            && p.getTenKhachHienTai().toLowerCase().contains(searchRoom.toLowerCase()))
                     || (p.getSdtKhachHienTai() != null && p.getSdtKhachHienTai().contains(searchRoom));
             boolean showView = "ALL".equals(currentView)
                     || (p.getView() != null && p.getView().equalsIgnoreCase(currentView));
@@ -579,13 +597,13 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             } else if (value != null) {
                 maDatPhong = value;
             }
-            
+
             // Limit text length to avoid overflowing room card layout
             String displayLabel = tenDoan;
             if (displayLabel.length() > 15) {
                 displayLabel = displayLabel.substring(0, 13) + "..";
             }
-            
+
             JLabel lblGroup = new JLabel(displayLabel);
             lblGroup.setFont(new Font("Segoe UI", Font.BOLD, 10));
             lblGroup.setForeground(new Color(0x6366F1)); // Indigo
@@ -611,15 +629,17 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 ImageIcon originalIcon = new ImageIcon("icon/canhan.png");
                 Image scaled = originalIcon.getImage().getScaledInstance(14, 14, Image.SCALE_SMOOTH);
                 lblGuest.setIcon(new ImageIcon(scaled));
-            } catch (Exception ex) {}
+            } catch (Exception ex) {
+            }
 
             // --- THÊM: Countdown trả phòng ---
             if (p.getExpectedCheckOutTime() != null) {
-                java.time.Duration duration = java.time.Duration.between(LocalDateTime.now(), p.getExpectedCheckOutTime());
+                java.time.Duration duration = java.time.Duration.between(LocalDateTime.now(),
+                        p.getExpectedCheckOutTime());
                 long minutes = duration.toMinutes();
                 JLabel lblCount = new JLabel();
                 lblCount.setFont(new Font("Segoe UI", Font.BOLD, 10));
-                
+
                 if (minutes > 0) {
                     long h = minutes / 60;
                     long m = minutes % 60;
@@ -632,15 +652,15 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 }
                 lblGuest.setText(truncate(p.getTenKhachHienTai(), 10) + " • ");
                 lblGuest.setToolTipText(p.getTenKhachHienTai());
-                
+
                 // Cấu trúc lại lblGuest để chứa countdown bằng Box để kiểm soát layout tốt hơn
                 Box pnlGuest = Box.createHorizontalBox();
                 pnlGuest.add(lblGuest);
                 pnlGuest.add(lblCount);
                 pnlGuest.setAlignmentX(Component.LEFT_ALIGNMENT);
-                pnlGuest.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22)); 
-                
-                card.putClientProperty("guestPanel", pnlGuest); 
+                pnlGuest.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+
+                card.putClientProperty("guestPanel", pnlGuest);
             }
         } else {
             lblGuest.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -667,10 +687,12 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         center.add(Box.createVerticalStrut(1));
         center.add(lblView);
         center.add(Box.createVerticalStrut(3));
-        
+
         JComponent gp = (JComponent) card.getClientProperty("guestPanel");
-        if (gp != null) center.add(gp);
-        else center.add(lblGuest);
+        if (gp != null)
+            center.add(gp);
+        else
+            center.add(lblGuest);
 
         // Bottom: giá
         double giaActive = bangGiaService
@@ -784,7 +806,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         btnCancel.addActionListener(e -> dlg.dispose());
         btnConfirm.addActionListener(e -> {
             phongService.updateTrangThai(p.getSoPhong(), TrangThaiPhong.AVAILABLE);
-            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhongDisplay() + " đã sẵn sàng đón khách");
+            NotificationManager.showSuccess("Cập nhật thành công",
+                    "Phòng " + p.getSoPhongDisplay() + " đã sẵn sàng đón khách");
             rebuildFilter();
             refreshGrid();
             dlg.dispose();
@@ -854,7 +877,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             // Text
             String msg = "<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>"
                     + "<h3 style='margin: 0 0 10px 0; color: #0F172A; font-size: 18px;'>Hình thức Trả phòng Đoàn</h3>"
-                    + "Phòng <b>" + p.getSoPhongDisplay() + "</b> thuộc về một hợp đồng ĐOÀN đang có " + activeRoomsInGroup
+                    + "Phòng <b>" + p.getSoPhongDisplay() + "</b> thuộc về một hợp đồng ĐOÀN đang có "
+                    + activeRoomsInGroup
                     + " phòng được thuê.<br><br>"
                     + "Bạn muốn xử lý hoá đơn cho phòng này như thế nào?</body></html>";
             JLabel lblMessage = new JLabel(msg);
@@ -906,99 +930,99 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 showMasterBillDialog(tp.getDatPhong(), allGroupRooms);
                 return;
             } else if (choice == 1) {
-                    // Treo nợ đoàn (Master Folio Routing)
-                    int[] confirmResult = { -1 };
-                    JDialog confirmDlg = new JDialog(mainFrame, "", true);
-                    confirmDlg.setUndecorated(true);
-                    confirmDlg.setSize(440, 210);
-                    confirmDlg.setLocationRelativeTo(mainFrame);
+                // Treo nợ đoàn (Master Folio Routing)
+                int[] confirmResult = { -1 };
+                JDialog confirmDlg = new JDialog(mainFrame, "", true);
+                confirmDlg.setUndecorated(true);
+                confirmDlg.setSize(440, 210);
+                confirmDlg.setLocationRelativeTo(mainFrame);
 
-                    JPanel confirmRoot = new JPanel(new BorderLayout());
-                    confirmRoot.setBackground(Color.WHITE);
-                    confirmRoot.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(new Color(0, 0, 0, 50), 1),
-                            BorderFactory.createEmptyBorder(25, 25, 20, 25)));
+                JPanel confirmRoot = new JPanel(new BorderLayout());
+                confirmRoot.setBackground(Color.WHITE);
+                confirmRoot.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(0, 0, 0, 50), 1),
+                        BorderFactory.createEmptyBorder(25, 25, 20, 25)));
 
-                    JPanel centerConfirm = new JPanel(new BorderLayout(15, 0));
-                    centerConfirm.setOpaque(false);
-                    JLabel lblQ = new JLabel("❓");
-                    lblQ.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
-                    centerConfirm.add(lblQ, BorderLayout.WEST);
+                JPanel centerConfirm = new JPanel(new BorderLayout(15, 0));
+                centerConfirm.setOpaque(false);
+                JLabel lblQ = new JLabel("❓");
+                lblQ.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
+                centerConfirm.add(lblQ, BorderLayout.WEST);
 
-                    String msgConfirm = "<html><body style='width: 280px; color: #334155; font-family: Segoe UI, sans-serif;'>"
-                            + "<h3 style='margin: 0 0 8px 0; color: #0F172A; font-size: 16px;'>Xác nhận Treo Nợ</h3>"
-                            + "Hoá đơn phòng <b>" + p.getSoPhongDisplay()
-                            + "</b> sẽ được chuyển toàn bộ sang Hóa Đơn Đoàn tổng. Bạn vẫn muốn tiếp tục?</body></html>";
-                    centerConfirm.add(new JLabel(msgConfirm), BorderLayout.CENTER);
-                    confirmRoot.add(centerConfirm, BorderLayout.CENTER);
+                String msgConfirm = "<html><body style='width: 280px; color: #334155; font-family: Segoe UI, sans-serif;'>"
+                        + "<h3 style='margin: 0 0 8px 0; color: #0F172A; font-size: 16px;'>Xác nhận Treo Nợ</h3>"
+                        + "Hoá đơn phòng <b>" + p.getSoPhongDisplay()
+                        + "</b> sẽ được chuyển toàn bộ sang Hóa Đơn Đoàn tổng. Bạn vẫn muốn tiếp tục?</body></html>";
+                centerConfirm.add(new JLabel(msgConfirm), BorderLayout.CENTER);
+                confirmRoot.add(centerConfirm, BorderLayout.CENTER);
 
-                    JPanel btnConfirmPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-                    btnConfirmPanel.setOpaque(false);
-                    btnConfirmPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
+                JPanel btnConfirmPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+                btnConfirmPanel.setOpaque(false);
+                btnConfirmPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
 
-                    RoundedButton btnNo = new RoundedButton("Huỷ", new Color(0xF1F5F9), new Color(0x64748B));
-                    RoundedButton btnYes = new RoundedButton("Treo nợ Đoàn", UIConstants.PRIMARY, Color.WHITE);
-                    btnNo.addActionListener(e -> {
-                        confirmResult[0] = 0;
-                        confirmDlg.dispose();
-                    });
-                    btnYes.addActionListener(e -> {
-                        confirmResult[0] = 1;
-                        confirmDlg.dispose();
-                    });
-                    btnConfirmPanel.add(btnNo);
-                    btnConfirmPanel.add(btnYes);
+                RoundedButton btnNo = new RoundedButton("Huỷ", new Color(0xF1F5F9), new Color(0x64748B));
+                RoundedButton btnYes = new RoundedButton("Treo nợ Đoàn", UIConstants.PRIMARY, Color.WHITE);
+                btnNo.addActionListener(e -> {
+                    confirmResult[0] = 0;
+                    confirmDlg.dispose();
+                });
+                btnYes.addActionListener(e -> {
+                    confirmResult[0] = 1;
+                    confirmDlg.dispose();
+                });
+                btnConfirmPanel.add(btnNo);
+                btnConfirmPanel.add(btnYes);
 
-                    confirmRoot.add(btnConfirmPanel, BorderLayout.SOUTH);
-                    confirmDlg.setContentPane(confirmRoot);
-                    confirmDlg.setVisible(true);
+                confirmRoot.add(btnConfirmPanel, BorderLayout.SOUTH);
+                confirmDlg.setContentPane(confirmRoot);
+                confirmDlg.setVisible(true);
 
-                    if (confirmResult[0] == 1) {
-                        String err = thuePhongService.checkOutWithoutBilling(tp.getMaChiTiet());
-                        if (err == null) {
-                            JDialog successDlg = new JDialog(mainFrame, "", true);
-                            successDlg.setUndecorated(true);
-                            successDlg.setSize(400, 180);
-                            successDlg.setLocationRelativeTo(mainFrame);
+                if (confirmResult[0] == 1) {
+                    String err = thuePhongService.checkOutWithoutBilling(tp.getMaChiTiet());
+                    if (err == null) {
+                        JDialog successDlg = new JDialog(mainFrame, "", true);
+                        successDlg.setUndecorated(true);
+                        successDlg.setSize(400, 180);
+                        successDlg.setLocationRelativeTo(mainFrame);
 
-                            JPanel rootS = new JPanel(new BorderLayout());
-                            rootS.setBackground(Color.WHITE);
-                            rootS.setBorder(BorderFactory.createCompoundBorder(
-                                    BorderFactory.createLineBorder(new Color(0, 0, 0, 50), 1),
-                                    BorderFactory.createEmptyBorder(25, 25, 20, 25)));
+                        JPanel rootS = new JPanel(new BorderLayout());
+                        rootS.setBackground(Color.WHITE);
+                        rootS.setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(new Color(0, 0, 0, 50), 1),
+                                BorderFactory.createEmptyBorder(25, 25, 20, 25)));
 
-                            JPanel centerS = new JPanel(new BorderLayout(15, 0));
-                            centerS.setOpaque(false);
-                            JLabel lblTickS = new JLabel("✅");
-                            lblTickS.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
-                            centerS.add(lblTickS, BorderLayout.WEST);
+                        JPanel centerS = new JPanel(new BorderLayout(15, 0));
+                        centerS.setOpaque(false);
+                        JLabel lblTickS = new JLabel("✅");
+                        lblTickS.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 46));
+                        centerS.add(lblTickS, BorderLayout.WEST);
 
-                            centerS.add(new JLabel(
-                                    "<html><body style='width: 260px; color: #334155; font-family: Segoe UI, sans-serif;'>"
-                                            + "<h3 style='margin: 0 0 8px 0; color: #0F172A; font-size: 16px;'>Thành công!</h3>"
-                                            + "Đã trả phòng và chuyển nợ thành công vào bill Đoàn!</body></html>"),
-                                    BorderLayout.CENTER);
-                            rootS.add(centerS, BorderLayout.CENTER);
+                        centerS.add(new JLabel(
+                                "<html><body style='width: 260px; color: #334155; font-family: Segoe UI, sans-serif;'>"
+                                        + "<h3 style='margin: 0 0 8px 0; color: #0F172A; font-size: 16px;'>Thành công!</h3>"
+                                        + "Đã trả phòng và chuyển nợ thành công vào bill Đoàn!</body></html>"),
+                                BorderLayout.CENTER);
+                        rootS.add(centerS, BorderLayout.CENTER);
 
-                            JPanel btnSPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-                            btnSPanel.setOpaque(false);
-                            btnSPanel.setBorder(BorderFactory.createEmptyBorder(15, 0, 0, 0));
-                            RoundedButton btnCloseS = new RoundedButton("Đóng", UIConstants.PRIMARY, Color.WHITE);
-                            btnCloseS.addActionListener(e -> successDlg.dispose());
-                            btnSPanel.add(btnCloseS);
+                        JPanel btnSPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+                        btnSPanel.setOpaque(false);
+                        btnSPanel.setBorder(BorderFactory.createEmptyBorder(15, 0, 0, 0));
+                        RoundedButton btnCloseS = new RoundedButton("Đóng", UIConstants.PRIMARY, Color.WHITE);
+                        btnCloseS.addActionListener(e -> successDlg.dispose());
+                        btnSPanel.add(btnCloseS);
 
-                            rootS.add(btnSPanel, BorderLayout.SOUTH);
-                            successDlg.setContentPane(rootS);
-                            successDlg.setVisible(true);
+                        rootS.add(btnSPanel, BorderLayout.SOUTH);
+                        successDlg.setContentPane(rootS);
+                        successDlg.setVisible(true);
 
-                            rebuildFilter();
-                            refreshGrid();
-                            mainFrame.refreshThongKe();
-                        } else {
-                            JOptionPane.showMessageDialog(mainFrame, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
-                        }
+                        rebuildFilter();
+                        refreshGrid();
+                        mainFrame.refreshThongKe();
+                    } else {
+                        JOptionPane.showMessageDialog(mainFrame, "Lỗi: " + err, "Lỗi", JOptionPane.ERROR_MESSAGE);
                     }
-                    return;
+                }
+                return;
             } else if (choice == 2 || choice == JOptionPane.CLOSED_OPTION) {
                 return;
             }
@@ -1009,7 +1033,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                     .count();
 
             if (unpaidCount > 0) {
-                final int[] result = {-1}; // -1: cancel, 0: gom bill, 1: pay solo
+                final int[] result = { -1 }; // -1: cancel, 0: gom bill, 1: pay solo
                 JDialog dlg = new JDialog(mainFrame, "", true);
                 dlg.setUndecorated(true);
                 dlg.setSize(520, 280);
@@ -1030,11 +1054,14 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 centerPanel.add(lblIcon, BorderLayout.WEST);
 
                 // Text
-                StringBuilder msg = new StringBuilder("<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>");
-                msg.append("<h3 style='margin: 0 0 10px 0; color: #DC2626; font-size: 18px;'>Tiến hành Gom Bill Đoàn</h3>")
-                   .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn.<br>")
-                   .append("Hiện có <b style='color: #DC2626;'>").append(unpaidCount).append(" phòng</b> đã trả nhưng đang Treo nợ.<br><br>")
-                   .append("<b>BẮT BUỘC</b> tiến hành GOM BILL toàn đoàn vào 1 Hóa đơn duy nhất để tất toán cho các phòng đã treo nợ.");
+                StringBuilder msg = new StringBuilder(
+                        "<html><body style='width: 320px; color: #334155; font-family: Segoe UI, sans-serif;'>");
+                msg.append(
+                        "<h3 style='margin: 0 0 10px 0; color: #DC2626; font-size: 18px;'>Tiến hành Gom Bill Đoàn</h3>")
+                        .append("Đây là phòng <b>CUỐI CÙNG</b> của đoàn.<br>")
+                        .append("Hiện có <b style='color: #DC2626;'>").append(unpaidCount)
+                        .append(" phòng</b> đã trả nhưng đang Treo nợ.<br><br>")
+                        .append("<b>BẮT BUỘC</b> tiến hành GOM BILL toàn đoàn vào 1 Hóa đơn duy nhất để tất toán cho các phòng đã treo nợ.");
                 msg.append("</body></html>");
 
                 JLabel lblMessage = new JLabel(msg.toString());
@@ -1047,10 +1074,16 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 buttons.setBorder(BorderFactory.createEmptyBorder(20, 0, 0, 0));
 
                 RoundedButton btnCancel = grayButton("Hủy bỏ");
-                btnCancel.addActionListener(e -> { result[0] = -1; dlg.dispose(); });
+                btnCancel.addActionListener(e -> {
+                    result[0] = -1;
+                    dlg.dispose();
+                });
 
                 RoundedButton btnGroup = primaryButton("Gom Bill toàn đoàn");
-                btnGroup.addActionListener(e -> { result[0] = 0; dlg.dispose(); });
+                btnGroup.addActionListener(e -> {
+                    result[0] = 0;
+                    dlg.dispose();
+                });
                 buttons.add(btnCancel);
                 buttons.add(btnGroup);
 
@@ -1087,9 +1120,23 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         if (fullDp == null)
             fullDp = dp;
 
+        // RELOAD rooms từ database để lấy dữ liệu tươi mới (tránh stale data)
+        // Đặc biệt là cập nhật daThanhToan flag nếu có phòng được thanh toán sau khi mở
+        // dialog checkout
+        java.util.List<ChiTietDatPhong> freshRooms = thuePhongService.getChiTietByDatPhong(dp.getMaDatPhong());
+
+        // DEBUG LOG
+        System.out.println("[DEBUG] showMasterBillDialog - freshRooms loaded: "
+                + (freshRooms != null ? freshRooms.size() : 0) + " rooms");
+        if (freshRooms != null) {
+            for (ChiTietDatPhong ct : freshRooms) {
+                System.out.println("  - " + ct.getSoPhongDisplay() + ": daThanhToan=" + ct.isDaThanhToan());
+            }
+        }
+
         MasterBillDialog dlg = new MasterBillDialog(
                 (java.awt.Frame) SwingUtilities.getWindowAncestor(this),
-                fullDp, rooms);
+                fullDp, freshRooms);
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
             rebuildFilter();
@@ -1117,7 +1164,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         ModernMenuItem itemService = new ModernMenuItem("Thêm dịch vụ sử dụng");
         itemService.setEnabled(p.getTrangThai() == TrangThaiPhong.OCCUPIED);
         itemService.addActionListener(e2 -> showAddServiceDialog(p));
- 
+
         ModernMenuItem itemRep = new ModernMenuItem("Thay đổi người đại diện");
         itemRep.setEnabled(p.getTrangThai() == TrangThaiPhong.OCCUPIED);
         itemRep.addActionListener(e2 -> showChangeRepresentativeDialog(p));
@@ -1131,7 +1178,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         itemExtend.addActionListener(e2 -> showExtendStayDialog(p));
 
         ModernMenuItem itemMaint = new ModernMenuItem("Đánh dấu bảo trì");
-        itemMaint.setEnabled(p.getTrangThai() == TrangThaiPhong.AVAILABLE || p.getTrangThai() == TrangThaiPhong.CLEANING);
+        itemMaint.setEnabled(
+                p.getTrangThai() == TrangThaiPhong.AVAILABLE || p.getTrangThai() == TrangThaiPhong.CLEANING);
         itemMaint.addActionListener(e2 -> showMaintenanceDialog(p, true));
 
         ModernMenuItem itemFinishMaint = new ModernMenuItem("Hoàn tất bảo trì");
@@ -1139,17 +1187,17 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         itemFinishMaint.addActionListener(e2 -> showMaintenanceDialog(p, false));
 
         menu.add(itemDetails);
-        
+
         if (p.getTrangThai() == TrangThaiPhong.AVAILABLE || p.getTrangThai() == TrangThaiPhong.CLEANING) {
             menu.addSeparator();
             menu.add(itemMaint);
         }
-        
+
         if (p.getTrangThai() == TrangThaiPhong.MAINTENANCE) {
             menu.addSeparator();
             menu.add(itemFinishMaint);
         }
-        
+
         if (p.getTrangThai() == TrangThaiPhong.OCCUPIED) {
             menu.addSeparator();
             menu.add(itemSwitch);
@@ -1158,11 +1206,12 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             menu.add(itemExtend);
             menu.addSeparator();
             menu.add(itemPayment);
-            
+
             // Gom Bill Đoàn — hiển thị nếu đoàn có ít nhất 2 phòng chưa thanh toán
             ChiTietDatPhong tp = thuePhongService.getActiveByPhong(p.getSoPhong());
             if (tp != null && tp.getDatPhong() != null) {
-                java.util.List<ChiTietDatPhong> allRooms = thuePhongService.getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
+                java.util.List<ChiTietDatPhong> allRooms = thuePhongService
+                        .getChiTietByDatPhong(tp.getDatPhong().getMaDatPhong());
                 long unpaidCount = allRooms.stream().filter(r -> !r.isDaThanhToan()).count();
                 if (unpaidCount > 1) {
                     ModernMenuItem itemMasterBill = new ModernMenuItem("Gom Bill Đoàn (Master Bill)");
@@ -1180,10 +1229,10 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
     private void showMaintenanceDialog(Phong p, boolean start) {
         String title = start ? "Đánh dấu bảo trì" : "Hoàn tất bảo trì";
         String emoji = start ? "🛠️" : "✅";
-        String msg = start 
-            ? "Bạn muốn chuyển phòng <b>" + p.getSoPhong() + "</b> sang trạng thái bảo trì?"
-            : "Xác nhận phòng <b>" + p.getSoPhong() + "</b> đã bảo trì xong và sẵn sàng đón khách?";
-        
+        String msg = start
+                ? "Bạn muốn chuyển phòng <b>" + p.getSoPhong() + "</b> sang trạng thái bảo trì?"
+                : "Xác nhận phòng <b>" + p.getSoPhong() + "</b> đã bảo trì xong và sẵn sàng đón khách?";
+
         JDialog dlg = new JDialog(mainFrame, title, true);
         dlg.setSize(480, 230);
         dlg.setLocationRelativeTo(mainFrame);
@@ -1201,21 +1250,22 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         centerPanel.add(lblIcon, BorderLayout.WEST);
 
         JLabel lblMessage = new JLabel("<html><body style='width: 320px; color: #334155; font-family: Segoe UI;'>"
-            + "<h3 style='margin: 0 0 8px 0; color: #0F172A;'>" + title + "?</h3>"
-            + msg + "</body></html>");
+                + "<h3 style='margin: 0 0 8px 0; color: #0F172A;'>" + title + "?</h3>"
+                + msg + "</body></html>");
         centerPanel.add(lblMessage, BorderLayout.CENTER);
         main.add(centerPanel, BorderLayout.CENTER);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttons.setBackground(Color.WHITE);
         RoundedButton btnCancel = new RoundedButton("Huỷ", new Color(0xE2E8F0), UIConstants.TEXT_PRIMARY);
-        RoundedButton btnConfirm = new RoundedButton(start ? "Xác nhận bảo trì" : "Hoàn tất & Mở lại", 
-            start ? UIConstants.DANGER : UIConstants.SUCCESS, Color.WHITE);
+        RoundedButton btnConfirm = new RoundedButton(start ? "Xác nhận bảo trì" : "Hoàn tất & Mở lại",
+                start ? UIConstants.DANGER : UIConstants.SUCCESS, Color.WHITE);
 
         btnCancel.addActionListener(e -> dlg.dispose());
         btnConfirm.addActionListener(e -> {
             phongService.updateTrangThai(p.getSoPhong(), start ? TrangThaiPhong.MAINTENANCE : TrangThaiPhong.AVAILABLE);
-            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhongDisplay() + (start ? " đã được đánh dấu bảo trì" : " đã sẵn sàng đón khách"));
+            NotificationManager.showSuccess("Cập nhật thành công", "Phòng " + p.getSoPhongDisplay()
+                    + (start ? " đã được đánh dấu bảo trì" : " đã sẵn sàng đón khách"));
             refreshGrid();
             mainFrame.refreshDashboard();
             dlg.dispose();
@@ -1231,9 +1281,11 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
     // ---- Action: Xem chi tiết ----
     private void showRoomDetailDialog(Phong pOld) {
-        // Luôn fetch bản mới nhất từ database để tránh hiện thông tin khách cũ (Ghost Guest)
+        // Luôn fetch bản mới nhất từ database để tránh hiện thông tin khách cũ (Ghost
+        // Guest)
         Phong p = phongService.getPhongById(pOld.getSoPhong());
-        if (p == null) p = pOld;
+        if (p == null)
+            p = pOld;
 
         JDialog dlg = new JDialog(mainFrame, "Thông tin phòng " + p.getSoPhongDisplay(), true);
         dlg.setSize(480, 520);
@@ -1291,11 +1343,11 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             lblL.setFont(UIConstants.FONT_BODY);
             lblL.setForeground(UIConstants.TEXT_SECONDARY);
             lblL.setPreferredSize(new Dimension(140, 20));
-            
+
             JLabel lblV = new JLabel("<html><body style='width: 250px;'>" + value + "</body></html>");
             lblV.setFont(new Font("Segoe UI", Font.BOLD, 13));
             lblV.setForeground(UIConstants.TEXT_PRIMARY);
-            
+
             row.add(lblL, BorderLayout.WEST);
             row.add(lblV, BorderLayout.CENTER);
             infoPanel.add(row);
@@ -1342,11 +1394,13 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                 infoPanel.add(Box.createVerticalStrut(10));
 
                 addRow.accept("Họ và tên:", kh.getHoTen());
-                addRow.accept("Số điện thoại:", (kh.getSoDienThoai() != null && !kh.getSoDienThoai().isEmpty()) ? kh.getSoDienThoai() : "—");
+                addRow.accept("Số điện thoại:",
+                        (kh.getSoDienThoai() != null && !kh.getSoDienThoai().isEmpty()) ? kh.getSoDienThoai() : "—");
                 addRow.accept("CCCD / Hộ chiếu:", kh.getSoGiayToChinhDisplay());
                 addRow.accept("Giới tính:", kh.getGioiTinh() != null ? kh.getGioiTinh() : "—");
                 addRow.accept("Quốc tịch:", kh.getQuocTich() != null ? kh.getQuocTich() : "—");
-                addRowMultiline.accept("Email:", (kh.getEmail() != null && !kh.getEmail().isEmpty()) ? kh.getEmail() : "—");
+                addRowMultiline.accept("Email:",
+                        (kh.getEmail() != null && !kh.getEmail().isEmpty()) ? kh.getEmail() : "—");
 
                 if (tp.getNgayNhanThucTe() != null) {
                     java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
@@ -1393,7 +1447,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
                     row.setOpaque(false);
                     row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 25));
                     row.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    
+
                     JLabel lblL = new JLabel("Giấy tờ xác minh:");
                     lblL.setFont(UIConstants.FONT_BODY);
                     lblL.setForeground(UIConstants.TEXT_SECONDARY);
@@ -1404,18 +1458,18 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
                     String[] paths = imgPaths.split(";");
                     for (int i = 0; i < paths.length; i++) {
-                        if (paths[i].trim().isEmpty()) continue;
+                        if (paths[i].trim().isEmpty())
+                            continue;
                         String path = paths[i].trim();
                         int idx = i + 1;
-                        
+
                         JButton btnImg = new JButton("Ảnh " + idx);
                         btnImg.setFont(new Font("Segoe UI", Font.BOLD, 11));
                         btnImg.setForeground(UIConstants.PRIMARY);
                         btnImg.setBackground(new Color(0xF0F3FF));
                         btnImg.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(UIConstants.PRIMARY, 1, true),
-                            BorderFactory.createEmptyBorder(2, 8, 2, 8)
-                        ));
+                                BorderFactory.createLineBorder(UIConstants.PRIMARY, 1, true),
+                                BorderFactory.createEmptyBorder(2, 8, 2, 8)));
                         btnImg.setFocusPainted(false);
                         btnImg.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                         btnImg.addActionListener(e -> showImagePopup(path, idx));
@@ -1452,7 +1506,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
     private void showImagePopup(String path, int index) {
         java.io.File imgFile = new java.io.File(path);
         if (!imgFile.exists()) {
-            JOptionPane.showMessageDialog(mainFrame, "Không tìm thấy tệp ảnh CCCD lưu trữ tại:\n" + path, "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(mainFrame, "Không tìm thấy tệp ảnh CCCD lưu trữ tại:\n" + path, "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -1465,41 +1520,42 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         try {
             ImageIcon originalIcon = new ImageIcon(imgFile.getAbsolutePath());
             Image img = originalIcon.getImage();
-            
+
             // Scaled smoothly to fit dialog size
             int targetWidth = 560;
             int targetHeight = (int) ((double) img.getHeight(null) / img.getWidth(null) * targetWidth);
-            
+
             JLabel lblImg = new JLabel();
             lblImg.setHorizontalAlignment(SwingConstants.CENTER);
-            
+
             if (targetHeight > 360) {
                 targetHeight = 360;
                 targetWidth = (int) ((double) img.getWidth(null) / img.getHeight(null) * targetHeight);
             }
-            
+
             Image scaledImg = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
             lblImg.setIcon(new ImageIcon(scaledImg));
-            
+
             JPanel centerPanel = new JPanel(new GridBagLayout());
             centerPanel.setBackground(Color.WHITE);
             centerPanel.add(lblImg);
-            
+
             viewDlg.add(centerPanel, BorderLayout.CENTER);
-            
+
             JPanel pSouth = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
             pSouth.setBackground(new Color(0xF8FAFC));
             pSouth.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
-            
+
             RoundedButton btnClose = new RoundedButton("Đóng", UIConstants.PRIMARY, Color.WHITE);
             btnClose.setPreferredSize(new Dimension(90, 32));
             btnClose.addActionListener(e -> viewDlg.dispose());
             pSouth.add(btnClose);
             viewDlg.add(pSouth, BorderLayout.SOUTH);
-            
+
             viewDlg.setVisible(true);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(mainFrame, "Lỗi khi xử lý hiển thị ảnh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(mainFrame, "Lỗi khi xử lý hiển thị ảnh: " + ex.getMessage(), "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -1512,7 +1568,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             return;
         }
 
-        ui.dialogs.ChangeRepresentativeDialog dlg = new ui.dialogs.ChangeRepresentativeDialog(mainFrame, tp.getDatPhong(), p.getSoPhong());
+        ui.dialogs.ChangeRepresentativeDialog dlg = new ui.dialogs.ChangeRepresentativeDialog(mainFrame,
+                tp.getDatPhong(), p.getSoPhong());
         dlg.setVisible(true);
         if (dlg.isConfirmed()) {
             rebuildFilter();
@@ -1535,11 +1592,11 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         if (dlg.isConfirmed()) {
             Phong newRoom = dlg.getSelectedRoom();
             boolean keepOldPrice = !dlg.isUseNewPrice();
-            
+
             String error = thuePhongService.transferRoom(tp.getMaChiTiet(), newRoom.getMaPhong(), keepOldPrice);
-            
+
             if (error == null) {
-                NotificationManager.showSuccess("Đổi phòng thành công", 
+                NotificationManager.showSuccess("Đổi phòng thành công",
                         "Từ P." + currentPhong.getSoPhong() + " sang P." + newRoom.getMaPhong());
                 rebuildFilter();
                 refreshGrid();
@@ -1583,7 +1640,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             LocalDateTime newTime = dlg.getNewCheckoutTime();
             String err = thuePhongService.extendStay(tp.getMaChiTiet(), newTime);
             if (err == null) {
-                NotificationManager.showSuccess("Gia hạn thành công", "Đã cập nhật ngày trả cho phòng " + p.getSoPhong());
+                NotificationManager.showSuccess("Gia hạn thành công",
+                        "Đã cập nhật ngày trả cho phòng " + p.getSoPhong());
                 rebuildFilter();
                 refreshGrid();
             } else {
@@ -1613,7 +1671,9 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         }
 
         @Override
-        public boolean getScrollableTracksViewportWidth() { return true; }
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
 
         @Override
         public boolean getScrollableTracksViewportHeight() {

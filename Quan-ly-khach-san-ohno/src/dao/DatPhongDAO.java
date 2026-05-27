@@ -27,7 +27,7 @@ public class DatPhongDAO {
 
     public List<DatPhong> getAll() {
         List<DatPhong> list = new ArrayList<>();
-        String sql = "SELECT * FROM DatPhong WHERE trangThai <> 'CANCELLED' ORDER BY ngayDat DESC";
+        String sql = "SELECT * FROM DatPhong ORDER BY ngayDat DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next())
                 list.add(mapRow(rs));

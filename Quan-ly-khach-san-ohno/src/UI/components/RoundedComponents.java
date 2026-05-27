@@ -289,6 +289,32 @@ public class RoundedComponents {
     // ModernComboBox - dropdown đẹp mắt
     // ============================================================
     public static class ModernComboBox<T> extends JComboBox<T> {
+        private boolean layingOut = false;
+        private int popupWidth = 0;
+
+        public void setPopupWidth(int width) {
+            this.popupWidth = width;
+        }
+
+        @Override
+        public void doLayout() {
+            try {
+                layingOut = true;
+                super.doLayout();
+            } finally {
+                layingOut = false;
+            }
+        }
+
+        @Override
+        public Dimension getSize() {
+            Dimension dim = super.getSize();
+            if (!layingOut && popupWidth > 0) {
+                dim.width = Math.max(dim.width, popupWidth);
+            }
+            return dim;
+        }
+
         public ModernComboBox(T[] items) {
             super(items);
             setFont(UIConstants.FONT_BODY);
