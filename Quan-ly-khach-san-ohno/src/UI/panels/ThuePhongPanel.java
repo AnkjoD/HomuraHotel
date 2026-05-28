@@ -669,7 +669,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         } else {
             lblGuest.setAlignmentX(Component.LEFT_ALIGNMENT);
             // Các trạng thái khác (Có sẵn, Vệ sinh, Bảo trì) -> Hiện sức chứa tối đa
-            lblGuest.setText(p.getSucChua() + " người tối đa");
+            lblGuest.setText(p.getSucChua() + " khách (Tối đa " + (p.getSucChua() + 2) + ")");
             lblGuest.setForeground(UIConstants.TEXT_MUTED);
             lblGuest.setIcon(null);
         }

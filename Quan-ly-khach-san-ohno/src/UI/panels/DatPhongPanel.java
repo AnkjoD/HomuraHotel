@@ -666,6 +666,20 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
             txtNgayNhan.setDate(java.sql.Timestamp.valueOf(editingDatPhong.getNgayNhanDuKien()));
             txtNgayTra.setDate(java.sql.Timestamp.valueOf(editingDatPhong.getNgayTraDuKien()));
             spnSoKhach.setValue(editingDatPhong.getSoLuongKhach());
+            
+            // Pre-populate currently booked rooms in selectedRooms
+            if (editingDatPhong.getDsChiTiet() != null) {
+                for (entity.ChiTietDatPhong ct : editingDatPhong.getDsChiTiet()) {
+                    if (ct.getPhong() != null) {
+                        selectedRooms.add(ct.getPhong());
+                    }
+                }
+            }
+            // Pre-populate lastSearchCheckIn/Out to match dates so doSearch() won't clear them
+            lastSearchCheckIn = txtNgayNhan.getDate();
+            lastSearchCheckOut = txtNgayTra.getDate();
+            
+            updateSelectionBar();
             SwingUtilities.invokeLater(() -> doSearch());
         } else {
             pnlEditBanner.setVisible(false);
@@ -935,7 +949,7 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         lblView.setFont(UIConstants.FONT_TINY);
         lblView.setForeground(UIConstants.TEXT_MUTED);
 
-        JLabel lblGuest = new JLabel(p.getSucChua() + " người tối đa");
+        JLabel lblGuest = new JLabel(p.getSucChua() + " khách (Tối đa " + (p.getSucChua() + 2) + ")");
         lblGuest.setFont(UIConstants.FONT_SMALL);
         lblGuest.setForeground(UIConstants.TEXT_MUTED);
 
@@ -951,7 +965,8 @@ public class DatPhongPanel extends JPanel implements ResettableFilter {
         // Bottom: giá
         double giaActive = bangGiaService.layGiaVaoThoiDiem(
                 p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "",
-                checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
+                editingDatPhong != null ? editingDatPhong.getLoaiKhach() : "ALL");
         JLabel lblPrice = new JLabel(String.format("%,.0fđ/đêm", giaActive));
         lblPrice.setFont(UIConstants.FONT_SMALL_BOLD);
         lblPrice.setForeground(UIConstants.SUCCESS);

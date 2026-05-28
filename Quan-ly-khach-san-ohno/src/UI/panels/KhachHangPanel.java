@@ -114,7 +114,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         RoundedButton btnThem = new RoundedButton("+ Thêm khách hàng", UIConstants.PRIMARY, Color.WHITE);
         RoundedButton btnExcel = new RoundedButton("↓ Xuất danh sách", new Color(0x16A34A), Color.WHITE);
 
-        btnThem.addActionListener(e -> showDialog(null));
+        btnThem.addActionListener(e -> showDialog(null, false));
         btnExcel.addActionListener(e -> {
             if (filteredList != null && !filteredList.isEmpty()) {
                 ExcelExporter.exportKhachHang(KhachHangPanel.this, filteredList);
@@ -338,7 +338,7 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         miXoa.setEnabled(AuthService.getInstance().isManager());
  
         // Logic actions
-        miXem.addActionListener(e -> editSelected());
+        miXem.addActionListener(e -> viewSelected());
         miSua.addActionListener(e -> editSelected());
  
         miDat.addActionListener(e -> {
@@ -578,11 +578,11 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
         return service.getById((String) tableModel.getValueAt(row, 0));
     }
 
-    private void showDialog(KhachHang kh) {
+    private void showDialog(KhachHang kh, boolean readOnly) {
         Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
-        KhachHangDialog dlg = new KhachHangDialog(owner, kh);
+        KhachHangDialog dlg = new KhachHangDialog(owner, kh, readOnly);
         dlg.setVisible(true);
-        if (dlg.isConfirmed()) {
+        if (!readOnly && dlg.isConfirmed()) {
             NotificationManager.showSuccess("Thành công",
                     (kh == null ? "Đã thêm khách hàng mới" : "Đã cập nhật thông tin khách hàng"));
             refresh();
@@ -595,7 +595,16 @@ public class KhachHangPanel extends JPanel implements ResettableFilter {
             JOptionPane.showMessageDialog(this, "Chọn một hồ sơ khách hàng để mở!");
             return;
         }
-        showDialog(kh);
+        showDialog(kh, false);
+    }
+
+    private void viewSelected() {
+        KhachHang kh = getSelected();
+        if (kh == null) {
+            JOptionPane.showMessageDialog(this, "Chọn một hồ sơ khách hàng để mở!");
+            return;
+        }
+        showDialog(kh, true);
     }
 
     private void toggleActivationSelected() {

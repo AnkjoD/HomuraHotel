@@ -29,6 +29,7 @@ public class DatPhongDialog extends JDialog {
     private final Runnable onSuccess;
 
     private JComboBox<String> cboLoaiKhach;
+    private JLabel lblHeaderGiaTamTinh;
     private ModernComboBox<String> cboTenDoan;
     private ModernTextField txtGiamGia;
     private ModernTextField txtSDT;
@@ -93,6 +94,7 @@ public class DatPhongDialog extends JDialog {
     }
 
     private void buildUI(String titleStr) {
+        final Runnable[] updateEstTotal = new Runnable[1];
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Color.WHITE);
 
@@ -113,9 +115,11 @@ public class DatPhongDialog extends JDialog {
         for (Phong p : selectedRoomsList) {
             totalSucChua += p.getSucChua();
             totalAbsMax += (p.getSucChua() + 2);
+            String lk = editingDatPhong != null ? editingDatPhong.getLoaiKhach() : "CA_NHAN";
             double giaBook = bangGiaService.layGiaVaoThoiDiem(
                     p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "",
-                    checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                    checkIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
+                    lk);
             pricePerNight += giaBook;
             roomNames.append("P.").append(p.getSoPhongDisplay()).append(", ");
         }
@@ -145,8 +149,10 @@ public class DatPhongDialog extends JDialog {
             JLabel lblVal = new JLabel(d[1]);
             lblVal.setFont(UIConstants.FONT_SMALL_BOLD);
             lblVal.setForeground(UIConstants.TEXT_PRIMARY);
-            if (d[0].startsWith("Gia"))
+            if (d[0].startsWith("Giá")) {
                 lblVal.setForeground(UIConstants.SUCCESS);
+                lblHeaderGiaTamTinh = lblVal;
+            }
             p.add(lblKey);
             p.add(lblVal);
             detailsGrid.add(p);
@@ -217,6 +223,9 @@ public class DatPhongDialog extends JDialog {
             cboTenDoan.setEnabled(isDoan);
             txtGiamGia.setEnabled(isDoan);
             txtGiamGia.setBackground(isDoan ? Color.WHITE : new Color(0xF1F5F9));
+            if (updateEstTotal[0] != null) {
+                updateEstTotal[0].run();
+            }
         });
 
         // Section: Thong tin khach hàng
@@ -392,7 +401,6 @@ public class DatPhongDialog extends JDialog {
         form.add(modernSectionLabel("Lịch trình lưu trú từng phòng"), g);
 
         final java.util.List<ui.components.DateTimePicker[]> roomDates = new java.util.ArrayList<>();
-        final Runnable[] updateEstTotal = new Runnable[1];
         final Runnable[] updateHanCocHint = new Runnable[1];
 
         for (Phong ph : selectedRoomsList) {
@@ -410,7 +418,7 @@ public class DatPhongDialog extends JDialog {
                 if (!ldtTra.isAfter(ldtNhan)) {
                     lblStatus.setText("Ngày trả phải sau ngày nhận");
                     lblStatus.setForeground(new Color(0xEF4444)); // Error red
-                } else if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra)) {
+                } else if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra, editingDatPhong != null ? editingDatPhong.getMaDatPhong() : null)) {
                     lblStatus.setText("Bị trùng lịch đặt phòng!");
                     lblStatus.setForeground(new Color(0xEF4444)); // Error red
                 } else {
@@ -487,18 +495,30 @@ public class DatPhongDialog extends JDialog {
 
         updateEstTotal[0] = () -> {
             double total = 0;
+            double singleNightRateSum = 0;
             for (int i = 0; i < selectedRoomsList.size(); i++) {
                 Phong ph = selectedRoomsList.get(i);
                 ui.components.DateTimePicker[] pickers = roomDates.get(i);
                 Date rCheckIn = pickers[0].getDate();
                 Date rCheckOut = pickers[1].getDate();
                 long rNights = new ThuePhongService().tinhSoNgay(rCheckIn, rCheckOut);
+                String segment = "CA_NHAN";
+                if (cboLoaiKhach != null) {
+                    segment = (cboLoaiKhach.getSelectedIndex() == 1) ? "DOAN" : "CA_NHAN";
+                } else if (editingDatPhong != null) {
+                    segment = editingDatPhong.getLoaiKhach();
+                }
                 double base = bangGiaService.layGiaVaoThoiDiem(
                         ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
-                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
+                        segment);
                 total += base * rNights;
+                singleNightRateSum += base;
             }
             txtTongTien.setText(String.format("%,.0fđ", total));
+            if (lblHeaderGiaTamTinh != null) {
+                lblHeaderGiaTamTinh.setText(String.format("%,.0fđ", singleNightRateSum));
+            }
 
             int selIdx = cboCoc.getSelectedIndex();
             cboCoc.removeAllItems();
@@ -756,7 +776,7 @@ public class DatPhongDialog extends JDialog {
 
                 LocalDateTime ldtNhan = pickers[0].getLocalDateTime();
                 LocalDateTime ldtTra = pickers[1].getLocalDateTime();
-                if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra)) {
+                if (!new dao.PhongDAO().isRoomAvailable(ph.getMaPhong(), ldtNhan, ldtTra, editingDatPhong != null ? editingDatPhong.getMaDatPhong() : null)) {
                     NotificationManager.showError("Lỗi", "Phòng " + ph.getSoPhongDisplay()
                             + " đã có lịch đặt hoặc đang sử dụng trong khoảng thời gian này!");
                     return;
@@ -796,9 +816,11 @@ public class DatPhongDialog extends JDialog {
                 Date rCheckIn = pickers[0].getDate();
                 Date rCheckOut = pickers[1].getDate();
                 long rNights = new ThuePhongService().tinhSoNgay(rCheckIn, rCheckOut);
+                String segment = (cboLoaiKhach.getSelectedIndex() == 1) ? "DOAN" : "CA_NHAN";
                 double base = bangGiaService.layGiaVaoThoiDiem(
                         ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
-                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+                        rCheckIn.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime(),
+                        segment);
                 overallTotal += base * rNights;
             }
 
@@ -935,7 +957,9 @@ public class DatPhongDialog extends JDialog {
                 ct.setNgayTraDuKien(rCheckOut);
 
                 double base = bangGiaService.layGiaVaoThoiDiem(
-                        ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "", rCheckIn);
+                        ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
+                        rCheckIn,
+                        (cboLoaiKhach.getSelectedIndex() == 1) ? "DOAN" : "CA_NHAN");
                 ct.setGiaThucTeChot(finalDiscount > 0 ? base * (1 - finalDiscount / 100.0) : base);
                 dp.getDsChiTiet().add(ct);
             }
@@ -978,7 +1002,9 @@ public class DatPhongDialog extends JDialog {
                     ct.setNgayTraDuKien(rCheckOut);
 
                     double base = bangGiaService.layGiaVaoThoiDiem(
-                            ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "", rCheckIn);
+                            ph.getLoaiPhong() != null ? ph.getLoaiPhong().getMaLoaiPhong() : "",
+                            rCheckIn,
+                            (cboLoaiKhach.getSelectedIndex() == 1) ? "DOAN" : "CA_NHAN");
                     ct.setGiaThucTeChot(finalDiscount > 0 ? base * (1 - finalDiscount / 100.0) : base);
                     editingDatPhong.getDsChiTiet().add(ct);
                 }
@@ -1024,7 +1050,8 @@ public class DatPhongDialog extends JDialog {
                     ChiTietDatPhong ct = editingDatPhong.getDsChiTiet().get(0);
                     double base = bangGiaService.layGiaVaoThoiDiem(
                             ct.getPhong() != null && ct.getPhong().getLoaiPhong() != null ? ct.getPhong().getLoaiPhong().getMaLoaiPhong() : "",
-                            ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : editingDatPhong.getNgayNhanDuKien());
+                            ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : editingDatPhong.getNgayNhanDuKien(),
+                            editingDatPhong.getLoaiKhach());
                     if (base > 0) {
                         pctGiam = Math.round((1.0 - ct.getGiaThucTeChot() / base) * 100.0);
                     }

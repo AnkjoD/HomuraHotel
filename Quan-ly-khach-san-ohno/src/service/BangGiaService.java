@@ -73,12 +73,29 @@ public class BangGiaService {
      * Ưu tiên: BangGia active vào thời điểm đó → fallback LoaiPhong.giaTheoNgay
      */
     public double layGiaVaoThoiDiem(String maLoaiPhong, java.time.LocalDateTime thoiDiem) {
-        // Ưu tiên tìm theo đối tượng ALL trước, nếu sau này logic phức tạp hơn có thể truyền doiTuong vào
-        BangGia bgActive = dao.findBestRate(thoiDiem, "ALL");
+        return layGiaVaoThoiDiem(maLoaiPhong, thoiDiem, "ALL");
+    }
+
+    /**
+     * Lấy giá cho một loại phòng vào một thời điểm cụ thể theo phân loại đối tượng khách hàng.
+     * loaiKhach: "Khách lẻ (Cá nhân)" -> "CA_NHAN", "Khách đoàn" -> "DOAN"
+     */
+    public double layGiaVaoThoiDiem(String maLoaiPhong, java.time.LocalDateTime thoiDiem, String loaiKhach) {
+        String segment = "ALL";
+        if (loaiKhach != null) {
+            String lk = loaiKhach.trim().toLowerCase();
+            if (lk.contains("đoàn") || lk.equals("doan")) {
+                segment = "DOAN";
+            } else if (lk.contains("lẻ") || lk.contains("cá nhân") || lk.equals("ca_nhan")) {
+                segment = "CA_NHAN";
+            }
+        }
+
+        BangGia bgActive = dao.findBestRate(thoiDiem, segment);
         if (bgActive != null) {
             ChiTietBangGia ctbg = ctDAO.findByBangGiaAndLoaiPhong(bgActive.getMaBangGia(), maLoaiPhong);
             if (ctbg != null) {
-                // Tự động chọn giữa giá ngày thường và giá cuối tuần (FIX BUG)
+                // Tự động chọn giữa giá ngày thường và giá cuối tuần
                 double gia = ctbg.getGiaTheoNgayTrongTuan(thoiDiem.getDayOfWeek());
                 if (gia > 0) return gia;
             }

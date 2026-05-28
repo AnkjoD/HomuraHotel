@@ -1189,7 +1189,8 @@ public class MainFrame extends JFrame {
     }
 
     private void doLogout() {
-        if (AuthService.getInstance().getCurrentShift() != null) {
+        if (AuthService.getInstance().getCurrentRole() == VaiTro.RECEPTIONIST 
+                && AuthService.getInstance().getCurrentShift() != null) {
             int confirmShift = JOptionPane.showConfirmDialog(this,
                     "Bạn đang trong ca làm việc chưa bàn giao.\nBạn có muốn thực hiện bàn giao ngay không?",
                     "Cảnh báo bàn giao ca",

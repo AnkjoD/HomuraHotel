@@ -99,7 +99,7 @@ public class BangGiaDialog extends JDialog {
         txtTen.setPreferredSize(new Dimension(0, 40));
 
         // Loại bảng giá
-        cboLoaiBangGia = new ModernComboBox<>(new String[]{"RACK", "SEASONAL", "CORPORATE", "OTA", "PROMOTION"});
+        cboLoaiBangGia = new ModernComboBox<>(new String[]{"RACK", "SEASONAL", "CORPORATE", "PROMOTION"});
         cboLoaiBangGia.setPreferredSize(new Dimension(0, 40));
         cboLoaiBangGia.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -215,11 +215,11 @@ public class BangGiaDialog extends JDialog {
         lblTable.setFont(UIConstants.FONT_BODY_BOLD);
         lblTable.setForeground(UIConstants.TEXT_PRIMARY);
 
-        String[] cols = { "Mã", "Loại phòng", "Giá cơ sở (đ)", "Giá ngày mới (đ)", "Giá cuối tuần (đ)" };
+        String[] cols = { "Mã", "Loại phòng", "Giá cơ sở (đ)", "Giá ngày thường (đ)", "Giá cuối tuần (đ)" };
         chiTietModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) {
-                return col >= 3; // Chỉ cho sửa Giá ngày mới, Giá cuối tuần
+                return col >= 3; // Chỉ cho sửa Giá ngày thường, Giá cuối tuần
             }
         };
 

@@ -206,7 +206,7 @@ public class PhongDialog extends JDialog {
         int idx = cboLoai.getSelectedIndex();
         if (idx >= 0 && idx < loaiList.size()) {
             LoaiPhong lp = loaiList.get(idx);
-            lblSucChua.setText(lp.getSucChua() + " người tối đa");
+            lblSucChua.setText(lp.getSucChua() + " khách (Tối đa " + (lp.getSucChua() + 2) + ")");
             lblGia.setText(String.format("%,.0fđ/đêm", lp.getGiaTheoNgay()));
 
             double giaHienHanh = bangGiaService.layGiaHienHanh(lp.getMaLoaiPhong());

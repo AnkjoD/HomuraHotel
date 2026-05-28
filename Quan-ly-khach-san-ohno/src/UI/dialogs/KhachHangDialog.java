@@ -35,7 +35,11 @@ public class KhachHangDialog extends JDialog {
     private JLabel errTen, errSDT, errCCCD, errNgaySinh, errPassport;
 
     public KhachHangDialog(Frame parent, KhachHang kh) {
-        super(parent, kh == null ? "Thêm khách hàng mới" : "Chỉnh sửa – " + kh.getHoTen(), true);
+        this(parent, kh, false);
+    }
+
+    public KhachHangDialog(Frame parent, KhachHang kh, boolean readOnly) {
+        super(parent, kh == null ? "Thêm khách hàng mới" : (readOnly ? "Xem hồ sơ chi tiết – " + kh.getHoTen() : "Chỉnh sửa – " + kh.getHoTen()), true);
         this.entity = kh;
         setSize(500, 720);
         setLocationRelativeTo(parent);
@@ -44,6 +48,28 @@ public class KhachHangDialog extends JDialog {
         if (kh != null)
             fillData();
         togglePassportFields();
+        if (readOnly) {
+            setReadOnly();
+        }
+    }
+
+    private void setReadOnly() {
+        txtTen.setEditable(false);
+        txtSDT.setEditable(false);
+        txtCCCD.setEditable(false);
+        txtSoHoChieu.setEditable(false);
+        txtNoiCapHC.setEditable(false);
+        txtSoVisa.setEditable(false);
+
+        cboQuocTich.setEnabled(false);
+        cboGioiTinh.setEnabled(false);
+        cboLoaiGiayTo.setEnabled(false);
+
+        dtNgaySinh.setEnabled(false);
+        dtHetHanVisa.setEnabled(false);
+        dtNhapCanh.setEnabled(false);
+
+        btnSave.setVisible(false);
     }
 
     private void buildUI() {

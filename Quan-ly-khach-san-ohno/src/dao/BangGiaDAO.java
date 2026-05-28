@@ -227,10 +227,11 @@ public class BangGiaDAO {
         String sql = "SELECT * FROM BangGia WHERE isKichHoat = 1 " +
                 "AND ? BETWEEN ngayBatDau AND ngayKetThuc " +
                 "AND (doiTuongApDung = 'ALL' OR doiTuongApDung = ?) " +
-                "ORDER BY mucUuTien ASC";
+                "ORDER BY CASE WHEN doiTuongApDung = ? THEN 0 ELSE 1 END ASC, mucUuTien ASC, maBangGia DESC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setTimestamp(1, Timestamp.valueOf(date));
             ps.setString(2, doiTuong != null ? doiTuong : "ALL");
+            ps.setString(3, doiTuong != null ? doiTuong : "ALL");
             ResultSet rs = ps.executeQuery();
             if (rs.next())
                 return mapRow(rs);

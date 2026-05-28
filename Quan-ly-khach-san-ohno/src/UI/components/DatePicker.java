@@ -390,5 +390,14 @@ public class DatePicker extends JPanel {
     public void setOnDateSelected(java.util.function.Consumer<Date> onDateSelected) {
         this.onDateSelected = onDateSelected;
     }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        if (txtDisplay != null) {
+            txtDisplay.setEditable(enabled);
+            txtDisplay.setEnabled(enabled);
+        }
+    }
 }
 
