@@ -533,12 +533,14 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
 
     // ---- Room card (fixed CARD_W × CARD_H so WrapLayout wraps at 5/row) ----
     private RoundedPanel buildRoomCard(Phong p) {
+        // [BÁO CÁO - THUYẾT TRÌNH] Bước 1: Đọc trạng thái phòng từ DB và map hệ màu sắc chuẩn (AVAILABLE, OCCUPIED, CLEANING, MAINTENANCE)
         TrangThaiPhong tt = p.getTrangThai();
         Color borderClr = UIConstants.getTrangThaiPhongColor(tt);
         Color bgHover = UIConstants.getTrangThaiPhongBg(tt);
         String txtStatus = UIConstants.getTrangThaiPhongLabel(tt);
 
-        // ★ Reservation Logic Tweak (Professional PMS Style)
+        // [BÁO CÁO - THUYẾT TRÌNH] Bước 2: Kiểm tra lịch đặt phòng trước trong ngày hôm nay.
+        // Nếu phòng trống nhưng có khách sắp nhận -> Tự động chuyển hiển thị sang "Sắp nhận phòng" (Màu hổ phách)
         boolean hasReservation = reservedRooms.containsKey(p.getSoPhong());
         String reservedInfo = "";
         if (hasReservation && tt == TrangThaiPhong.AVAILABLE) {
@@ -588,7 +590,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         lblView.setFont(UIConstants.FONT_TINY);
         lblView.setForeground(UIConstants.TEXT_MUTED);
 
-        // Group indicator for occupied rooms
+        // [BÁO CÁO - THUYẾT TRÌNH] Bước 3: Đồng bộ và kiểm tra thông tin khách đoàn (Group Billing)
+        // Nếu phòng thuộc đơn đặt đoàn, tự động gắn huy hiệu màu tím Indigo (ví dụ: "Đoàn FPT Software")
         boolean isGroup = tt == TrangThaiPhong.OCCUPIED && activeGroupRooms.containsKey(p.getSoPhong());
         if (isGroup) {
             String value = activeGroupRooms.get(p.getSoPhong());
@@ -636,7 +639,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             } catch (Exception ex) {
             }
 
-            // --- THÊM: Countdown trả phòng ---
+            // [BÁO CÁO - THUYẾT TRÌNH] Bước 4: Bộ đếm ngược thời gian lưu trú (Countdown stay time).
+            // Tự động tính toán số giờ còn lại so với thời gian checkout dự kiến, hiển thị cảnh báo đỏ "Quá giờ Xh Yp" nếu trễ hẹn.
             if (p.getExpectedCheckOutTime() != null) {
                 java.time.Duration duration = java.time.Duration.between(LocalDateTime.now(),
                         p.getExpectedCheckOutTime());
@@ -668,7 +672,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
             }
         } else {
             lblGuest.setAlignmentX(Component.LEFT_ALIGNMENT);
-            // Các trạng thái khác (Có sẵn, Vệ sinh, Bảo trì) -> Hiện sức chứa tối đa
+            // [BÁO CÁO - THUYẾT TRÌNH] Bước 5: Hiển thị thông minh sức chứa tiêu chuẩn và tối đa để phục vụ việc ở ghép thêm người (phụ thu).
             lblGuest.setText(p.getSucChua() + " khách (Tối đa " + (p.getSucChua() + 2) + ")");
             lblGuest.setForeground(UIConstants.TEXT_MUTED);
             lblGuest.setIcon(null);
@@ -698,7 +702,8 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         else
             center.add(lblGuest);
 
-        // Bottom: giá
+        // [BÁO CÁO - THUYẾT TRÌNH] Bước 6: Tự động tính toán và hiển thị giá phòng hiện hành.
+        // Giá được truy vấn động từ cơ sở dữ liệu dựa trên thời điểm hiện tại và loại phòng.
         double giaActive = bangGiaService
                 .layGiaHienHanh(p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "");
         JLabel lblPrice = new JLabel(String.format("%,.0fđ/đêm", giaActive));
@@ -722,6 +727,7 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         card.add(bottom, BorderLayout.SOUTH);
 
         final Color finalBgHover = bgHover;
+        // [BÁO CÁO - THUYẾT TRÌNH] Bước 7: Bắt các sự kiện tương tác của chuột (Chuột trái -> Chuyển đổi trạng thái, Chuột phải -> Context Menu)
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -756,6 +762,10 @@ public class ThuePhongPanel extends JPanel implements ResettableFilter {
         return card;
     }
 
+    // [BÁO CÁO - THUYẾT TRÌNH] Bước 8: Xử lý chuyển đổi trạng thái phòng (State Transition Flow).
+    // - AVAILABLE -> Mở dialog nhận phòng nhanh (Check-in)
+    // - OCCUPIED -> Mở dialog trả phòng và xuất hóa đơn thanh toán (Check-out)
+    // - CLEANING -> Hộp thoại chuyển nhanh sang phòng trống sẵn sàng (Available)
     private void handleRoomClick(Phong p) {
         TrangThaiPhong tt = p.getTrangThai();
         if (tt == TrangThaiPhong.AVAILABLE) {
