@@ -1,9 +1,0 @@
-﻿javac : Note: D:\HK2-2026\PTUD\Hotel_FH\Quan-ly-khach-san-ohno\src\ui\components\RoundedComponents.java uses unchecked 
-or unsafe operations.
-At line:1 char:1
-+ javac -encoding UTF-8 -d bin -cp "lib/*;mssql-jdbc-12.10.0.jre11.jar; ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Note: D:\HK2-20...afe operations.:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-Note: Recompile with -Xlint:unchecked for details.

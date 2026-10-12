@@ -1,47 +1,30 @@
-# ======================
-# BUILD FILES (QUAN TRỌNG)
-# ======================
+# Java build
 bin/
-out/
 *.class
+*.jar
+!lib/*.jar
+
+# Config & local runtime files
 .env
+login_lockout.dat
+dismissed_notifications.dat
+theme.properties
+resources/theme.properties
+sources.txt
+manifest.txt
 
-# ======================
-# ECLIPSE FILES
-# ======================
-.project
-.classpath
-.settings/
-
-# ======================
-# LOG FILES
-# ======================
-*.log
-
-# ======================
-# OS FILES
-# ======================
-.DS_Store
-Thumbs.db
-
-# ======================
-# TEMP FILES
-# ======================
-*.tmp
-*.swp
-
-# ======================
-# IDE KHÁC (PHÒNG HỜ)
-# ======================
+# IDE & Editor
+.vscode/
 .idea/
 *.iml
+*.swp
+*.swo
 
-# ======================
-# PACKAGE FILES
-# ======================
-*.jar
-*.war
-*.ear
-*.zip
-*.rar
-*.7z
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary & test
+scratch/
+artifacts/
