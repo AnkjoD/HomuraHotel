@@ -889,8 +889,8 @@ public class ThongKeDAO {
                                + "WHERE ct.ngayNhanThucTe IS NOT NULL AND " + filter + " AND "
                                + "(ct.maChiTiet IN (SELECT maChiTiet FROM SuDungDichVu) OR "
                                + " ct.maDatPhong IN (SELECT maDatPhong FROM SuDungDichVu) OR "
-                               + " ct.maChiTiet IN (SELECT maChiTiet FROM SU_DUNG_DICH_VU) OR "
-                               + " ct.maDatPhong IN (SELECT maDatPhong FROM SU_DUNG_DICH_VU))";
+                               + " ct.maChiTiet IN (SELECT maChiTiet FROM SuDungDichVu) OR "
+                               + " ct.maDatPhong IN (SELECT maDatPhong FROM SuDungDichVu))";
             try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlServices)) {
                 if (rs.next()) {
                     bookingsWithService = rs.getInt("b_service");

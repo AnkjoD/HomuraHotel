@@ -1,3 +1,12 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET ARITHABORT ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
+
 -- ======================================================
 -- HỆ THỐNG QUẢN LÝ KHÁCH SẠN (HOTEL MS)
 -- Complete Database Script (Final Version for Submission)
@@ -387,4 +396,23 @@ VALUES ('DV001', N'Nước suối', N'Ăn uống', 15000, N'chai'),
        ('DV006', N'Thuê xe máy', N'Vận chuyển', 150000, N'ngày');
 
 PRINT '✓ Complete Database setup (Schema + Data + Migrations) completed successfully!';
+GO
+
+-- Keep fresh installations aligned with current DAO contracts.
+IF COL_LENGTH('dbo.LoaiPhong','trangThai') IS NULL ALTER TABLE dbo.LoaiPhong ADD trangThai BIT NOT NULL DEFAULT 1;
+IF COL_LENGTH('dbo.BangGia','ngayCuoiTuan') IS NULL ALTER TABLE dbo.BangGia ADD ngayCuoiTuan VARCHAR(100) NULL DEFAULT 'SATURDAY,SUNDAY';
+IF COL_LENGTH('dbo.KhachHang','trangThai') IS NULL ALTER TABLE dbo.KhachHang ADD trangThai BIT NOT NULL DEFAULT 1;
+IF COL_LENGTH('dbo.KhachHang','soLanO') IS NULL ALTER TABLE dbo.KhachHang ADD soLanO INT NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.KhachHang','tongChiTieu') IS NULL ALTER TABLE dbo.KhachHang ADD tongChiTieu DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.KhachHang','diemTichLuy') IS NULL ALTER TABLE dbo.KhachHang ADD diemTichLuy INT NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.KhachHang','hangKhachHang') IS NULL ALTER TABLE dbo.KhachHang ADD hangKhachHang NVARCHAR(100) NULL DEFAULT N'Hạng Thường (Bronze)';
+IF COL_LENGTH('dbo.DatPhong','maKhuyenMai') IS NULL ALTER TABLE dbo.DatPhong ADD maKhuyenMai VARCHAR(20) NULL;
+IF COL_LENGTH('dbo.ChiTietDatPhong','ngayNhanDuKien') IS NULL ALTER TABLE dbo.ChiTietDatPhong ADD ngayNhanDuKien DATETIME NULL;
+IF COL_LENGTH('dbo.ChiTietDatPhong','ngayTraDuKien') IS NULL ALTER TABLE dbo.ChiTietDatPhong ADD ngayTraDuKien DATETIME NULL;
+IF COL_LENGTH('dbo.KhuyenMai','tenKhuyenMai') IS NULL ALTER TABLE dbo.KhuyenMai ADD tenKhuyenMai NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.KhuyenMai','trangThai') IS NULL ALTER TABLE dbo.KhuyenMai ADD trangThai BIT NOT NULL DEFAULT 1;
+IF COL_LENGTH('dbo.KhuyenMai','soLuong') IS NULL ALTER TABLE dbo.KhuyenMai ADD soLuong INT NOT NULL DEFAULT 999;
+IF COL_LENGTH('dbo.KhuyenMai','daDung') IS NULL ALTER TABLE dbo.KhuyenMai ADD daDung INT NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.KhuyenMai','dieuKienToiThieu') IS NULL ALTER TABLE dbo.KhuyenMai ADD dieuKienToiThieu DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.KhuyenMai','giaTriGiamToiDa') IS NULL ALTER TABLE dbo.KhuyenMai ADD giaTriGiamToiDa DECIMAL(18,2) NOT NULL DEFAULT 0;
 GO

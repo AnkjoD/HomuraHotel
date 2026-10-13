@@ -8,7 +8,7 @@ import service.*;
 import java.time.*;
 import java.util.*;
 
-/** End-to-end demo business checks; never opens or writes a SQL database. */
+/** End-to-end checks. SQL mode is restricted to explicitly named isolated test databases. */
 public class HomuraBusinessTest {
     static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
     static DatPhong book(String room, LocalDateTime from, LocalDateTime to) {
@@ -23,7 +23,18 @@ public class HomuraBusinessTest {
         return dp;
     }
     public static void main(String[] args) throws Exception {
-        DatabaseConnection.setDemoMode(true); DemoRepository.reset();
+        boolean sql = args.length > 0 && "--sql".equals(args[0]);
+        if (sql) {
+            String url=System.getenv("DB_URL");
+            check(url!=null && url.matches(".*databaseName=HomuraHotel_Test_[A-Za-z0-9_]+(?:;.*)?"), "SQL tests require a dedicated HomuraHotel_Test_ database");
+            DatabaseConnection.setDemoMode(false);
+            check(DatabaseConnection.getInstance().testConnection(), "SQL Server connection");
+            try (var statement=DatabaseConnection.getInstance().getConnection().createStatement();
+                 var database=statement.executeQuery("SELECT DB_NAME()")) {
+                check(database.next() && database.getString(1).matches("HomuraHotel_Test_[A-Za-z0-9_]+"),
+                        "Connected database is not an isolated SQL test database");
+            }
+        } else { DatabaseConnection.setDemoMode(true); DemoRepository.reset(); }
         check(AuthService.getInstance().dangNhap("manager", "123") != null, "Login");
         DatPhongService bookings = new DatPhongService(); ThuePhongService stays = new ThuePhongService();
         LocalDateTime now = LocalDateTime.now();
@@ -109,6 +120,17 @@ public class HomuraBusinessTest {
         AuthService.getInstance().dangXuat();
         check(AuthService.getInstance().dangNhap("manager","123")==null, "Old demo password rejected");
         check(AuthService.getInstance().dangNhap("manager","NewPassword1!")!=null, "Hash verification");
+        if(sql) {
+            check(new PhongDAO().delete("P501"),"SQL soft delete room");
+            check(new PhongDAO().getById("P501").getTrangThai()==TrangThaiPhong.DELETED,"SQL deleted room status");
+            HoaDon unpaid=new HoaDon();unpaid.setMaHoaDon(new HoaDonDAO().generateMaHD());
+            unpaid.setDatPhong(canceled);unpaid.setNhanVien(new NhanVienDAO().getById("NV003"));
+            unpaid.setTrangThai(TrangThaiThanhToan.UNPAID);unpaid.setPhuongThucThanhToan("CASH");
+            check(new HoaDonDAO().insert(unpaid),"SQL unpaid invoice");
+            check(new HoaDonDAO().delete(unpaid.getMaHoaDon()),"SQL cancel unpaid invoice");
+            check(new HoaDonDAO().getById(unpaid.getMaHoaDon()).getTrangThai()==TrangThaiThanhToan.CANCELLED,"SQL canceled invoice status");
+            check(!new HoaDonDAO().delete(new HoaDonDAO().getAll().get(0).getMaHoaDon()),"Keep paid invoice history");
+        }
         long revenue=((Number)new ThongKeDAO().getDashboardStats().get("doanhThuHomNay")).longValue();
         check(revenue==Math.round(new HoaDonDAO().getAll().stream().mapToDouble(HoaDon::getTongThanhToan).sum()),"Report reflects invoices");
         System.out.println("PASS: booking, overlap, check-in, service, transfer, checkout, duplicate protection, rollback, locked rates and password change.");

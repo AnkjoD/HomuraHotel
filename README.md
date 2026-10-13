@@ -44,7 +44,7 @@ Cấu trúc hiện tại giữ các lớp giao diện, nghiệp vụ và dữ li
 
 **Database mới:** chạy `database/complete_database.sql`, tạo database `HotelMs`. Script khởi tạo có phần xóa bảng để tạo lại; chỉ dùng cho database mới hoặc dữ liệu có thể bỏ đi.
 
-**Database đang sử dụng:** sao lưu trước, rồi chạy `database/migrations/001_business_integrity.sql`. Migration bổ sung trạng thái `DELETED`, trạng thái hóa đơn `CANCELLED` và cột liên kết chặng đổi phòng `maChiTietTruoc`. Không chạy lại script khởi tạo trên dữ liệu kinh doanh hiện có.
+**Database đang sử dụng:** sao lưu trước, rồi chạy lần lượt `database/migrations/001_business_integrity.sql` và `database/migrations/002_dao_schema_alignment.sql`. Migration bổ sung trạng thái `DELETED`, trạng thái hóa đơn `CANCELLED` và cột liên kết chặng đổi phòng `maChiTietTruoc`. Không chạy lại script khởi tạo trên dữ liệu kinh doanh hiện có.
 
 Copy `resources/db.properties.example` thành `resources/db.properties`, điền thông tin kết nối. Có thể dùng biến môi trường hoặc file `.env`:
 
@@ -87,4 +87,4 @@ GitHub Actions chạy biên dịch, kiểm tra và đóng gói trên Windows v�
 
 Các bài kiểm tra tự động xác nhận luồng Demo: đặt/nhận phòng, dịch vụ, đổi phòng, thanh toán riêng và khách đoàn, hủy đơn, chặn trùng lịch, thao tác đồng thời, chặn hóa đơn lặp, rollback, giá chốt và thay mật khẩu. Kiểm tra giao diện xác nhận Tổng quan tải được, chuyển theme nhiều lần và giữ nội dung nhập/bộ lọc.
 
-Các kiểm tra này không thay cho kiểm thử tích hợp với SQL Server thật. Xem `docs/RELEASE_VALIDATION.md` trước khi đưa bản này vào vận hành.
+Đã kiểm thử thêm với SQL Server 2022 trong Docker. Chạy `scripts/test-sql.ps1` sau khi container `sql_server_container` sẵn sàng; script chỉ ghi vào database kiểm thử mới có tiền tố `HomuraHotel_Test_`. Có thể dùng `database/sample_data.sql` để thêm dữ liệu giả lập vào bản cài đặt mới chưa có đơn đặt phòng. Xem `docs/RELEASE_VALIDATION.md` trước khi đưa bản này vào vận hành.

@@ -22,7 +22,11 @@ Chạy `scripts/build.ps1 -Test` và `scripts/package.ps1`.
 
 ## Kiểm thử tích hợp cần thực hiện trước vận hành
 
-Máy kiểm tra hiện không có SQL Server lắng nghe ở cổng 1433. Không ghi thay đổi lên database thật trong đợt này.
+Đã chạy SQL Server 2022 trong Docker trên cổng 1433 ngày 13/10/2026. `scripts/test-sql.ps1` tạo database có tên `HomuraHotel_Test_...` riêng cho mỗi lần chạy, giữ database sau test để đối chiếu. Các bài kiểm tra nghiệp vụ và đọc dữ liệu của các màn hình/báo cáo đã qua trên SQL Server thật.
+
+Đã kiểm tra thêm cấu hình ứng dụng mặc định kết nối đến `HotelMs`, đăng nhập `manager` và dựng Tổng quan từ dữ liệu SQL. `HotelMs` mới được tạo với 12 phòng, 5 khách hàng, 4 đơn đặt và 1 hóa đơn mẫu. Không ghi bộ dữ liệu kiểm thử nghiệp vụ vào database ứng dụng.
+
+Các lỗi tìm được khi chạy SQL đã sửa: tùy chọn QUOTED_IDENTIFIER cho filtered index, các cột DAO còn thiếu, tên cột khuyến mãi không thống nhất và tên bảng dịch vụ trong truy vấn phân tích khách hàng. Áp dụng cả migration 001 và 002 khi nâng cấp database hiện có.
 
 Trên database thử nghiệm đã áp dụng migration:
 

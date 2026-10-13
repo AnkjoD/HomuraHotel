@@ -32,7 +32,7 @@ public class KhuyenMaiDAO {
         List<Object> params = new ArrayList<>();
 
         if (keyword != null && !keyword.trim().isEmpty()) {
-            sql.append(" AND (maKM LIKE ? OR tenKM LIKE ?)");
+            sql.append(" AND (maKhuyenMai LIKE ? OR tenKhuyenMai LIKE ?)");
             String k = "%" + keyword.trim() + "%";
             params.add(k); params.add(k);
         }
@@ -65,7 +65,7 @@ public class KhuyenMaiDAO {
 
     public KhuyenMai getByVoucherCode(String code) {
         if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(entity.KhuyenMai.class,code); }
-        String sql = "SELECT * FROM KhuyenMai WHERE maKM=?";
+        String sql = "SELECT * FROM KhuyenMai WHERE maKhuyenMai=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, code);
             ResultSet rs = ps.executeQuery();
@@ -76,7 +76,7 @@ public class KhuyenMaiDAO {
 
     public boolean insert(KhuyenMai km) {
         if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(entity.KhuyenMai.class,km); }
-        String sql = "INSERT INTO KhuyenMai(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu, giaTriGiamToiDa) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO KhuyenMai(maKhuyenMai, tenKhuyenMai, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu, giaTriGiamToiDa) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getMaKhuyenMai());
             ps.setString(2, km.getTenKhuyenMai());
@@ -95,7 +95,7 @@ public class KhuyenMaiDAO {
 
     public boolean update(KhuyenMai km) {
         if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(entity.KhuyenMai.class,km); }
-        String sql = "UPDATE KhuyenMai SET tenKM=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=?, giaTriGiamToiDa=? WHERE maKM=?";
+        String sql = "UPDATE KhuyenMai SET tenKhuyenMai=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=?, giaTriGiamToiDa=? WHERE maKhuyenMai=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getTenKhuyenMai());
             ps.setString(2, km.getLoaiGiam().name());
@@ -112,18 +112,18 @@ public class KhuyenMaiDAO {
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Update error", e); return false; }
     }
 
-    public boolean delete(String maKM) {
-        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(entity.KhuyenMai.class,x -> maKM.equals(x.getMaKhuyenMai())); }
-        try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM KhuyenMai WHERE maKM=?")) {
-            ps.setString(1, maKM);
+    public boolean delete(String maKhuyenMai) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(entity.KhuyenMai.class,x -> maKhuyenMai.equals(x.getMaKhuyenMai())); }
+        try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM KhuyenMai WHERE maKhuyenMai=?")) {
+            ps.setString(1, maKhuyenMai);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Delete error", e); return false; }
     }
 
     private KhuyenMai mapRow(ResultSet rs) throws SQLException {
         KhuyenMai km = new KhuyenMai();
-        km.setMaKhuyenMai(rs.getString("maKM"));
-        km.setTenKM(rs.getString("tenKM"));
+        km.setMaKhuyenMai(rs.getString("maKhuyenMai"));
+        km.setTenKM(rs.getString("tenKhuyenMai"));
 
         String loaiStr = rs.getString("loaiGiam");
         if (loaiStr != null) {

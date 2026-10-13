@@ -70,7 +70,7 @@ public class DatPhongDAO {
 
     public boolean insert(DatPhong dp) {
         if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(DatPhong.class, dp); }
-        String sql = "INSERT INTO DatPhong(maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu, loaiKhach, tenDoan, maKenh, maXacNhanKenh, phiNoShow, hanCheckIn, thuTuWaitlist, hanNopCoc, phiHuyPhong, maKM) "
+        String sql = "INSERT INTO DatPhong(maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu, loaiKhach, tenDoan, maKenh, maXacNhanKenh, phiNoShow, hanCheckIn, thuTuWaitlist, hanNopCoc, phiHuyPhong, maKhuyenMai) "
                 +
                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -133,7 +133,7 @@ public class DatPhongDAO {
 
     public boolean update(DatPhong dp) {
         if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(DatPhong.class, dp); }
-        String sql = "UPDATE DatPhong SET maKhachHang=?, maNhanVien=?, ngayNhanDuKien=?, ngayTraDuKien=?, soNguoi=?, tienDatCoc=?, tongTienTamTinh=?, trangThai=?, ghiChu=?, loaiKhach=?, tenDoan=?, maKenh=?, maXacNhanKenh=?, phiNoShow=?, hanCheckIn=?, thuTuWaitlist=?, hanNopCoc=?, phiHuyPhong=?, maKM=? WHERE maDatPhong=?";
+        String sql = "UPDATE DatPhong SET maKhachHang=?, maNhanVien=?, ngayNhanDuKien=?, ngayTraDuKien=?, soNguoi=?, tienDatCoc=?, tongTienTamTinh=?, trangThai=?, ghiChu=?, loaiKhach=?, tenDoan=?, maKenh=?, maXacNhanKenh=?, phiNoShow=?, hanCheckIn=?, thuTuWaitlist=?, hanNopCoc=?, phiHuyPhong=?, maKhuyenMai=? WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dp.getKhachHang() != null ? dp.getKhachHang().getMaKhachHang() : null);
             ps.setString(2, dp.getNhanVien() != null ? dp.getNhanVien().getMaNhanVien() : null);
@@ -480,7 +480,7 @@ public class DatPhongDAO {
         } catch (SQLException ignored) {}
 
         try {
-            dp.setMaKhuyenMai(rs.getString("maKM"));
+            dp.setMaKhuyenMai(rs.getString("maKhuyenMai"));
         } catch (SQLException ignored) {}
 
         String statusStr = rs.getString("trangThai");

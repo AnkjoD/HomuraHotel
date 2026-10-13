@@ -235,19 +235,7 @@ public class SuDungDichVuDAO {
     }
 
     private String generateMaSuDung() {
-        String[] queries = {
-            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SuDungDichVu",
-            "SELECT MAX(CAST(SUBSTRING(maSuDung,3,10) AS INT)) FROM SU_DUNG_DICH_VU"
-        };
-        for (String sql : queries) {
-            try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
-                if (rs.next()) {
-                    int nextId = rs.getInt(1) + 1;
-                    return String.format("SD%04d", nextId);
-                }
-            } catch (SQLException ignored) {}
-        }
-        return "SD0001";
+        return util.IdGenerator.next("SD");
     }
 
     public boolean deleteByDatPhong(String ma) {
