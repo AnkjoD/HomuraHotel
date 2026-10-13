@@ -1,0 +1,590 @@
+package ui.panels;
+
+import ui.components.RoundedComponents.*;
+import ui.components.NotificationManager;
+import ui.components.UIConstants;
+import ui.components.ModernPopupMenu;
+import ui.components.ModernMenuItem;
+import ui.dialogs.PhongDialog;
+import entity.Phong;
+import entity.enums.TrangThaiPhong;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import javax.swing.*;
+import javax.swing.table.*;
+import service.PhongService;
+import service.BangGiaService;
+import ui.components.PaginationPanel;
+
+public class PhongPanel extends JPanel implements ResettableFilter {
+
+    @Override
+    public void resetFilters() {
+        if (txtSearch != null) txtSearch.setText("");
+        if (cboTrangThai != null) cboTrangThai.setSelectedIndex(0);
+        loadData();
+    }
+
+    private final PhongService phongService = new PhongService();
+    private final BangGiaService bangGiaService = new BangGiaService();
+
+    private ModernTextField txtSearch;
+    private ModernComboBox<String> cboTrangThai;
+    private DefaultTableModel tableModel;
+    private JTable table;
+    private PaginationPanel pagination;
+    private List<Phong> tatCaPhong;
+    private List<Phong> filteredList;
+
+    public PhongPanel() {
+        setOpaque(false);
+        setLayout(new BorderLayout());
+        buildUI();
+    }
+
+    private void buildUI() {
+        JPanel main = new JPanel(new BorderLayout());
+        main.setOpaque(false);
+        main.setBorder(BorderFactory.createEmptyBorder(24, 28, 24, 28));
+
+        main.add(buildHeader(), BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout(0, 12));
+        center.setOpaque(false);
+        center.add(buildStats(), BorderLayout.NORTH);
+        center.add(buildTableArea(), BorderLayout.CENTER);
+
+        main.add(center, BorderLayout.CENTER);
+        add(main, BorderLayout.CENTER);
+    }
+
+    private JPanel buildHeader() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(false);
+        p.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
+
+        JPanel left = new JPanel();
+        left.setOpaque(false);
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+        JLabel t = new JLabel("Quản lý phòng");
+        t.setFont(UIConstants.FONT_TITLE);
+        JLabel s = new JLabel("Quản lý tình trạng và thông tin từng phòng trong khách sạn");
+        s.setFont(UIConstants.FONT_BODY);
+        s.setForeground(UIConstants.TEXT_SECONDARY);
+        left.add(t);
+        left.add(Box.createVerticalStrut(2));
+        left.add(s);
+
+        RoundedButton btnAdd = new RoundedButton("+ Thêm phòng mới", UIConstants.PRIMARY, Color.WHITE);
+        btnAdd.addActionListener(e -> showDialog(null));
+
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btns.setOpaque(false);
+        btns.add(btnAdd);
+
+        p.add(left, BorderLayout.WEST);
+        p.add(btns, BorderLayout.EAST);
+        return p;
+    }
+
+    private JPanel buildStats() {
+        Map<String, Integer> tt = phongService.getThongKeTrangThai();
+        JPanel row = new JPanel(new GridLayout(1, 5, 12, 0));
+        row.setOpaque(false);
+        row.add(statCard("Có sẵn", tt.getOrDefault("Có sẵn", 0) + " phòng", UIConstants.CARD_GREEN));
+        row.add(statCard("Đang thuê", tt.getOrDefault("Đang thuê", 0) + " phòng", UIConstants.CARD_BLUE));
+        row.add(statCard("Đã đặt", tt.getOrDefault("Đã đặt", 0) + " phòng", UIConstants.CARD_AMBER));
+        row.add(statCard("Vệ sinh", tt.getOrDefault("Vệ sinh", 0) + " phòng", UIConstants.CARD_TEAL));
+        row.add(statCard("Bảo trì", tt.getOrDefault("Bảo trì", 0) + " phòng", UIConstants.CARD_RED));
+        return row;
+    }
+
+    private RoundedPanel statCard(String label, String val, Color c) {
+        RoundedPanel card = new RoundedPanel(12);
+        card.setBackground(UIConstants.BG_CARD);
+        card.setShadow(true);
+        card.setLayout(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+
+        JLabel l1 = new JLabel(label);
+        l1.setFont(UIConstants.FONT_SMALL_BOLD);
+        l1.setForeground(UIConstants.TEXT_SECONDARY);
+
+        JLabel l2 = new JLabel(val);
+        l2.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        l2.setForeground(UIConstants.TEXT_PRIMARY);
+
+        JPanel indicator = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(c);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+            }
+        };
+        indicator.setPreferredSize(new Dimension(4, 24));
+
+        JPanel left = new JPanel(new BorderLayout(12, 0));
+        left.setOpaque(false);
+        left.add(indicator, BorderLayout.WEST);
+
+        JPanel text = new JPanel(new GridLayout(2, 1, 0, 2));
+        text.setOpaque(false);
+        text.add(l1);
+        text.add(l2);
+        left.add(text, BorderLayout.CENTER);
+
+        card.add(left, BorderLayout.WEST);
+        return card;
+    }
+
+    private JPanel buildTableArea() {
+        // Filter bar
+        txtSearch = new ModernTextField("Tìm theo số phòng, loại phòng...");
+        txtSearch.setPreferredSize(new Dimension(300, 40));
+
+        cboTrangThai = new ModernComboBox<>();
+        cboTrangThai.addItem("Tất cả trạng thái");
+        cboTrangThai.addItem("Có sẵn");
+        cboTrangThai.addItem("Đang thuê");
+        cboTrangThai.addItem("Đã đặt");
+        cboTrangThai.addItem("Vệ sinh");
+        cboTrangThai.addItem("Bảo trì");
+        cboTrangThai.addItem("Ngưng hoạt động");
+        cboTrangThai.setPreferredSize(new Dimension(200, 40));
+
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                loadData();
+            }
+        });
+        cboTrangThai.addActionListener(e -> loadData());
+
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        filterBar.setOpaque(false);
+        filterBar.add(txtSearch);
+        filterBar.add(Box.createHorizontalStrut(12));
+        filterBar.add(cboTrangThai);
+
+        // Table
+        String[] cols = { "_sp", "Số phòng", "Loại phòng", "View", "Tầng", "Sức chứa", "Giá/đêm", "Khách hiện tại",
+                "Trạng thái" };
+        tableModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        table = buildStyledTable(tableModel);
+        TableColumn colSp = table.getColumn("_sp");
+        table.removeColumn(colSp);
+
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2)
+                    editSelected();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int r = table.rowAtPoint(e.getPoint());
+                if (r >= 0)
+                    table.setRowSelectionInterval(r, r);
+            }
+        });
+        table.setComponentPopupMenu(buildContextMenu());
+
+        JScrollPane sp = new JScrollPane(table);
+        sp.setBorder(BorderFactory.createLineBorder(UIConstants.BORDER));
+
+        pagination = new PaginationPanel();
+        pagination.setPageChangeListener(page -> displayPage());
+
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setBackground(UIConstants.BG_CARD);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER));
+        footer.add(pagination, BorderLayout.CENTER);
+
+        JPanel wrap = new JPanel(new BorderLayout(0, 8));
+        wrap.setOpaque(false);
+        wrap.add(filterBar, BorderLayout.NORTH);
+        wrap.add(sp, BorderLayout.CENTER);
+        wrap.add(footer, BorderLayout.SOUTH);
+
+        loadData();
+        return wrap;
+    }
+
+    private JPopupMenu buildContextMenu() {
+        ModernPopupMenu menu = new ModernPopupMenu();
+        ModernMenuItem miEdit = new ModernMenuItem("Xem / Sửa");
+        ModernMenuItem miAdd = new ModernMenuItem("Thêm phòng mới");
+        ModernMenuItem miMaintenance = new ModernMenuItem("Đánh dấu bảo trì");
+        ModernMenuItem miEndMaintenance = new ModernMenuItem("Hoàn tất bảo trì");
+        ModernMenuItem miDeactivate = new ModernMenuItem("Ngưng hoạt động");
+        ModernMenuItem miReactivate = new ModernMenuItem("Kích hoạt lại hoạt động");
+        ModernMenuItem miDel = new ModernMenuItem("Xóa phòng");
+
+        miDel.setForeground(UIConstants.DANGER);
+        miDeactivate.setForeground(UIConstants.TEXT_MUTED);
+
+        miEdit.addActionListener(e -> editSelected());
+        miAdd.addActionListener(e -> showDialog(null));
+        miDel.addActionListener(e -> deleteSelected());
+
+        miMaintenance.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.MAINTENANCE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã đánh dấu bảo trì phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        miEndMaintenance.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.AVAILABLE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã hoàn tất bảo trì phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        miDeactivate.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Ngưng hoạt động phòng " + p.getSoPhong() + "?\nPhòng sẽ bị ẩn khỏi sơ đồ phòng.",
+                        "Xác nhận ngưng hoạt động", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.DELETED);
+                    if (ok) {
+                        NotificationManager.showSuccess("Thành công", "Đã dừng hoạt động phòng " + p.getSoPhong());
+                        refresh();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+
+        miReactivate.addActionListener(e -> {
+            Phong p = getSelected();
+            if (p != null) {
+                boolean ok = phongService.updateTrangThai(p.getMaPhong(), TrangThaiPhong.AVAILABLE);
+                if (ok) {
+                    NotificationManager.showSuccess("Thành công", "Đã kích hoạt lại phòng " + p.getSoPhong());
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không thể cập nhật trạng thái phòng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        menu.add(miEdit);
+        menu.add(miAdd);
+        menu.addSeparator();
+        menu.add(miMaintenance);
+        menu.add(miEndMaintenance);
+        menu.add(miDeactivate);
+        menu.add(miReactivate);
+        menu.addSeparator();
+        menu.add(miDel);
+
+        menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                Phong p = getSelected();
+                if (p == null) {
+                    miEdit.setEnabled(false);
+                    miDel.setEnabled(false);
+                    miMaintenance.setVisible(false);
+                    miEndMaintenance.setVisible(false);
+                    miDeactivate.setVisible(false);
+                    miReactivate.setVisible(false);
+                    return;
+                }
+
+                miEdit.setEnabled(true);
+                miDel.setEnabled(true);
+
+                TrangThaiPhong status = p.getTrangThai();
+
+                if (status == TrangThaiPhong.MAINTENANCE) {
+                    miMaintenance.setVisible(false);
+                    miEndMaintenance.setVisible(true);
+                    miEndMaintenance.setEnabled(true);
+                } else if (status == TrangThaiPhong.OCCUPIED || status == TrangThaiPhong.DELETED) {
+                    miMaintenance.setVisible(true);
+                    miMaintenance.setEnabled(false);
+                    miEndMaintenance.setVisible(false);
+                } else {
+                    miMaintenance.setVisible(true);
+                    miMaintenance.setEnabled(true);
+                    miEndMaintenance.setVisible(false);
+                }
+
+                if (status == TrangThaiPhong.DELETED) {
+                    miDeactivate.setVisible(false);
+                    miReactivate.setVisible(true);
+                    miReactivate.setEnabled(true);
+                    miDel.setEnabled(true);
+                } else if (status == TrangThaiPhong.OCCUPIED) {
+                    miDeactivate.setVisible(true);
+                    miDeactivate.setEnabled(false);
+                    miReactivate.setVisible(false);
+                } else {
+                    miDeactivate.setVisible(true);
+                    miDeactivate.setEnabled(true);
+                    miReactivate.setVisible(false);
+                }
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+
+        return menu;
+    }
+
+    private JTable buildStyledTable(DefaultTableModel model) {
+        JTable t = new JTable(model);
+        t.setFont(UIConstants.FONT_BODY);
+        t.setRowHeight(40);
+        t.setShowGrid(false);
+        t.setIntercellSpacing(new Dimension(0, 0));
+        t.setBackground(UIConstants.BG_CARD);
+        t.setSelectionBackground(UIConstants.PRIMARY_LIGHT);
+
+        // Căn lề cho tiêu đề
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object v, boolean s, boolean f, int r, int c) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, v, s, f, r, c);
+                lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                lbl.setBackground(UIConstants.BG_TABLE_HEADER);
+                lbl.setForeground(UIConstants.TEXT_SECONDARY);
+                lbl.setHorizontalAlignment(JLabel.CENTER);
+                lbl.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIConstants.BORDER));
+                return lbl;
+            }
+        };
+        t.getTableHeader().setDefaultRenderer(headerRenderer);
+
+        // Thiết lập chiều rộng cột
+        int[] widths = { 100, 150, 100, 80, 100, 150, 200, 150 };
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < widths.length; i++) {
+                if (i < t.getColumnModel().getColumnCount()) {
+                    t.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+                }
+            }
+        });
+        t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable tbl, Object val, boolean sel, boolean foc, int row,
+                    int col) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+                lbl.setBackground(sel ? UIConstants.PRIMARY_LIGHT : (row % 2 == 0 ? UIConstants.getTheme().tableRowEven : UIConstants.getTheme().tableRowOdd));
+                lbl.setFont(UIConstants.FONT_BODY);
+                lbl.setForeground(UIConstants.TEXT_PRIMARY);
+
+                // Căn lề
+                if (col == 0 || col == 3 || col == 4 || col == 7) {
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                } else if (col == 5) {
+                    lbl.setHorizontalAlignment(SwingConstants.RIGHT);
+                } else {
+                    lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                }
+
+                String v = val != null ? val.toString() : "";
+                if (col == 7) { // Trạng thái
+                    lbl.setFont(UIConstants.FONT_SMALL_BOLD);
+                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                    if (v.contains("Có sẵn")) {
+                        lbl.setForeground(UIConstants.SUCCESS);
+                    } else if (v.contains("Đang thuê")) {
+                        lbl.setForeground(UIConstants.PRIMARY);
+                    } else if (v.contains("Đã đặt")) {
+                        lbl.setForeground(UIConstants.WARNING);
+                    } else if (v.contains("Bảo trì")) {
+                        lbl.setForeground(UIConstants.DANGER);
+                    } else if (v.contains("Vệ sinh")) {
+                        lbl.setForeground(new Color(0x06B6D4));
+                    } else if (v.contains("Ngưng hoạt động")) {
+                        lbl.setForeground(UIConstants.TEXT_MUTED);
+                    }
+                }
+                return lbl;
+            }
+        });
+        return t;
+    }
+
+    private JLabel buildFooter(String hint) {
+        JLabel lbl = new JLabel("  " + hint);
+        lbl.setFont(UIConstants.FONT_SMALL);
+        lbl.setForeground(UIConstants.TEXT_MUTED);
+        lbl.setBackground(UIConstants.BG_CARD);
+        lbl.setOpaque(true);
+        lbl.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, UIConstants.BORDER),
+                BorderFactory.createEmptyBorder(6, 0, 6, 0)));
+        return lbl;
+    }
+
+    private void loadData() {
+        String kw = txtSearch != null ? txtSearch.getText().trim().toLowerCase() : "";
+        String filterTT = cboTrangThai != null && cboTrangThai.getSelectedIndex() > 0
+                ? cboTrangThai.getSelectedItem().toString()
+                : null;
+
+        tatCaPhong = phongService.getAllPhong();
+        filteredList = tatCaPhong.stream().filter(p -> {
+            boolean matchKw = kw.isEmpty() || p.getSoPhong().toLowerCase().contains(kw)
+                    || p.getTenLoaiPhong().toLowerCase().contains(kw);
+
+            boolean matchStatus = true;
+            if (filterTT != null) {
+                String ttLabel = UIConstants.getTrangThaiPhongLabel(p.getTrangThai());
+                matchStatus = ttLabel.contains(filterTT);
+            }
+
+            return matchKw && matchStatus;
+        }).collect(Collectors.toList());
+
+        if (pagination != null)
+            pagination.setCurrentPage(1);
+        displayPage();
+    }
+
+    private void displayPage() {
+        tableModel.setRowCount(0);
+        if (filteredList == null)
+            return;
+
+        int pageSize = 12;
+        int currentPage = pagination != null ? pagination.getCurrentPage() : 1;
+
+        int totalPages = (int) Math.ceil((double) filteredList.size() / pageSize);
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+            if (pagination != null)
+                pagination.setCurrentPage(currentPage);
+        }
+
+        int start = (currentPage - 1) * pageSize;
+        int end = Math.min(start + pageSize, filteredList.size());
+
+        for (int i = start; i < end; i++) {
+            Phong p = filteredList.get(i);
+            String ttLabel = UIConstants.getTrangThaiPhongLabel(p.getTrangThai());
+
+            // PRIORITY: Active Price Table > Base Price
+            double giaHienHanh = bangGiaService
+                    .layGiaHienHanh(p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : "");
+
+            tableModel.addRow(new Object[] {
+                    p.getSoPhong(), p.getSoPhong(), p.getTenLoaiPhong(), p.getView(),
+                    "Tầng " + p.getTang(),
+                    p.getSucChua() + " người",
+                    String.format("%,.0fđ", giaHienHanh),
+                    (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED && p.getTenKhachHienTai() != null)
+                            ? p.getTenKhachHienTai()
+                            : "—",
+                    ttLabel
+            });
+        }
+
+        if (pagination != null) {
+            pagination.update(filteredList.size(), pageSize, currentPage);
+        }
+    }
+
+    private Phong getSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0)
+            return null;
+        return phongService.getPhongById((String) tableModel.getValueAt(row, 0));
+    }
+
+    private void showDialog(Phong p) {
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+        PhongDialog dlg = new PhongDialog(owner, p);
+        dlg.setVisible(true);
+        if (dlg.isConfirmed()) {
+            NotificationManager.showSuccess("Thành công",
+                    (p == null ? "Đã thêm phòng mới" : "Đã cập nhật thông tin phòng"));
+            refresh();
+        }
+    }
+
+    private void editSelected() {
+        Phong p = getSelected();
+        if (p == null) {
+            JOptionPane.showMessageDialog(this, "Chọn một phòng để sửa!");
+            return;
+        }
+        showDialog(p);
+    }
+
+    private void deleteSelected() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Chọn một phòng để xóa!");
+            return;
+        }
+        String sp = (String) tableModel.getValueAt(row, 0);
+        Phong p = phongService.getPhongById(sp);
+        if (p == null)
+            return;
+        TrangThaiPhong tt = p.getTrangThai();
+        if (tt == TrangThaiPhong.OCCUPIED || tt == TrangThaiPhong.CLEANING) {
+            JOptionPane.showMessageDialog(this,
+                    "Không thể xóa phòng đang có khách hoặc đang vệ sinh!", "Không thể xóa",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int ok = JOptionPane.showConfirmDialog(this,
+                "Xóa phòng " + sp + "?\nHành động này không thể hoàn tác!",
+                "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (ok == JOptionPane.YES_OPTION) {
+            String err = phongService.xoaPhong(sp);
+            if (err == null) {
+                NotificationManager.showSuccess("Thành công", "Đã xóa phòng " + p.getSoPhong());
+                refresh();
+            } else
+                JOptionPane.showMessageDialog(this, "Lỗi: " + err, "Không thể xóa", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void refresh() {
+        loadData();
+    }
+}

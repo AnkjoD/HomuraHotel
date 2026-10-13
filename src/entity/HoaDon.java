@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HoaDon {
+public class HoaDon implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maHoaDon;
     private LocalDateTime ngayLap;
     private double tongTienPhong;
@@ -62,7 +63,7 @@ public class HoaDon {
 
     public KhachHang getKhachHang() { return khachHang; }
     public void setKhachHang(KhachHang khachHang) { this.khachHang = khachHang; }
-    
+
     // Legacy alias
     public double tinhTongThanhToan() {
         double total = 0;

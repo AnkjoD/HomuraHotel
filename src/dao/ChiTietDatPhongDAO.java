@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.ChiTietDatPhong;
 import entity.DatPhong;
@@ -21,6 +23,7 @@ public class ChiTietDatPhongDAO {
     }
 
     public List<ChiTietDatPhong> getByDatPhong(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.stays(maDatPhong); }
         List<ChiTietDatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM ChiTietDatPhong WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -35,9 +38,10 @@ public class ChiTietDatPhongDAO {
     }
 
     public boolean insert(ChiTietDatPhong ct) {
-        String sql = "INSERT INTO ChiTietDatPhong(maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanDuKien, ngayTraDuKien, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh, daThanhToan) "
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(ChiTietDatPhong.class, ct); }
+        String sql = "INSERT INTO ChiTietDatPhong(maChiTiet, maDatPhong, maPhong, maKhachHang, ngayNhanDuKien, ngayTraDuKien, ngayNhanThucTe, ngayTraThucTe, giaThucTeChot, phuPhiPhatSinh, daThanhToan, maChiTietTruoc) "
                 +
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getMaChiTiet());
             ps.setString(2, ct.getDatPhong() != null ? ct.getDatPhong().getMaDatPhong() : null);
@@ -50,6 +54,7 @@ public class ChiTietDatPhongDAO {
             ps.setDouble(9, ct.getGiaThucTeChot());
             ps.setDouble(10, ct.getPhuPhiPhatSinh());
             ps.setBoolean(11, ct.isDaThanhToan());
+            ps.setString(12, ct.getMaChiTietTruoc());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e);
@@ -58,7 +63,8 @@ public class ChiTietDatPhongDAO {
     }
 
     public boolean update(ChiTietDatPhong ct) {
-        String sql = "UPDATE ChiTietDatPhong SET maDatPhong=?, maPhong=?, maKhachHang=?, ngayNhanDuKien=?, ngayTraDuKien=?, ngayNhanThucTe=?, ngayTraThucTe=?, giaThucTeChot=?, phuPhiPhatSinh=?, daThanhToan=? WHERE maChiTiet=?";
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(ChiTietDatPhong.class, ct); }
+        String sql = "UPDATE ChiTietDatPhong SET maDatPhong=?, maPhong=?, maKhachHang=?, ngayNhanDuKien=?, ngayTraDuKien=?, ngayNhanThucTe=?, ngayTraThucTe=?, giaThucTeChot=?, phuPhiPhatSinh=?, daThanhToan=?, maChiTietTruoc=? WHERE maChiTiet=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getDatPhong() != null ? ct.getDatPhong().getMaDatPhong() : null);
             ps.setString(2, ct.getPhong() != null ? ct.getPhong().getMaPhong() : null);
@@ -70,7 +76,8 @@ public class ChiTietDatPhongDAO {
             ps.setDouble(8, ct.getGiaThucTeChot());
             ps.setDouble(9, ct.getPhuPhiPhatSinh());
             ps.setBoolean(10, ct.isDaThanhToan());
-            ps.setString(11, ct.getMaChiTiet());
+            ps.setString(11, ct.getMaChiTietTruoc());
+            ps.setString(12, ct.getMaChiTiet());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e);
@@ -81,6 +88,7 @@ public class ChiTietDatPhongDAO {
     private ChiTietDatPhong mapRow(ResultSet rs) throws SQLException {
         ChiTietDatPhong ct = new ChiTietDatPhong();
         ct.setMaChiTiet(rs.getString("maChiTiet"));
+        ct.setMaChiTietTruoc(rs.getString("maChiTietTruoc"));
 
         // Load Phong with full data
         String soPhong = rs.getString("maPhong");
@@ -122,7 +130,7 @@ public class ChiTietDatPhongDAO {
 
         ct.setGiaThucTeChot(rs.getDouble("giaThucTeChot"));
         ct.setPhuPhiPhatSinh(rs.getDouble("phuPhiPhatSinh"));
-        
+
         try {
             ct.setDaThanhToan(rs.getBoolean("daThanhToan"));
         } catch (SQLException ignored) {
@@ -134,19 +142,12 @@ public class ChiTietDatPhongDAO {
     }
 
     public String generateMaChiTiet() {
-        try (Statement st = getConn().createStatement();
-                ResultSet rs = st
-                        .executeQuery("SELECT MAX(CAST(SUBSTRING(maChiTiet,3,10) AS INT)) FROM ChiTietDatPhong")) {
-            if (rs.next())
-                return String.format("CT%04d", rs.getInt(1) + 1);
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Database error in ChiTietDatPhongDAO", e);
-        }
-        return "CT0001";
+        return util.IdGenerator.next("CT");
     }
 
     public ChiTietDatPhong getById(String id) {
-        try (PreparedStatement ps = getConn().prepareStatement("SELECT * FROM ChiTietDatPhong WHERE maChiTiet=?")) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.stay(id); }
+        try (PreparedStatement ps = getConn().prepareStatement("SELECT * FROM ChiTietDatPhong WITH (UPDLOCK, HOLDLOCK) WHERE maChiTiet=?")) {
             ps.setString(1, id);
             ResultSet rs = ps.executeQuery();
             if (rs.next())
@@ -158,6 +159,7 @@ public class ChiTietDatPhongDAO {
     }
 
     public List<ChiTietDatPhong> getAll() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(ChiTietDatPhong.class).stream().map(x -> DemoRepository.stay(x.getMaChiTiet())).collect(java.util.stream.Collectors.toList()); }
         List<ChiTietDatPhong> list = new ArrayList<>();
         try (Statement st = getConn().createStatement();
                 ResultSet rs = st.executeQuery("SELECT * FROM ChiTietDatPhong")) {
@@ -171,6 +173,7 @@ public class ChiTietDatPhongDAO {
 
     /** Kiểm tra xem phòng có lượt stay nào chưa trả phòng không */
     public boolean hasActiveStay(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { return getActiveStayByPhong(maPhong) != null; }
         String sql = "SELECT COUNT(*) FROM ChiTietDatPhong WHERE maPhong=? AND ngayTraThucTe IS NULL AND ngayNhanThucTe IS NOT NULL";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
@@ -182,6 +185,7 @@ public class ChiTietDatPhongDAO {
 
     /** Lấy lượt stay đang hoạt động của một phòng (được ưu tiên gán cho các thao tác Check-out/Dịch vụ) */
     public ChiTietDatPhong getActiveStayByPhong(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> x.getPhong() != null && maPhong.equals(x.getPhong().getMaPhong()) && x.getNgayNhanThucTe() != null && x.getNgayTraThucTe() == null).findFirst().orElse(null); }
         String sql = "SELECT TOP 1 * FROM ChiTietDatPhong WHERE maPhong=? AND ngayTraThucTe IS NULL AND ngayNhanThucTe IS NOT NULL ORDER BY ngayNhanThucTe DESC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
@@ -193,15 +197,12 @@ public class ChiTietDatPhongDAO {
 
     /** Tìm một đơn đặt phòng khác đang có lịch trùng với khoảng thời gian dự định */
     public ChiTietDatPhong getConflictingStay(String maPhong, LocalDateTime start, LocalDateTime end, String excludeMaDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.conflict(maPhong, start, end, excludeMaDatPhong); }
         String sql = "SELECT TOP 1 ct.* FROM ChiTietDatPhong ct " +
                      "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
                      "WHERE ct.maPhong = ? " +
                      "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
-                     "AND ( " +
-                     "  (dp.trangThai IN ('PENDING', 'CONFIRMED') AND ct.ngayTraThucTe IS NULL) " +
-                     "  OR " +
-                     "  (dp.trangThai IN ('CHECKED_IN', 'PARTIALLY_CHECKED_IN') AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL) " +
-                     ") " +
+                     "AND ct.ngayTraThucTe IS NULL " +
                      "AND dp.maDatPhong != ? " +
                      "AND COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) < ? " +
                      "AND COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) > ?";
@@ -217,6 +218,7 @@ public class ChiTietDatPhongDAO {
     }
 
     public boolean deleteByDatPhong(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(ChiTietDatPhong.class, x -> maDatPhong.equals(x.getMaDatPhong())); }
         String sql = "DELETE FROM ChiTietDatPhong WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -230,6 +232,7 @@ public class ChiTietDatPhongDAO {
 
     /** Lấy danh sách các phòng đang được thuê thuộc cùng 1 đơn đặt phòng (Đoàn/Group) */
     public java.util.Map<String, String> getActiveGroupRoomsMap() {
+        if (DatabaseConnection.isDemoMode()) { java.util.Map<String,String> result = new java.util.HashMap<>(); for (ChiTietDatPhong x : getAll()) if (x.getPhong()!=null && x.getDatPhong()!=null && x.getNgayNhanThucTe()!=null && x.getNgayTraThucTe()==null && "DOAN".equals(x.getDatPhong().getLoaiKhach())) result.put(x.getPhong().getMaPhong(), x.getDatPhong().getTenDoan()+"|"+x.getMaDatPhong()); return result; }
         java.util.Map<String, String> map = new java.util.HashMap<>();
         String sql = "SELECT ct.maPhong, ct.maDatPhong, dp.tenDoan FROM ChiTietDatPhong ct " +
                      "INNER JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +

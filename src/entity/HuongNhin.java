@@ -3,10 +3,11 @@ package entity;
 /**
  * Hướng nhìn phòng (Room View) – bảng danh mục.
  * Ví dụ: Hướng phố (×1.0), Hướng biển (×1.3), VIP Panorama (×1.5)
- * 
+ *
  * Công thức giá:  Giá phòng = LoaiPhong.giaTheoNgay × HuongNhin.heSoGia
  */
-public class HuongNhin {
+public class HuongNhin implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maHuongNhin;
     private String tenHuongNhin;
     private String moTa;

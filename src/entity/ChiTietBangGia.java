@@ -1,6 +1,7 @@
 package entity;
 
-public class ChiTietBangGia {
+public class ChiTietBangGia implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private int maChiTiet;
     private double giaNgay;
     private double giaGioDau;

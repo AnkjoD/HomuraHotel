@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.HuongNhin;
 
@@ -21,7 +23,7 @@ public class HuongNhinDAO {
     }
 
     public List<HuongNhin> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getViews();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.HuongNhin.class);
         List<HuongNhin> list = new ArrayList<>();
         String sql = "SELECT * FROM HuongNhin ORDER BY thuTu, tenHuongNhin";
         try (Statement st = getConn().createStatement();
@@ -32,6 +34,7 @@ public class HuongNhinDAO {
     }
 
     public HuongNhin getById(String maHuongNhin) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(HuongNhin.class, maHuongNhin); }
         String sql = "SELECT * FROM HuongNhin WHERE maHuongNhin=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maHuongNhin);
@@ -42,6 +45,7 @@ public class HuongNhinDAO {
     }
 
     public boolean insert(HuongNhin hn) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(HuongNhin.class, hn); }
         String sql = "INSERT INTO HuongNhin(maHuongNhin, tenHuongNhin, moTa, heSoGia, thuTu) VALUES(?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, hn.getMaHuongNhin());
@@ -54,6 +58,7 @@ public class HuongNhinDAO {
     }
 
     public boolean update(HuongNhin hn) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(HuongNhin.class, hn); }
         String sql = "UPDATE HuongNhin SET tenHuongNhin=?, moTa=?, heSoGia=?, thuTu=? WHERE maHuongNhin=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, hn.getTenHuongNhin());
@@ -66,6 +71,7 @@ public class HuongNhinDAO {
     }
 
     public boolean delete(String maHuongNhin) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(entity.HuongNhin.class,x -> maHuongNhin.equals(x.getMaHuongNhin())); }
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM HuongNhin WHERE maHuongNhin=?")) {
             ps.setString(1, maHuongNhin);
             return ps.executeUpdate() > 0;
@@ -74,16 +80,12 @@ public class HuongNhinDAO {
 
     /** Generate next mã: HN07, HN08... */
     public String generateMa() {
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(
-                 "SELECT MAX(CAST(SUBSTRING(maHuongNhin,3,10) AS INT)) FROM HuongNhin WHERE maHuongNhin LIKE 'HN%'")) {
-            if (rs.next()) return String.format("HN%02d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in HuongNhinDAO", e); }
-        return "HN01";
+        return util.IdGenerator.next("HN");
     }
 
     /** Đếm số phòng đang dùng hướng nhìn này */
     public int countPhongByHuongNhin(String maHuongNhin) {
+        if (DatabaseConnection.isDemoMode()) { return (int)new PhongDAO().getAll().stream().filter(p -> p.getHuongNhin()!=null && maHuongNhin.equals(p.getHuongNhin().getMaHuongNhin())).count(); }
         String sql = "SELECT COUNT(*) FROM Phong WHERE maHuongNhin=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maHuongNhin);

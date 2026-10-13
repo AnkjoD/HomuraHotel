@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.*;
 
@@ -18,7 +20,7 @@ public class DichVuDAO {
     }
 
     public List<DichVu> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getServices();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.DichVu.class);
         List<DichVu> list = new ArrayList<>();
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM DichVu WHERE trangThai >= 0 ORDER BY tenDichVu")) {
@@ -28,6 +30,7 @@ public class DichVuDAO {
     }
 
     public DichVu getById(String maDichVu) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(DichVu.class, maDichVu); }
         try (PreparedStatement ps = getConn().prepareStatement("SELECT * FROM DichVu WHERE maDichVu=?")) {
             ps.setString(1, maDichVu);
             ResultSet rs = ps.executeQuery();
@@ -37,6 +40,7 @@ public class DichVuDAO {
     }
 
     public boolean insert(DichVu dv) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(DichVu.class, dv); }
         String sql = "INSERT INTO DichVu(maDichVu, tenDichVu, loai, donGiaHienTai, donViTinh, soLuongMin, moTa, trangThai) VALUES(?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dv.getMaDichVu());
@@ -52,6 +56,7 @@ public class DichVuDAO {
     }
 
     public boolean update(DichVu dv) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(DichVu.class, dv); }
         String sql = "UPDATE DichVu SET tenDichVu=?, loai=?, donGiaHienTai=?, donViTinh=?, soLuongMin=?, moTa=?, trangThai=? WHERE maDichVu=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dv.getTenDichVu());
@@ -67,6 +72,7 @@ public class DichVuDAO {
     }
 
     public boolean delete(String maDichVu) {
+        if (DatabaseConnection.isDemoMode()) { DichVu x=getById(maDichVu);if(x==null)return false;x.setTrangThai(false);return update(x); }
         try (PreparedStatement ps = getConn().prepareStatement("UPDATE DichVu SET trangThai = -1 WHERE maDichVu=?")) {
             ps.setString(1, maDichVu);
             return ps.executeUpdate() > 0;
@@ -89,6 +95,7 @@ public class DichVuDAO {
     public List<DichVu> getActive() { return getAll(); } // Placeholder if no active flag
 
     public List<DichVu> search(String kw, String type, String status) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> DemoRepository.matches(x.getTenDichVu(),kw)||DemoRepository.matches(x.getMaDichVu(),kw)).collect(java.util.stream.Collectors.toList()); }
         List<DichVu> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder("SELECT * FROM DichVu WHERE trangThai >= 0 ");
         if (kw != null && !kw.isEmpty()) sb.append("AND tenDichVu LIKE ? ");
@@ -111,6 +118,7 @@ public class DichVuDAO {
     }
 
     public int countAll() {
+        if (DatabaseConnection.isDemoMode()) { return getAll().size(); }
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu WHERE trangThai >= 0")) {
             if (rs.next()) return rs.getInt(1);
@@ -119,15 +127,11 @@ public class DichVuDAO {
     }
 
     public String generateMa() {
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(
-                 "SELECT MAX(CAST(SUBSTRING(maDichVu,3,10) AS INT)) FROM DichVu WHERE maDichVu LIKE 'DV%'")) {
-            if (rs.next()) return String.format("DV%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in DichVuDAO", e); }
-        return "DV001";
+        return util.IdGenerator.next("DV");
     }
 
-    public int countActive() { 
+    public int countActive() {
+        if (DatabaseConnection.isDemoMode()) { return (int)getAll().stream().filter(x->x.isTrangThai()).count(); }
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu WHERE trangThai = 1")) {
             if (rs.next()) return rs.getInt(1);
@@ -135,7 +139,8 @@ public class DichVuDAO {
         return 0;
     }
 
-    public int countSuspended() { 
+    public int countSuspended() {
+        if (DatabaseConnection.isDemoMode()) { return (int)getAll().stream().filter(x->!x.isTrangThai()).count(); }
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM DichVu WHERE trangThai = 0")) {
             if (rs.next()) return rs.getInt(1);
@@ -144,6 +149,7 @@ public class DichVuDAO {
     }
 
     public double getGiaTrungBinh() {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().mapToDouble(DichVu::getDonGia).average().orElse(0); }
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT AVG(donGiaHienTai) FROM DichVu WHERE trangThai >= 0")) {
             if (rs.next()) return rs.getDouble(1);

@@ -2,8 +2,12 @@ package entity;
 
 import java.time.LocalDateTime;
 
-public class GiaoCa {
+public class GiaoCa implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maGiaoCa;
+    private java.util.Map<Integer,Integer> demoDenominations = new java.util.HashMap<>();
+    public java.util.Map<Integer,Integer> getDemoDenominations() { return demoDenominations; }
+    public void setDemoDenominations(java.util.Map<Integer,Integer> value) { demoDenominations = value; }
     private NhanVien nhanVien; // Người bàn giao
     private LocalDateTime thoiGianBatDau;
     private LocalDateTime thoiGianKetThuc;

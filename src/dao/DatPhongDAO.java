@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.DatPhong;
 import entity.KhachHang;
@@ -26,7 +28,7 @@ public class DatPhongDAO {
     }
 
     public List<DatPhong> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getBookings();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.DatPhong.class);
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong ORDER BY ngayDat DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -39,6 +41,7 @@ public class DatPhongDAO {
     }
 
     public DatPhong getById(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.booking(maDatPhong, true); }
         String sql = "SELECT * FROM DatPhong WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -52,6 +55,7 @@ public class DatPhongDAO {
     }
 
     public DatPhong getByIdBasic(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.booking(maDatPhong, false); }
         String sql = "SELECT * FROM DatPhong WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -65,6 +69,7 @@ public class DatPhongDAO {
     }
 
     public boolean insert(DatPhong dp) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(DatPhong.class, dp); }
         String sql = "INSERT INTO DatPhong(maDatPhong, maKhachHang, maNhanVien, ngayDat, ngayNhanDuKien, ngayTraDuKien, soNguoi, tienDatCoc, tongTienTamTinh, trangThai, ghiChu, loaiKhach, tenDoan, maKenh, maXacNhanKenh, phiNoShow, hanCheckIn, thuTuWaitlist, hanNopCoc, phiHuyPhong, maKM) "
                 +
                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -127,6 +132,7 @@ public class DatPhongDAO {
     }
 
     public boolean update(DatPhong dp) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(DatPhong.class, dp); }
         String sql = "UPDATE DatPhong SET maKhachHang=?, maNhanVien=?, ngayNhanDuKien=?, ngayTraDuKien=?, soNguoi=?, tienDatCoc=?, tongTienTamTinh=?, trangThai=?, ghiChu=?, loaiKhach=?, tenDoan=?, maKenh=?, maXacNhanKenh=?, phiNoShow=?, hanCheckIn=?, thuTuWaitlist=?, hanNopCoc=?, phiHuyPhong=?, maKM=? WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, dp.getKhachHang() != null ? dp.getKhachHang().getMaKhachHang() : null);
@@ -182,6 +188,7 @@ public class DatPhongDAO {
 
     /** Đổi trạng thái sang CANCELLED (Soft delete) */
     public boolean softDelete(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { DatPhong x=getByIdBasic(maDatPhong); if(x==null)return false; x.setTrangThai(entity.enums.TrangThaiDatPhong.CANCELLED); return update(x); }
         String sql = "UPDATE DatPhong SET trangThai='CANCELLED' WHERE maDatPhong=? AND trangThai NOT IN ('CHECKED_IN', 'CHECKED_OUT')";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -194,6 +201,7 @@ public class DatPhongDAO {
 
     /** Xóa hoàn toàn khỏi CSDL (Hard delete) */
     public boolean deleteHard(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(DatPhong.class,x -> maDatPhong.equals(x.getMaDatPhong())); }
         String sql = "DELETE FROM DatPhong WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -205,22 +213,11 @@ public class DatPhongDAO {
     }
 
     public String generateMaDatPhong() {
-        java.time.LocalDate today = java.time.LocalDate.now();
-        String prefix = String.format("DP-%d%02d%02d-", today.getYear(), today.getMonthValue(), today.getDayOfMonth());
-        String sql = "SELECT MAX(CAST(SUBSTRING(maDatPhong, LEN(?)+1, 10) AS INT)) FROM DatPhong WHERE maDatPhong LIKE ?";
-        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-            ps.setString(1, prefix);
-            ps.setString(2, prefix + "%");
-            ResultSet rs = ps.executeQuery();
-            if (rs.next())
-                return prefix + String.format("%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "Lỗi sinh mã đặt phòng", e);
-        }
-        return prefix + "001";
+        return util.IdGenerator.next("DP");
     }
 
     public List<DatPhong> search(String kw, String status, String date) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().map(x -> getById(x.getMaDatPhong())).filter(x -> (DemoRepository.matches(x.getMaDatPhong(),kw)||DemoRepository.matches(x.getTenKhachHang(),kw)) && (status==null||status.isBlank()||status.equals(x.getTrangThai().name())||status.equals(x.getTrangThai().toString())) && (date==null||date.isBlank()||x.getNgayNhanDuKien().toLocalDate().toString().equals(date))).collect(java.util.stream.Collectors.toList()); }
         List<DatPhong> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder("SELECT * FROM DatPhong WHERE 1=1 ");
         if (kw != null && !kw.isEmpty())
@@ -253,11 +250,12 @@ public class DatPhongDAO {
         return list;
     }
 
-    /** 
+    /**
      * Lấy danh sách đặt phòng đã quá hạn check-in (No-show).
      * @param hoursThreshold Số giờ quá hạn tối thiểu (ví dụ: quá 2 tiếng so với giờ dự kiến)
      */
     public List<DatPhong> getPotentialNoShows(int hoursThreshold) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> x.getTrangThai()==TrangThaiDatPhong.CONFIRMED && x.getNgayNhanDuKien()!=null && x.getNgayNhanDuKien().isBefore(LocalDateTime.now().minusHours(hoursThreshold))).collect(java.util.stream.Collectors.toList()); }
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong WHERE trangThai = 'CONFIRMED' " +
                 "AND ((hanCheckIn IS NOT NULL AND hanCheckIn < DATEADD(HOUR, -?, GETDATE())) " +
@@ -277,6 +275,7 @@ public class DatPhongDAO {
 
     /** Lấy danh sách waitlist, sắp xếp theo thứ tự ưu tiên */
     public List<DatPhong> getWaitlist() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(DatPhong.class,x -> x.getTrangThai()==entity.enums.TrangThaiDatPhong.WAITLIST); }
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong WHERE trangThai = 'WAITLIST' ORDER BY thuTuWaitlist ASC, ngayDat ASC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -290,6 +289,7 @@ public class DatPhongDAO {
 
     /** Đánh dấu no-show cho một đặt phòng */
     public boolean markNoShow(String maDatPhong, double phiPhat) {
+        if (DatabaseConnection.isDemoMode()) { DatPhong x=getByIdBasic(maDatPhong);if(x==null)return false;x.setTrangThai(TrangThaiDatPhong.NO_SHOW);return update(x); }
         String sql = "UPDATE DatPhong SET trangThai='NO_SHOW', phiNoShow=?, ghiChu=ISNULL(ghiChu,'') + ' | No-show: Khách không đến' WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setDouble(1, phiPhat);
@@ -306,6 +306,7 @@ public class DatPhongDAO {
      * @param hoursAhead Cửa sổ tương lai (tiếng)
      */
     public List<DatPhong> getUpcomingArrivals(int hoursAhead) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> x.getTrangThai()==TrangThaiDatPhong.CONFIRMED && x.getNgayNhanDuKien()!=null && !x.getNgayNhanDuKien().isBefore(LocalDateTime.now()) && x.getNgayNhanDuKien().isBefore(LocalDateTime.now().plusHours(hoursAhead))).collect(java.util.stream.Collectors.toList()); }
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong WHERE trangThai = 'CONFIRMED' " +
                      "AND ngayNhanDuKien BETWEEN DATEADD(HOUR, -2, GETDATE()) " +
@@ -325,6 +326,7 @@ public class DatPhongDAO {
      * Lấy danh sách đặt phòng PENDING lâu hơn hoursOld tiếng (dùng SQL).
      */
     public List<DatPhong> getLongPending(int hoursOld) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> x.getTrangThai()==TrangThaiDatPhong.PENDING && x.getNgayDat()!=null && x.getNgayDat().isBefore(LocalDateTime.now().minusHours(hoursOld))).collect(java.util.stream.Collectors.toList()); }
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong WHERE trangThai = 'PENDING' " +
                      "AND ngayDat < DATEADD(HOUR, -?, GETDATE()) " +
@@ -341,6 +343,7 @@ public class DatPhongDAO {
 
     /** Chuyển booking từ waitlist lên confirmed */
     public boolean confirmFromWaitlist(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { DatPhong x=getByIdBasic(maDatPhong);if(x==null)return false;x.setTrangThai(TrangThaiDatPhong.CONFIRMED);return update(x); }
         String sql = "UPDATE DatPhong SET trangThai='CONFIRMED', thuTuWaitlist=0 WHERE maDatPhong=? AND trangThai='WAITLIST'";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -353,6 +356,7 @@ public class DatPhongDAO {
 
     /** Lấy thứ tự waitlist tiếp theo */
     public int getNextWaitlistOrder() {
+        if (DatabaseConnection.isDemoMode()) { return getWaitlist().size()+1; }
         String sql = "SELECT ISNULL(MAX(thuTuWaitlist), 0) + 1 FROM DatPhong WHERE trangThai='WAITLIST'";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (rs.next())
@@ -365,6 +369,7 @@ public class DatPhongDAO {
 
     /** Tìm kiếm theo kênh đặt phòng */
     public List<DatPhong> searchByChannel(String maKenh) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(DatPhong.class,x -> x.getKenhDatPhong()!=null && maKenh.equals(x.getKenhDatPhong().getMaKenh())); }
         List<DatPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM DatPhong WHERE maKenh=? ORDER BY ngayDat DESC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -469,11 +474,11 @@ public class DatPhongDAO {
             Timestamp tsHanCoc = rs.getTimestamp("hanNopCoc");
             if (tsHanCoc != null) dp.setHanNopCoc(tsHanCoc.toLocalDateTime());
         } catch (SQLException ignored) {}
-        
+
         try {
             dp.setPhiHuyPhong(rs.getDouble("phiHuyPhong"));
         } catch (SQLException ignored) {}
-        
+
         try {
             dp.setMaKhuyenMai(rs.getString("maKM"));
         } catch (SQLException ignored) {}

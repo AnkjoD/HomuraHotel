@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.ChiTietBangGia;
 import entity.LoaiPhong;
@@ -19,6 +21,7 @@ public class ChiTietBangGiaDAO {
     }
 
     public List<ChiTietBangGia> getByBangGia(String maBangGia) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.ChiTietBangGia.class, x -> x.getBangGia()!=null && maBangGia.equals(x.getBangGia().getMaBangGia())); }
         List<ChiTietBangGia> list = new ArrayList<>();
         String sql = "SELECT ct.*, lp.tenLoaiPhong " +
                      "FROM ChiTietBangGia ct " +
@@ -36,6 +39,7 @@ public class ChiTietBangGiaDAO {
 
     /** Find rate for a specific loaiPhong in a specific bangGia */
     public ChiTietBangGia findByBangGiaAndLoaiPhong(String maBangGia, String maLoaiPhong) {
+        if (DatabaseConnection.isDemoMode()) { return getByBangGia(maBangGia).stream().filter(x -> x.getLoaiPhong()!=null && maLoaiPhong.equals(x.getLoaiPhong().getMaLoaiPhong())).findFirst().orElse(null); }
         String sql = "SELECT ct.*, lp.tenLoaiPhong " +
                      "FROM ChiTietBangGia ct " +
                      "JOIN LoaiPhong lp ON ct.maLoaiPhong = lp.maLoaiPhong " +
@@ -50,6 +54,7 @@ public class ChiTietBangGiaDAO {
     }
 
     public boolean insert(ChiTietBangGia ct) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(entity.ChiTietBangGia.class,ct); }
         String sql = "INSERT INTO ChiTietBangGia(maBangGia, maLoaiPhong, giaTheoNgay, giaTheoGio, phuPhiTraTre, giaCuoiTuan) VALUES(?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ct.getBangGia().getMaBangGia());
@@ -74,6 +79,7 @@ public class ChiTietBangGiaDAO {
     }
 
     public boolean update(ChiTietBangGia ct) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(entity.ChiTietBangGia.class,ct); }
         String sql = "UPDATE ChiTietBangGia SET giaTheoNgay=?, giaTheoGio=?, phuPhiTraTre=?, giaCuoiTuan=? WHERE maChiTietBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setDouble(1, ct.getGiaNgay());
@@ -96,6 +102,7 @@ public class ChiTietBangGiaDAO {
     }
 
     public boolean deleteByBangGia(String maBangGia) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(entity.ChiTietBangGia.class,x -> maBangGia.equals(x.getBangGia().getMaBangGia())); }
         String sql = "DELETE FROM ChiTietBangGia WHERE maBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maBangGia);
@@ -105,19 +112,19 @@ public class ChiTietBangGiaDAO {
 
     private ChiTietBangGia mapRow(ResultSet rs) throws SQLException {
         ChiTietBangGia ct = new ChiTietBangGia();
-        
+
         try { ct.setMaChiTiet(rs.getInt("maChiTietBangGia")); } catch (Exception e) {}
-        
+
         LoaiPhong lp = new LoaiPhong();
         lp.setMaLoaiPhong(rs.getString("maLoaiPhong"));
         try { lp.setTenLoaiPhong(rs.getString("tenLoaiPhong")); } catch (Exception e) {}
         ct.setLoaiPhong(lp);
-        
+
         try { ct.setGiaNgay(rs.getDouble("giaTheoNgay")); } catch (Exception e) {}
         try { ct.setGiaGioDau(rs.getDouble("giaTheoGio")); } catch (Exception e) {}
         try { ct.setPhuPhiTraTre(rs.getDouble("phuPhiTraTre")); } catch (Exception e) {}
         try { ct.setGiaCuoiTuan(rs.getDouble("giaCuoiTuan")); } catch (Exception e) {}
-        
+
         return ct;
     }
 }

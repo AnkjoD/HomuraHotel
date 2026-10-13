@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.HoaDon;
 import entity.DatPhong;
@@ -23,6 +25,7 @@ public class HoaDonDAO {
     }
 
     public List<HoaDon> getAll() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(HoaDon.class); }
         List<HoaDon> list = new ArrayList<>();
         String sql = "SELECT * FROM HoaDon WHERE trangThai <> 'CANCELLED' ORDER BY ngayLap DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -32,6 +35,7 @@ public class HoaDonDAO {
     }
 
     public HoaDon getById(String maHoaDon) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(HoaDon.class, maHoaDon); }
         String sql = "SELECT * FROM HoaDon WHERE maHoaDon=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maHoaDon);
@@ -42,6 +46,7 @@ public class HoaDonDAO {
     }
 
     public boolean insert(HoaDon hd) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(HoaDon.class, hd); }
         String sql = "INSERT INTO HoaDon(maHoaDon, maDatPhong, maNhanVien, maKhuyenMai, ngayLap, tongTienPhong, tongTienDichVu, tienGiamKhuyenMai, tongThanhToan, trangThai, phuongThucThanhToan) " +
                      "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -61,6 +66,7 @@ public class HoaDonDAO {
     }
 
     public boolean update(HoaDon hd) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(HoaDon.class, hd); }
         String sql = "UPDATE HoaDon SET trangThai=? WHERE maHoaDon=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, hd.getTrangThai().name());
@@ -70,6 +76,7 @@ public class HoaDonDAO {
     }
 
     public int countByDatPhong(String maDatPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(HoaDon.class, x -> x.getDatPhong()!=null && maDatPhong.equals(x.getDatPhong().getMaDatPhong())).size(); }
         String sql = "SELECT COUNT(*) FROM HoaDon WHERE maDatPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maDatPhong);
@@ -80,6 +87,11 @@ public class HoaDonDAO {
     }
 
     public boolean delete(String maHoaDon) {
+        if (DatabaseConnection.isDemoMode()) {
+            HoaDon invoice=getById(maHoaDon);
+            if(invoice==null || invoice.getTrangThai()==TrangThaiThanhToan.PAID)return false;
+            invoice.setTrangThai(TrangThaiThanhToan.CANCELLED);return update(invoice);
+        }
         // Kiểm tra trạng thái hóa đơn trước khi hủy
         HoaDon current = getById(maHoaDon);
         if (current != null && current.getTrangThai() == TrangThaiThanhToan.PAID) {
@@ -98,21 +110,13 @@ public class HoaDonDAO {
     }
 
     public String generateMaHD() {
-        java.time.LocalDate today = java.time.LocalDate.now();
-        String prefix = String.format("HD-%d%02d%02d-", today.getYear(), today.getMonthValue(), today.getDayOfMonth());
-        String sql = "SELECT MAX(CAST(SUBSTRING(maHoaDon, LEN(?)+1, 10) AS INT)) FROM HoaDon WHERE maHoaDon LIKE ?";
-        try (PreparedStatement ps = getConn().prepareStatement(sql)) {
-            ps.setString(1, prefix); ps.setString(2, prefix + "%");
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) return prefix + String.format("%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Lỗi thao tác HoaDon", e); }
-        return prefix + "001";
+        return util.IdGenerator.next("HD");
     }
 
     private HoaDon mapRow(ResultSet rs) throws SQLException {
         HoaDon hd = new HoaDon();
         hd.setMaHoaDon(rs.getString("maHoaDon"));
-        
+
         DatPhong dp = new DatPhong();
         dp.setMaDatPhong(rs.getString("maDatPhong"));
         hd.setDatPhong(dp);
@@ -128,7 +132,7 @@ public class HoaDonDAO {
         hd.setTongTienDichVu(rs.getDouble("tongTienDichVu"));
         hd.setTienGiamKhuyenMai(rs.getDouble("tienGiamKhuyenMai"));
         hd.setTongThanhToan(rs.getDouble("tongThanhToan"));
-        
+
         String statusStr = rs.getString("trangThai");
         if (statusStr != null) {
             try {

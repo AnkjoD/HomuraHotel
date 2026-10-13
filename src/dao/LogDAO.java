@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.NhatKyHeThong;
 import java.sql.*;
@@ -12,6 +14,7 @@ public class LogDAO {
     }
 
     public boolean insert(NhatKyHeThong log) {
+        if (DatabaseConnection.isDemoMode()) { log.setMaLog(DemoRepository.all(entity.NhatKyHeThong.class).size()+1);return DemoRepository.insert(entity.NhatKyHeThong.class,log); }
         String sql = "INSERT INTO NhatKyHeThong (tenDangNhap, hanhDong, doiTuong, chiTiet) VALUES (?, ?, ?, ?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, log.getTenDangNhap());
@@ -30,6 +33,7 @@ public class LogDAO {
     }
 
     public List<NhatKyHeThong> search(String keyword, String actionType) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.NhatKyHeThong.class,x -> DemoRepository.matches(x.getChiTiet(),keyword) && (actionType==null||actionType.isBlank()||actionType.equals(x.getHanhDong()))); }
         List<NhatKyHeThong> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM NhatKyHeThong WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -69,6 +73,7 @@ public class LogDAO {
     }
 
     public List<String> getDistinctActions() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(entity.NhatKyHeThong.class).stream().map(entity.NhatKyHeThong::getHanhDong).distinct().collect(java.util.stream.Collectors.toList()); }
         List<String> list = new ArrayList<>();
         list.add("Tất cả");
         String sql = "SELECT DISTINCT hanhDong FROM NhatKyHeThong ORDER BY hanhDong";

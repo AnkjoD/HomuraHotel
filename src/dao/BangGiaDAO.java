@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.BangGia;
 
@@ -18,7 +20,7 @@ public class BangGiaDAO {
     }
 
     public List<BangGia> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getPriceLists();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.BangGia.class);
         List<BangGia> list = new ArrayList<>();
         String sql = "SELECT * FROM BangGia ORDER BY mucUuTien ASC, ngayBatDau DESC";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -39,6 +41,7 @@ public class BangGiaDAO {
     }
 
     public BangGia getById(String maBangGia) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(BangGia.class, maBangGia); }
         String sql = "SELECT * FROM BangGia WHERE maBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maBangGia);
@@ -52,6 +55,7 @@ public class BangGiaDAO {
     }
 
     public boolean insert(BangGia bg) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(BangGia.class, bg); }
         String sql = "INSERT INTO BangGia(maBangGia, tenBangGia, ngayBatDau, ngayKetThuc, isKichHoat, loaiBangGia, doiTuongApDung, mucUuTien, moTa, ngayCuoiTuan) VALUES(?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, bg.getMaBangGia());
@@ -87,6 +91,7 @@ public class BangGiaDAO {
     }
 
     public boolean update(BangGia bg) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(BangGia.class, bg); }
         String sql = "UPDATE BangGia SET tenBangGia=?, ngayBatDau=?, ngayKetThuc=?, isKichHoat=?, loaiBangGia=?, doiTuongApDung=?, mucUuTien=?, moTa=?, ngayCuoiTuan=? WHERE maBangGia=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, bg.getTenBangGia());
@@ -118,6 +123,7 @@ public class BangGiaDAO {
     }
 
     public boolean delete(String maBangGia) {
+        if (DatabaseConnection.isDemoMode()) { BangGia x=getById(maBangGia);if(x==null)return false;x.setTrangThai(false);return update(x); }
         // Delete chi tiet first (FK constraint)
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM ChiTietBangGia WHERE maBangGia=?")) {
             ps.setString(1, maBangGia);
@@ -136,6 +142,7 @@ public class BangGiaDAO {
     }
 
     public List<BangGia> search(String keyword, String status) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> DemoRepository.matches(x.getTenBangGia(),keyword)).collect(java.util.stream.Collectors.toList()); }
         List<BangGia> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM BangGia WHERE 1=1 ");
         if (keyword != null && !keyword.isEmpty())
@@ -163,6 +170,7 @@ public class BangGiaDAO {
     }
 
     public List<BangGia> getByLoai(String loaiBangGia) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> java.util.Objects.equals(loaiBangGia,x.getLoaiBangGia())).collect(java.util.stream.Collectors.toList()); }
         List<BangGia> list = new ArrayList<>();
         String sql = "SELECT * FROM BangGia WHERE loaiBangGia=? AND isKichHoat=1 ORDER BY mucUuTien ASC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -181,6 +189,7 @@ public class BangGiaDAO {
      * Trả về bảng giá bị trùng nếu có.
      */
     public BangGia checkOverlap(BangGia bg) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> !java.util.Objects.equals(x.getMaBangGia(),bg.getMaBangGia()) && x.isTrangThai() && x.getMucUuTien()==bg.getMucUuTien() && java.util.Objects.equals(x.getDoiTuongApDung(),bg.getDoiTuongApDung()) && (x.getNgayBatDau()==null || bg.getNgayKetThuc()==null || !x.getNgayBatDau().isAfter(bg.getNgayKetThuc())) && (x.getNgayKetThuc()==null || bg.getNgayBatDau()==null || !x.getNgayKetThuc().isBefore(bg.getNgayBatDau()))).findFirst().orElse(null); }
         String sql = "SELECT TOP 1 * FROM BangGia WHERE isKichHoat = 1 AND maBangGia <> ? " +
                 "AND doiTuongApDung = ? AND mucUuTien = ? " +
                 "AND ((ngayBatDau <= ? AND ngayKetThuc >= ?) OR (ngayBatDau <= ? AND ngayKetThuc >= ?) OR (? <= ngayBatDau AND ? >= ngayKetThuc))";
@@ -206,6 +215,7 @@ public class BangGiaDAO {
 
     /** Find active BangGia that covers a specific date */
     public BangGia findActiveOnDate(java.time.LocalDateTime date) {
+        if (DatabaseConnection.isDemoMode()) { return findBestRate(date,"ALL"); }
         String sql = "SELECT * FROM BangGia WHERE isKichHoat = 1 " +
                 "AND ? BETWEEN ngayBatDau AND ngayKetThuc " +
                 "ORDER BY mucUuTien ASC, ngayBatDau DESC";
@@ -225,6 +235,7 @@ public class BangGiaDAO {
      * Ưu tiên: mucUuTien nhỏ nhất → rate plan cụ thể hơn được áp dụng trước.
      */
     public BangGia findBestRate(java.time.LocalDateTime date, String doiTuong) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> x.isTrangThai() && (x.getNgayBatDau()==null || !date.isBefore(x.getNgayBatDau())) && (x.getNgayKetThuc()==null || !date.isAfter(x.getNgayKetThuc())) && ("ALL".equals(x.getDoiTuongApDung()) || java.util.Objects.equals(doiTuong,x.getDoiTuongApDung()))).min(java.util.Comparator.comparingInt(BangGia::getMucUuTien)).orElse(null); }
         String sql = "SELECT * FROM BangGia WHERE isKichHoat = 1 " +
                 "AND ? BETWEEN ngayBatDau AND ngayKetThuc " +
                 "AND (doiTuongApDung = 'ALL' OR doiTuongApDung = ?) " +
@@ -245,6 +256,7 @@ public class BangGiaDAO {
 
     /** Find active BangGia that covers today for any loaiPhong */
     public BangGia findActiveToday() {
+        if (DatabaseConnection.isDemoMode()) { return findBestRate(java.time.LocalDateTime.now(),"ALL"); }
         String sql = "SELECT * FROM BangGia WHERE isKichHoat = 1 " +
                 "AND GETDATE() BETWEEN ngayBatDau AND ngayKetThuc " +
                 "ORDER BY ngayBatDau DESC";
@@ -258,28 +270,7 @@ public class BangGiaDAO {
     }
 
     public String generateMaBangGia() {
-        int maxVal = 0;
-        String sql = "SELECT maBangGia FROM BangGia WHERE maBangGia LIKE 'BG%'";
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) {
-                String id = rs.getString(1);
-                if (id != null && id.length() > 2) {
-                    String numPart = id.substring(2);
-                    if (numPart.matches("\\d+")) {
-                        try {
-                            int val = Integer.parseInt(numPart);
-                            if (val > maxVal) {
-                                maxVal = val;
-                            }
-                        } catch (NumberFormatException ignored) {}
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Database error in BangGiaDAO", e);
-        }
-        return String.format("BG%03d", maxVal + 1);
+        return util.IdGenerator.next("BG");
     }
 
     private BangGia mapRow(ResultSet rs) throws SQLException {

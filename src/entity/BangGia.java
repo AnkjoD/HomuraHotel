@@ -4,7 +4,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BangGia {
+public class BangGia implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maBangGia;
     private String tenBangGia;
     private LocalDateTime ngayBatDau;
@@ -24,7 +25,7 @@ public class BangGia {
 
     public boolean kiemTraHieuLuc() {
         LocalDateTime now = LocalDateTime.now();
-        return (now.isAfter(ngayBatDau) || now.isEqual(ngayBatDau)) && 
+        return (now.isAfter(ngayBatDau) || now.isEqual(ngayBatDau)) &&
                (now.isBefore(ngayKetThuc) || now.isEqual(ngayKetThuc)) && trangThai;
     }
 

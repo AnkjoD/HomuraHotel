@@ -1,6 +1,7 @@
 package entity;
 
-public class KhachHang {
+public class KhachHang implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maKhachHang;
     private String hoTen;
     private String sdt;
@@ -21,7 +22,7 @@ public class KhachHang {
     private int soLanO;                 // Tổng số lần đã ở (stays)
     private double tongChiTieu;         // Tổng chi tiền quyết toán (VND)
     private int diemTichLuy;            // Điểm thưởng (loyalty points)
-    private String hangKhachHang = "Hạng Thường"; 
+    private String hangKhachHang = "Hạng Thường";
     private boolean isBlacklist = false;
     private String preferences;
     private String vipLevel = "BRONZE";
@@ -47,8 +48,8 @@ public class KhachHang {
 
     /** Kiểm tra xem khách có phải người nước ngoài không */
     public boolean isNuocNgoai() {
-        return quocTich != null && !quocTich.isEmpty() 
-            && !quocTich.equalsIgnoreCase("Việt Nam") 
+        return quocTich != null && !quocTich.isEmpty()
+            && !quocTich.equalsIgnoreCase("Việt Nam")
             && !quocTich.equalsIgnoreCase("Viet Nam")
             && !quocTich.equalsIgnoreCase("VN");
     }

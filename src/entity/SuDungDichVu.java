@@ -2,7 +2,8 @@ package entity;
 
 import entity.*;
 
-public class SuDungDichVu {
+public class SuDungDichVu implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maSuDung;
     private ChiTietDatPhong ctdp;
     private DichVu dichVu;

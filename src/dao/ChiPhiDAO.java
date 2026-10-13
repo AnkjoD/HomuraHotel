@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.ChiPhi;
 import entity.NhanVien;
@@ -18,6 +20,7 @@ public class ChiPhiDAO {
     }
 
     public boolean insert(ChiPhi cp) {
+        if (DatabaseConnection.isDemoMode()) { cp.setMaChiPhi(DemoRepository.all(entity.ChiPhi.class).size()+1);return DemoRepository.insert(entity.ChiPhi.class,cp); }
         String sql = "INSERT INTO ChiPhi (maNhanVien, soTien, lyDo, thoiGian, maGiaoCa) VALUES (?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, cp.getNhanVien().getMaNhanVien());
@@ -33,6 +36,7 @@ public class ChiPhiDAO {
     }
 
     public List<ChiPhi> getByShift(String maGiaoCa) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.ChiPhi.class,x -> maGiaoCa.equals(x.getMaGiaoCa())); }
         List<ChiPhi> list = new ArrayList<>();
         String sql = "SELECT cp.*, nv.hoTen FROM ChiPhi cp JOIN NhanVien nv ON cp.maNhanVien = nv.maNhanVien WHERE maGiaoCa = ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -45,12 +49,12 @@ public class ChiPhiDAO {
                 cp.setLyDo(rs.getNString("lyDo"));
                 cp.setThoiGian(rs.getTimestamp("thoiGian").toLocalDateTime());
                 cp.setMaGiaoCa(rs.getString("maGiaoCa"));
-                
+
                 NhanVien nv = new NhanVien();
                 nv.setMaNhanVien(rs.getString("maNhanVien"));
                 nv.setHoTen(rs.getNString("hoTen"));
                 cp.setNhanVien(nv);
-                
+
                 list.add(cp);
             }
         } catch (SQLException e) {
@@ -60,6 +64,7 @@ public class ChiPhiDAO {
     }
 
     public double sumByShift(String maGiaoCa) {
+        if (DatabaseConnection.isDemoMode()) { return getByShift(maGiaoCa).stream().mapToDouble(entity.ChiPhi::getSoTien).sum(); }
         String sql = "SELECT SUM(soTien) FROM ChiPhi WHERE maGiaoCa = ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maGiaoCa);

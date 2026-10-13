@@ -28,3 +28,6 @@ Desktop.ini
 # Temporary & test
 scratch/
 artifacts/
+
+# Local database credentials
+resources/db.properties

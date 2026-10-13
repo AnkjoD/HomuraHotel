@@ -1,138 +1,90 @@
-# 🏨 Homura Hotel Management System
+# Homura Hotel
 
-> Hệ thống quản lý khách sạn cao cấp xây dựng trên nền tảng **Java 21 Swing Desktop UI**, tích hợp bộ đôi theme đặc trưng **Homura (Dark Mode)** & **Madoka (Light Mode)** cùng cơ chế **In-Memory Demo Mode** cho phép trải nghiệm tức thì không phụ thuộc cơ sở dữ liệu.
+Ứng dụng quản lý khách sạn dùng Java 21 và Swing, với SQL Server cho dữ liệu thật và Demo trong bộ nhớ cho trải nghiệm/kiểm tra offline.
 
----
+## Chạy ứng dụng
 
-## ✨ Điểm nổi bật
+Cần JDK 21 trở lên. Trên Windows, mở `HomuraHotel.bat`. Script biên dịch lại nguồn trước khi chạy, nên các sửa đổi luôn được áp dụng. Khi không kết nối được SQL Server, có thể chọn Demo.
 
-- 🎨 **Hệ thống Theme kép (Dynamic Live Switch):**
-  - **Homura Mode (Dark):** Tông tím thẫm `#13111C` huyền bí, lịch lãm, viền bo tròn sắc nét, điểm nhấn tím neon `#8B5CF6`.
-  - **Madoka Mode (Light):** Tông hồng phấn dịu ngọt `#FFF5F8`, nền card trắng trang nhã `#FFFFFF`, điểm nhấn hồng `#EC4899`.
-  - Chuyển đổi giao diện thời gian thực qua Observer pattern (không cần khởi động lại ứng dụng).
+Tài khoản Demo: `manager / 123`, `recept1 / 123`, `admin / admin`.
+Demo là dữ liệu tạm trong bộ nhớ, được tạo lại khi khởi động; dùng SQL Server để lưu dữ liệu kinh doanh lâu dài. Thay đổi mật khẩu Demo có hiệu lực trong phiên hiện tại và mật khẩu cũ không được chấp nhận lại.
 
-- ⚡ **Chế độ Demo (Offline Fallback):**
-  - Tự động phát hiện khi chưa kết nối SQL Server và đề xuất kích hoạt chế độ Demo.
-  - Bộ nhớ ảo in-memory (`DemoDataStore`) cung cấp sẵn 12 phòng mẫu đủ trạng thái (Trống, Đang ở, Chờ dọn dẹp, Đang sửa), đầy đủ loại phòng, hướng nhìn, dịch vụ và danh mục giá.
-  - Trải nghiệm 100% quy trình: Đặt phòng -> Nhận phòng -> Gọi dịch vụ -> Thanh toán trả phòng -> Thống kê.
-
-- 🛎️ **Phân hệ nghiệp vụ hoàn chỉnh:**
-  - **Sơ đồ phòng trực quan:** Hiển thị trạng thái phòng theo mã màu, hỗ trợ thao tác nhanh, lọc theo tầng/loại phòng.
-  - **Đặt & Thuê phòng:** Quy trình check-in/check-out linh hoạt, tính tiền giờ/ngày, quản lý tiền cọc, phụ thu.
-  - **Dịch vụ & Minibar:** Thêm dịch vụ vào hóa đơn phòng, tra cứu giá tự động.
-  - **Hóa đơn & Thanh toán:** Hỗ trợ quét mã QR, chia hóa đơn, xuất PDF / Excel.
-  - **Giao ca & Thống kê:** Báo cáo doanh thu, công suất phòng, quản lý tiền mặt đầu/cuối ca.
-  - **Phân quyền người dùng:** Phân tách rõ ràng vai trò Quản lý (Manager) và Lễ tân (Receptionist).
-
----
-
-## 📂 Cấu trúc thư mục
+## Cấu trúc
 
 ```text
 HomuraHotel/
-├── .env.example              # Mẫu cấu hình môi trường CSDL
-├── .gitignore                # Cấu hình Git ignore chuẩn Java/Swing
-├── HomuraHotel.bat           # Script 1-click khởi chạy ứng dụng
-├── pack_jar.bat              # Script đóng gói HomuraHotel.jar
-├── README.md                 # Tài liệu hướng dẫn sử dụng
-│
-├── database/                 # Script khởi tạo SQL Server
-│   └── complete_database.sql # DDL và dữ liệu ban đầu
-├── docs/                     # Tài liệu thiết kế & phân tích hệ thống
-├── icon/ & img/              # Tài nguyên hình ảnh, biểu tượng
-├── lib/                      # Các thư viện phụ thuộc (.jar)
-│   ├── itextpdf-5.5.13.3.jar
-│   ├── mssql-jdbc-12.10.0.jre11.jar
-│   ├── poi-5.2.3.jar & poi-ooxml-5.2.3.jar
-│   └── ...
-├── resources/                # Cấu hình db.properties và font BeVietnamPro
-└── src/                      # Mã nguồn ứng dụng
-    ├── UI/                   # Giao diện Swing (Frames, Panels, Dialogs, Components)
-    ├── ui/theme/             # Bộ máy Theme (Theme.java, ThemeManager.java)
-    ├── dao/                  # Data Access Object (hỗ trợ SQL Server & Demo Mode)
-    ├── database/             # Kết nối DatabaseConnection & DemoDataStore
-    ├── entity/               # Mô hình dữ liệu (Phong, KhachHang, HoaDon, ...)
-    ├── service/              # Logic nghiệp vụ (Auth, DatPhong, Phong, ThongKe, ...)
-    ├── util/                 # Tiện ích xuất PDF, Excel, Password Hash
-    └── main/                 # Entry point (Main.java)
+├── src/
+│   ├── main/        # Khởi động ứng dụng
+│   ├── ui/          # Giao diện, components, dialogs, panels, theme
+│   ├── service/     # Quy tắc và giao dịch nghiệp vụ
+│   ├── dao/         # Truy vấn SQL và adapter Demo
+│   ├── database/    # Kết nối, dữ liệu Demo và thống kê Demo
+│   ├── entity/      # Mô hình dữ liệu và enums
+│   ├── util/        # Xuất file, mật khẩu, mã định danh
+│   └── test/        # Kiểm tra nghiệp vụ và giao diện
+├── database/
+│   ├── complete_database.sql
+│   └── migrations/ # Nâng cấp database hiện có, không xóa dữ liệu
+├── scripts/        # Build, test và đóng gói
+├── resources/      # Font, icon và mẫu cấu hình
+├── icon/           # Ảnh được các màn hình hiện có đọc từ filesystem
+├── img/            # Ảnh phòng/tài nguyên giao diện
+├── lib/            # Thư viện JAR
+├── docs/           # Đặc tả và hướng dẫn
+├── .github/workflows/build.yml
+├── HomuraHotel.bat
+└── pack_jar.bat
 ```
 
----
+`bin/` là kết quả biên dịch và được Git bỏ qua. `.env`, `resources/db.properties`, lựa chọn theme và trạng thái đăng nhập là file cá nhân, không đưa lên GitHub. Tên thư mục `src/ui` khớp package `ui`.
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy
+Cấu trúc hiện tại giữ các lớp giao diện, nghiệp vụ và dữ liệu riêng, phù hợp với quy mô ứng dụng này. Việc chuyển sang cấu trúc Maven/Gradle có thể làm ở một đợt riêng; không cần đổi framework để sửa các lỗi hiện tại.
 
-### 1. Yêu cầu hệ thống
-- **Java Development Kit (JDK):** Phiên bản **21** trở lên.
-- **Hệ điều hành:** Windows 10/11 (hỗ trợ cả macOS/Linux với script tương ứng).
+## SQL Server
 
-### 2. Khởi chạy nhanh (1-Click trên Windows)
-Chỉ cần nhấp đúp vào file hoặc chạy qua CMD:
-```cmd
-HomuraHotel.bat
-```
-> Script sẽ tự động kiểm tra, biên dịch mã nguồn (nếu chưa có thư mục `bin/`) và khởi động ứng dụng ngay lập tức.
+**Database mới:** chạy `database/complete_database.sql`, tạo database `HotelMs`. Script khởi tạo có phần xóa bảng để tạo lại; chỉ dùng cho database mới hoặc dữ liệu có thể bỏ đi.
 
-### 3. Biên dịch và chạy thủ công
+**Database đang sử dụng:** sao lưu trước, rồi chạy `database/migrations/001_business_integrity.sql`. Migration bổ sung trạng thái `DELETED`, trạng thái hóa đơn `CANCELLED` và cột liên kết chặng đổi phòng `maChiTietTruoc`. Không chạy lại script khởi tạo trên dữ liệu kinh doanh hiện có.
 
-```cmd
-:: 1. Tạo danh sách file mã nguồn
-dir /s /b src\*.java > sources.txt
+Copy `resources/db.properties.example` thành `resources/db.properties`, điền thông tin kết nối. Có thể dùng biến môi trường hoặc file `.env`:
 
-:: 2. Biên dịch
-javac -encoding UTF-8 -d bin -cp "lib/*" @sources.txt
-
-:: 3. Copy thư mục resources vào bin
-xcopy /E /I /Y resources bin\resources
-
-:: 4. Khởi chạy
-java -cp "bin;lib/*" main.Main
+```dotenv
+DB_URL=jdbc:sqlserver://localhost:1433;databaseName=HotelMs;encrypt=true;trustServerCertificate=false
+DB_USER=homura_app
+DB_PASSWORD=your-password
 ```
 
-### 4. Đóng gói file JAR thực thi
-Chạy file batch đóng gói:
-```cmd
-pack_jar.bat
+Biến môi trường ghi đè `.env`; `.env` ghi đè properties. `MSSQL_SA_PASSWORD` vẫn được hỗ trợ cho cấu hình Docker hiện có. Với SQL Server cục bộ dùng chứng chỉ tự ký, có thể đặt `trustServerCertificate=true` trong môi trường phát triển. Dùng tài khoản ứng dụng phù hợp và cấu hình chứng chỉ khi triển khai.
+
+## Quy tắc đã thống nhất
+
+- Mỗi lượt lưu trú dùng giá đã chốt; đổi bảng giá không thay giá của lượt đang ở.
+- Số đêm dựa trên ngày nhận/trả. Giờ trả trễ được xử lý bởi phụ phí, không đồng thời làm tròn thêm một đêm.
+- Nhận sớm: trước 05:00 tính 100%, trước 09:00 tính 50%, trước 12:00 tính 30%. Trả trễ sau khi ở qua đêm: từ 13:00 tính 30%, từ 15:00 tính 50%, từ 18:00 tính 100%.
+- Đổi phòng nối các chặng bằng mã chi tiết trước. Chặng cùng ngày không tự cộng thêm một đêm tối thiểu nếu chặng trước đã ghi nhận qua đêm. Thanh toán lịch sử không đổi trạng thái phòng đã tái sử dụng.
+- Không cho nhận phòng hoặc đặt thêm khi trùng lịch; không tạo lại hóa đơn cho lượt đã lập hóa đơn.
+- Giao dịch thất bại phải rollback dữ liệu. Kho Demo dùng bản sao độc lập, tránh để sửa object trước khi lưu làm thay đổi dữ liệu gốc.
+- Mật khẩu mới dùng PBKDF2; xác minh được cả định dạng cũ để tương thích khi nâng cấp.
+
+## Build, test và đóng gói
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1 -Test
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
 ```
-Sau đó khởi chạy file JAR độc lập:
-```cmd
+
+Hoặc chạy `pack_jar.bat`. Không cần tạo `sources.txt` thủ công.
+
+JAR dùng các thư viện trong `lib/`; khi chuyển ứng dụng sang máy khác, giữ `HomuraHotel.jar`, `lib/`, `resources/`, `icon/` và `img/` cùng thư mục. Chạy:
+
+```text
 java -jar HomuraHotel.jar
 ```
 
----
+GitHub Actions chạy biên dịch, kiểm tra và đóng gói trên Windows với Java 21.
 
-## 🔑 Tài khoản mẫu (Chế độ Demo)
+## Phạm vi kiểm tra
 
-Khi mở ứng dụng, chọn **Chế độ Demo** nếu không kết nối với SQL Server. Giao diện Đăng nhập có sẵn các nút bấm nhanh:
+Các bài kiểm tra tự động xác nhận luồng Demo: đặt/nhận phòng, dịch vụ, đổi phòng, thanh toán riêng và khách đoàn, hủy đơn, chặn trùng lịch, thao tác đồng thời, chặn hóa đơn lặp, rollback, giá chốt và thay mật khẩu. Kiểm tra giao diện xác nhận Tổng quan tải được, chuyển theme nhiều lần và giữ nội dung nhập/bộ lọc.
 
-| Tên đăng nhập | Mật khẩu | Quyền hạn | Mô tả |
-|---|---|---|---|
-| `manager` | `123` | **Quản lý (Manager)** | Toàn quyền quản trị, thống kê doanh thu, quản lý phòng & nhân viên |
-| `recept1` | `123` | **Lễ tân (Receptionist)** | Thực hiện check-in/out, đặt phòng, gọi dịch vụ, xem sơ đồ phòng |
-| `admin` | `admin` | **Quản trị hệ thống** | Quản trị tài khoản, cài đặt hệ thống |
-
----
-
-## 🗄️ Cấu hình SQL Server (Chế độ Production)
-
-Nếu muốn sử dụng cùng Microsoft SQL Server thực tế:
-1. Mở SQL Server Management Studio (SSMS) và chạy toàn bộ nội dung file `database/complete_database.sql`.
-2. Chỉnh sửa thông tin kết nối trong `resources/db.properties` hoặc thiết lập biến môi trường `.env`:
-   ```properties
-   db.url=jdbc:sqlserver://localhost:1433;databaseName=QuanLyKhachSan;encrypt=true;trustServerCertificate=true
-   db.user=sa
-   db.password=MatKhauCuaBan123
-   ```
-3. Khởi động ứng dụng, hệ thống sẽ tự động nhận diện kết nối SQL Server thật.
-
----
-
-## 🎨 Tùy chỉnh Theme
-
-Ứng dụng hỗ trợ chuyển theme tức thì tại thanh Header hoặc màn hình Login:
-- **Nút Toggle Theme:** Biểu tượng 🌙 / ☀️ ở góc trên giao diện.
-- **Phím tắt chuyển theme:** Tự động lưu lựa chọn theme vào `theme.properties` cho lần mở tiếp theo.
-
----
-
-## 📄 Bản quyền
-Dự án được xây dựng và phát triển bởi **AnkjoD**. Mọi đóng góp và mã nguồn được chia sẻ theo giấy phép mã nguồn mở.
+Các kiểm tra này không thay cho kiểm thử tích hợp với SQL Server thật. Xem `docs/RELEASE_VALIDATION.md` trước khi đưa bản này vào vận hành.

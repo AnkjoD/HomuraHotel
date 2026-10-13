@@ -1,6 +1,7 @@
 package entity;
 
-public class DichVu {
+public class DichVu implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maDichVu;
     private String tenDichVu;
     private double donGia;
@@ -50,13 +51,13 @@ public class DichVu {
 
     public boolean isTrangThai() { return trangThai == 1; }
     public void setTrangThai(boolean active) { this.trangThai = active ? 1 : 0; }
-    
-    public String getTrangThai() { 
+
+    public String getTrangThai() {
         if (trangThai == 1) return "Hoạt động";
         if (trangThai == 0) return "Tạm ngừng";
         return "Đã xóa";
     }
-    public void setTrangThai(String s) { 
+    public void setTrangThai(String s) {
         if ("Hoạt động".equalsIgnoreCase(s)) this.trangThai = 1;
         else if ("Tạm ngừng".equalsIgnoreCase(s)) this.trangThai = 0;
         else this.trangThai = -1;

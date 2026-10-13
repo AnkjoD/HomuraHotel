@@ -24,28 +24,6 @@ public class AuthService {
     }
 
     public NhanVien dangNhap(String tenDN, String matKhau) {
-        if (DatabaseConnection.isDemoMode()) {
-            for (TaiKhoan tk : DemoDataStore.getInstance().getAccounts()) {
-                if (tk.getTenDangNhap().equalsIgnoreCase(tenDN) && tk.getMatKhau().equals(matKhau)) {
-                    currentAccount = tk;
-                    return tk.getNhanVien();
-                }
-            }
-            // Tiện ích cho chế độ demo: nếu nhập đúng user mẫu thì chấp nhận
-            if ("admin".equalsIgnoreCase(tenDN) && "admin".equals(matKhau)) {
-                currentAccount = DemoDataStore.getInstance().getAccounts().get(0);
-                return currentAccount.getNhanVien();
-            }
-            if ("manager".equalsIgnoreCase(tenDN) && ("123".equals(matKhau) || "manager".equals(matKhau))) {
-                currentAccount = DemoDataStore.getInstance().getAccounts().get(1);
-                return currentAccount.getNhanVien();
-            }
-            if ("recept1".equalsIgnoreCase(tenDN) && ("123".equals(matKhau) || "recept1".equals(matKhau))) {
-                currentAccount = DemoDataStore.getInstance().getAccounts().get(2);
-                return currentAccount.getNhanVien();
-            }
-            return null;
-        }
 
         TaiKhoan tk = taiKhoanDAO.dangNhap(tenDN, matKhau);
         if (tk != null) {
@@ -63,15 +41,15 @@ public class AuthService {
     }
 
     public boolean isAccountDisabled(String tenDN, String matKhau) {
-        if (DatabaseConnection.isDemoMode()) return false;
+
         return taiKhoanDAO.isAccountDisabled(tenDN, matKhau);
     }
 
-    public void dangXuat() { 
+    public void dangXuat() {
         if (currentAccount != null && !DatabaseConnection.isDemoMode()) {
             LogService.addLog("Đăng xuất", "Hệ thống", "Tài khoản " + currentAccount.getTenDangNhap() + " đăng xuất");
         }
-        currentAccount = null; 
+        currentAccount = null;
         currentShift = null;
     }
 
@@ -80,8 +58,8 @@ public class AuthService {
 
     public TaiKhoan getCurrentAccount() { return currentAccount; }
 
-    public NhanVien getCurrentUser() { 
-        return currentAccount != null ? currentAccount.getNhanVien() : null; 
+    public NhanVien getCurrentUser() {
+        return currentAccount != null ? currentAccount.getNhanVien() : null;
     }
 
     public boolean isLoggedIn() { return currentAccount != null; }

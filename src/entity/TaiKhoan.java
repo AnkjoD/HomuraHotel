@@ -3,7 +3,8 @@ package entity;
 import entity.enums.VaiTro;
 import java.time.LocalDateTime;
 
-public class TaiKhoan {
+public class TaiKhoan implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String tenDangNhap;
     private String matKhau;
     private VaiTro vaiTro;

@@ -3,16 +3,17 @@ package entity;
 import entity.enums.LoaiGiam;
 import java.time.LocalDateTime;
 
-public class KhuyenMai {
+public class KhuyenMai implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maKhuyenMai;
     private String tenKhuyenMai;
     private LoaiGiam loaiGiam;
     private double giaTriGiam;
     private LocalDateTime ngayBatDau;
     private LocalDateTime ngayKetThuc;
-    
+
     // New fields
-    private boolean trangThai = true; 
+    private boolean trangThai = true;
     private int soLuong = 999;
     private int daDung = 0;
     private double dieuKienToiThieu = 0;
@@ -42,8 +43,8 @@ public class KhuyenMai {
     public boolean kiemTraHopLe(double tongBill, LocalDateTime thoiDiemDat) {
         if (!trangThai) return false;
         if (thoiDiemDat == null) thoiDiemDat = LocalDateTime.now();
-        
-        if (thoiDiemDat.isBefore(ngayBatDau) || thoiDiemDat.isAfter(ngayKetThuc)) return false;
+
+        if ((ngayBatDau!=null && thoiDiemDat.isBefore(ngayBatDau)) || (ngayKetThuc!=null && thoiDiemDat.isAfter(ngayKetThuc))) return false;
         if (daDung >= soLuong) return false;
         if (tongBill < dieuKienToiThieu) return false;
         return true;
@@ -65,7 +66,7 @@ public class KhuyenMai {
     // Getters and Setters
     public String getMaKhuyenMai() { return maKhuyenMai; }
     public void setMaKhuyenMai(String maKhuyenMai) { this.maKhuyenMai = maKhuyenMai; }
-    public String getMaKM() { return maKhuyenMai; } 
+    public String getMaKM() { return maKhuyenMai; }
     public void setMaKM(String maKM) { this.maKhuyenMai = maKM; }
 
     public String getTenKhuyenMai() { return tenKhuyenMai; }

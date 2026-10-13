@@ -5,7 +5,8 @@ package entity;
  * Ví dụ: Wifi, Điều hòa, Tivi, Bồn tắm...
  * Nhóm: Cơ bản, Giải trí, Phòng tắm, Nội thất, Tiện ích
  */
-public class TienNghi {
+public class TienNghi implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maTienNghi;
     private String tenTienNghi;
     private String nhomTienNghi;

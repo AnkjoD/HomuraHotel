@@ -1,0 +1,19 @@
+name: Build and business checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and test
+        shell: pwsh
+        run: ./scripts/build.ps1 -Test
+      - name: Package
+        shell: pwsh
+        run: ./scripts/package.ps1

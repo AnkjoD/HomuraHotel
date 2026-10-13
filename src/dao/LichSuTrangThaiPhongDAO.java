@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.LichSuTrangThaiPhong;
 import entity.Phong;
@@ -21,6 +23,7 @@ public class LichSuTrangThaiPhongDAO {
     }
 
     public List<LichSuTrangThaiPhong> getByPhong(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.LichSuTrangThaiPhong.class,x -> x.getPhong()!=null && maPhong.equals(x.getPhong().getMaPhong())); }
         List<LichSuTrangThaiPhong> list = new ArrayList<>();
         String sql = "SELECT * FROM LICH_SU_TRANG_THAI_PHONG WHERE maPhong=? ORDER BY thoiGianChuyen DESC";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -32,6 +35,7 @@ public class LichSuTrangThaiPhongDAO {
     }
 
     public boolean insert(LichSuTrangThaiPhong ls) {
+        if (DatabaseConnection.isDemoMode()) { if(ls.getMaLichSu()==null)ls.setMaLichSu(DemoRepository.nextId("LS"));return DemoRepository.insert(entity.LichSuTrangThaiPhong.class,ls); }
         String sql = "INSERT INTO LICH_SU_TRANG_THAI_PHONG(maPhong, trangThaiCu, trangThaiMoi, thoiGianChuyen, lyDo) VALUES(?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, ls.getPhong().getMaPhong());
@@ -45,11 +49,11 @@ public class LichSuTrangThaiPhongDAO {
 
     private LichSuTrangThaiPhong mapRow(ResultSet rs) throws SQLException {
         LichSuTrangThaiPhong ls = new LichSuTrangThaiPhong();
-        
+
         Phong p = new Phong();
         p.setMaPhong(rs.getString("maPhong"));
         ls.setPhong(p);
-        
+
         String oldStatus = rs.getString("trangThaiCu");
         if (oldStatus != null) {
             try {
@@ -58,7 +62,7 @@ public class LichSuTrangThaiPhongDAO {
                 ls.setTrangThaiCu(TrangThaiPhong.AVAILABLE);
             }
         }
-        
+
         String newStatus = rs.getString("trangThaiMoi");
         if (newStatus != null) {
             try {
@@ -67,12 +71,12 @@ public class LichSuTrangThaiPhongDAO {
                 ls.setTrangThaiMoi(TrangThaiPhong.AVAILABLE);
             }
         }
-        
+
         Timestamp time = rs.getTimestamp("thoiGianChuyen");
         if (time != null) ls.setThoiGianChuyen(time.toLocalDateTime());
-        
+
         ls.setLyDo(rs.getString("lyDo"));
-        
+
         return ls;
     }
 }

@@ -7,8 +7,10 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class ChiTietDatPhong {
+public class ChiTietDatPhong implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maChiTiet;
+    private String maChiTietTruoc;
     private LocalDateTime ngayNhanDuKien;  // Ngày nhận phòng dự kiến riêng cho phòng này
     private LocalDateTime ngayTraDuKien;   // Ngày trả phòng dự kiến riêng cho phòng này
     private LocalDateTime ngayNhanThucTe;
@@ -40,6 +42,9 @@ public class ChiTietDatPhong {
     }
 
     // Getters and Setters
+    public String getMaChiTietTruoc() { return maChiTietTruoc; }
+    public void setMaChiTietTruoc(String value) { maChiTietTruoc = value; }
+
     public String getMaChiTiet() { return maChiTiet; }
     public void setMaChiTiet(String maChiTiet) { this.maChiTiet = maChiTiet; }
 
@@ -100,8 +105,8 @@ public class ChiTietDatPhong {
     public String  getTenLoaiPhong(){ return phong != null ? phong.getTenLoaiPhong() : ""; }
 
     public Date getNgayNhanThucTe_Date() { return getNgayNhan(); }
-    public Date getNgayTraThucTe_Date() { 
-        return ngayTraThucTe != null ? Date.from(ngayTraThucTe.atZone(ZoneId.systemDefault()).toInstant()) : null; 
+    public Date getNgayTraThucTe_Date() {
+        return ngayTraThucTe != null ? Date.from(ngayTraThucTe.atZone(ZoneId.systemDefault()).toInstant()) : null;
     }
     public String getSoPhongDisplay() { return phong != null ? phong.getSoPhongDisplay() : ""; }
 }

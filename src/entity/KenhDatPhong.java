@@ -2,10 +2,11 @@ package entity;
 
 /**
  * Kênh đặt phòng (Booking Channel).
- * Quản lý nguồn đặt phòng: trực tiếp, OTA (Booking.com, Agoda...), 
+ * Quản lý nguồn đặt phòng: trực tiếp, OTA (Booking.com, Agoda...),
  * doanh nghiệp, đại lý du lịch.
  */
-public class KenhDatPhong {
+public class KenhDatPhong implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maKenh;
     private String tenKenh;
     private String loaiKenh; // DIRECT, OTA, CORPORATE, TRAVEL_AGENT, OTHER

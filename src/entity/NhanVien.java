@@ -2,7 +2,8 @@ package entity;
 
 import java.time.LocalDate;
 
-public class NhanVien {
+public class NhanVien implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maNhanVien;
     private String hoTen;
     private String sdt;

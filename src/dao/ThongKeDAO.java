@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import java.sql.*;
 import java.util.*;
@@ -22,23 +24,8 @@ public class ThongKeDAO {
 
     // ---- Dashboard tổng quan ----
     public Map<String, Object> getDashboardStats() {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.dashboard(); }
         Map<String, Object> stats = new LinkedHashMap<>();
-        if (database.DatabaseConnection.isDemoMode()) {
-            java.util.List<entity.Phong> rms = database.DemoDataStore.getInstance().getRooms();
-            int avail = 0, occ = 0;
-            for (entity.Phong p : rms) {
-                if (p.getTrangThai() == entity.enums.TrangThaiPhong.AVAILABLE) avail++;
-                else if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) occ++;
-            }
-            stats.put("phongTrong", avail);
-            stats.put("dangO", occ);
-            stats.put("daDat", 2);
-            stats.put("tongPhong", rms.size());
-            stats.put("checkinHomNay", 3);
-            stats.put("checkoutHomNay", 1);
-            stats.put("doanhThuHomNay", 4500000.0);
-            return stats;
-        }
         try {
             Connection conn = getConn();
 
@@ -89,6 +76,7 @@ public class ThongKeDAO {
     }
 
     public Map<String, Object> getThongKeKy(String ky) {
+        if (DatabaseConnection.isDemoMode()) { java.util.Map<String,Object> m=database.DemoStatistics.stats(ky,false); database.DemoStatistics.stats(ky,true).forEach((k,v)->m.put(k+"Truoc",v));return m; }
         Map<String, Object> stats = new LinkedHashMap<>();
         try {
             Connection conn = getConn();
@@ -220,12 +208,13 @@ public class ThongKeDAO {
 
     // ---- Doanh thu theo ngày/tháng tùy theo kỳ ----
     public List<long[]> getDoanhThuTheoNgay(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.revenue(ky); }
         List<long[]> result = new ArrayList<>();
         String dateCol = "ngayLap";
-        
+
         // Xác định kiểu group (theo ngày hay theo tháng)
         boolean groupByMonth = "nam".equals(ky) || "quy".equals(ky);
-        
+
         // Nếu là custom, nếu khoảng cách > 60 ngày thì group theo tháng, ngược lại group theo ngày
         if (ky != null && ky.startsWith("custom:")) {
             try {
@@ -238,10 +227,10 @@ public class ThongKeDAO {
             } catch (Exception ignored) {}
         }
 
-        String selectPart = groupByMonth 
-            ? "YEAR(" + dateCol + ") * 100 + MONTH(" + dateCol + ")" 
+        String selectPart = groupByMonth
+            ? "YEAR(" + dateCol + ") * 100 + MONTH(" + dateCol + ")"
             : "YEAR(" + dateCol + ") * 10000 + MONTH(" + dateCol + ") * 100 + DAY(" + dateCol + ")";
-            
+
         if ("7ngay".equals(ky)) {
             selectPart = "CAST(" + dateCol + " AS DATE)";
         } else if ("thang".equals(ky) || (ky == null || ky.isEmpty())) {
@@ -254,7 +243,7 @@ public class ThongKeDAO {
                      "FROM HoaDon " +
                      "WHERE " + getDateFilter(dateCol, ky) + " " +
                      "GROUP BY " + selectPart + " ORDER BY unit";
-        
+
         Map<Object, Long> dataMap = new LinkedHashMap<>(); // Use LinkedHashMap to preserve order
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
@@ -299,7 +288,7 @@ public class ThongKeDAO {
                 String[] parts = ky.split(":");
                 java.time.LocalDate d1 = java.time.LocalDate.parse(parts[1]);
                 java.time.LocalDate d2 = java.time.LocalDate.parse(parts[2]);
-                
+
                 if (groupByMonth) {
                     // Timeline theo tháng
                     java.time.LocalDate current = d1.withDayOfMonth(1);
@@ -328,12 +317,13 @@ public class ThongKeDAO {
                 }
             }
         }
-        
+
         return result;
     }
 
     // ---- Doanh thu 7 ngày gần nhất (cho dashboard bar chart) ----
     public List<long[]> getDoanhThu7Ngay() {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.revenue7(); }
         List<long[]> result = new ArrayList<>();
         // dayOffset: 0=hôm nay, 1=hôm qua, ... 6=6 ngày trước — trả về desc để chart vẽ từ cũ→mới
         String sql =
@@ -378,9 +368,9 @@ public class ThongKeDAO {
                 }
             }
         }
-        
+
         String getdateStr = yoy ? "DATEADD(YEAR,-1,GETDATE())" : "GETDATE()";
-        
+
         switch (ky != null ? ky : "thang") {
             case "7ngay":
                 if (yoy) {
@@ -485,6 +475,7 @@ public class ThongKeDAO {
 
     // ---- Top phòng doanh thu ----
     public List<Map<String, Object>> getTopPhongDoanhThu(int topN, String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.roomRows(ky).stream().sorted((a,b)->Long.compare((long)b.get("doanhThu"),(long)a.get("doanhThu"))).limit(Math.max(0,topN)).collect(java.util.stream.Collectors.toList()); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT TOP " + topN + " ct.maPhong, lp.tenLoaiPhong, " +
@@ -512,6 +503,7 @@ public class ThongKeDAO {
 
     // ---- Check-in hôm nay ----
     public List<Map<String, Object>> getCheckinHomNay() {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.todayStays(false); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT ct.maPhong, kh.hoTen, lp.tenLoaiPhong, ct.ngayNhanThucTe, " +
@@ -544,6 +536,7 @@ public class ThongKeDAO {
 
     // ---- Check-out hôm nay ----
     public List<Map<String, Object>> getCheckoutHomNay() {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.todayStays(true); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT ct.maPhong, kh.hoTen, ct.ngayTraThucTe, " +
@@ -576,6 +569,7 @@ public class ThongKeDAO {
 
     // ---- Hoạt động gần đây ----
     public List<Map<String, Object>> getHoatDongGanDay(int limit) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.activities(limit); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql =
             "SELECT TOP " + limit + " * FROM (" +
@@ -608,6 +602,7 @@ public class ThongKeDAO {
 
     // ---- Top dịch vụ ----
     public List<Map<String, Object>> getTopDichVu(int topN, String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.serviceRows(ky).stream().sorted((a,b)->Long.compare((long)b.get("doanhThu"),(long)a.get("doanhThu"))).limit(Math.max(0,topN)).collect(java.util.stream.Collectors.toList()); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT TOP " + topN + " dv.tenDichVu, SUM(sddv.soLuong) AS soLan, " +
             "  SUM(sddv.soLuong * sddv.donGiaLucDung) AS doanhThu " +
@@ -639,6 +634,7 @@ public class ThongKeDAO {
 
     // ---- Cảnh báo & Nhắc nhở ----
     public List<Map<String, Object>> getAlerts() {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.alerts(); }
         List<Map<String, Object>> list = new ArrayList<>();
         try {
             Connection conn = getConn();
@@ -685,7 +681,7 @@ public class ThongKeDAO {
                     Timestamp duKien = rs.getTimestamp("ngayTraDuKien");
                     String timeStr = duKien != null ? new java.text.SimpleDateFormat("HH:mm").format(duKien) : "";
                     String rm = rs.getString("maPhong");
-                    
+
                     row.put("title", "P." + formatRoom(rm) + " – Quá hạn trả (" + timeStr + ")");
                     row.put("desc",  rs.getString("hoTen") + " chưa làm thủ tục trả phòng");
                     row.put("type",  "danger");
@@ -708,7 +704,7 @@ public class ThongKeDAO {
                     Timestamp duKien = rs.getTimestamp("ngayTraDuKien");
                     String timeStr = duKien != null ? new java.text.SimpleDateFormat("HH:mm").format(duKien) : "ngay";
                     String rm = rs.getString("maPhong");
-                    
+
                     row.put("title", "P." + formatRoom(rm) + " – Sắp trả phòng");
                     row.put("desc",  "Khách " + rs.getString("hoTen") + " dự kiến trả lúc " + timeStr);
                     row.put("type",  "info");
@@ -820,10 +816,12 @@ public class ThongKeDAO {
     }
 
     public Map<String, Object> getKhachHangSegments(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.segments(); }
         return getKhachHangSegmentsHelper(ky, false);
     }
 
     public Map<String, Object> getKhachHangSegmentsPrev(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.segments(); }
         return getKhachHangSegmentsHelper(ky, true);
     }
 
@@ -842,7 +840,7 @@ public class ThongKeDAO {
 
         try {
             Connection conn = getConn();
-            
+
             String sqlGuests = "SELECT "
                              + "  COUNT(DISTINCT dp.maKhachHang) AS total_guests, "
                              + "  SUM(CASE WHEN kh.vipLevel <> 'BRONZE' AND kh.vipLevel IS NOT NULL THEN 1 ELSE 0 END) AS vip_guests, "
@@ -920,11 +918,12 @@ public class ThongKeDAO {
     }
 
     public List<Map<String, Object>> getChiTietPhongStats(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.roomRows(ky); }
         List<Map<String, Object>> list = new ArrayList<>();
         int days = Math.max(1, getDaysInPeriod(ky));
         String filterCt = getDateFilter("ct.ngayNhanThucTe", ky);
         String filterHd = getDateFilter("hd.ngayLap", ky);
-        
+
         String sql = "SELECT p.maPhong, lp.tenLoaiPhong, "
                    + "  ISNULL(SUM(CASE WHEN DATEDIFF(day, ct.ngayNhanThucTe, COALESCE(ct.ngayTraThucTe, GETDATE())) = 0 THEN 1 ELSE DATEDIFF(day, ct.ngayNhanThucTe, COALESCE(ct.ngayTraThucTe, GETDATE())) END), 0) AS occupiedNights, "
                    + "  ISNULL(SUM(hd.tongTienPhong), 0) AS revenue "
@@ -934,13 +933,13 @@ public class ThongKeDAO {
                    + "LEFT JOIN HoaDon hd ON ct.maDatPhong = hd.maDatPhong AND " + filterHd + " "
                    + "GROUP BY p.maPhong, lp.tenLoaiPhong "
                    + "ORDER BY revenue DESC, occupiedNights DESC";
-        
+
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Map<String, Object> map = new LinkedHashMap<>();
                 int occupied = rs.getInt("occupiedNights");
                 long rev = rs.getLong("revenue");
-                
+
                 map.put("soPhong", rs.getString("maPhong"));
                 map.put("tenLoai", rs.getString("tenLoaiPhong"));
                 map.put("occupiedNights", occupied);
@@ -956,6 +955,7 @@ public class ThongKeDAO {
     }
 
     public List<Map<String, Object>> getChiTietDichVuStats(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.serviceRows(ky); }
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT dv.tenDichVu, MAX(sddv.donGiaLucDung) AS unitPrice, "
                    + "  SUM(sddv.soLuong) AS quantity, "
@@ -979,10 +979,11 @@ public class ThongKeDAO {
     }
 
     public List<Map<String, Object>> getPhanTichKenhStats(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.channelRows(ky); }
         List<Map<String, Object>> list = new ArrayList<>();
         String filterCt = getDateFilter("ct.ngayNhanThucTe", ky);
         String filterHd = getDateFilter("hd.ngayLap", ky);
-        
+
         String sql = "SELECT dp.maKenh, "
                    + "  COUNT(DISTINCT dp.maDatPhong) AS bookingsCount, "
                    + "  ISNULL(SUM(hd.tongTienPhong), 0) AS roomRevenue "
@@ -992,16 +993,16 @@ public class ThongKeDAO {
                    + "WHERE ct.ngayNhanThucTe IS NOT NULL AND " + filterCt + " "
                    + "GROUP BY dp.maKenh "
                    + "ORDER BY roomRevenue DESC";
-        
+
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Map<String, Object> map = new LinkedHashMap<>();
                 String maKenh = rs.getString("maKenh");
                 if (maKenh == null) maKenh = "DIRECT";
-                
+
                 int bookingsCount = rs.getInt("bookingsCount");
                 double roomRevenue = rs.getDouble("roomRevenue");
-                
+
                 String tenKenh = maKenh;
                 double commRate = 0.0;
                 switch (maKenh.toUpperCase()) {
@@ -1038,10 +1039,10 @@ public class ThongKeDAO {
                         commRate = 0.10;
                         break;
                 }
-                
+
                 double commission = roomRevenue * commRate;
                 double netRevenue = roomRevenue - commission;
-                
+
                 map.put("maKenh", maKenh);
                 map.put("tenKenh", tenKenh);
                 map.put("bookingsCount", bookingsCount);
@@ -1057,10 +1058,11 @@ public class ThongKeDAO {
     }
 
     public List<Map<String, Object>> getPhanTichKhachStats(String ky) {
+        if (DatabaseConnection.isDemoMode()) { return database.DemoStatistics.guestRows(ky); }
         List<Map<String, Object>> list = new ArrayList<>();
         String filterCt = getDateFilter("ct.ngayNhanThucTe", ky);
         String filterHd = getDateFilter("hd.ngayLap", ky);
-        
+
         String sql = "SELECT TOP 50 kh.hoTen, kh.sdt, kh.cccd, kh.quocTich, kh.vipLevel, "
                    + "  COUNT(DISTINCT dp.maDatPhong) AS visits, "
                    + "  ISNULL(SUM(hd.tongThanhToan), 0) AS totalSpent "
@@ -1071,7 +1073,7 @@ public class ThongKeDAO {
                    + "WHERE ct.ngayNhanThucTe IS NOT NULL AND " + filterCt + " "
                    + "GROUP BY kh.maKhachHang, kh.hoTen, kh.sdt, kh.cccd, kh.quocTich, kh.vipLevel "
                    + "ORDER BY totalSpent DESC";
-                   
+
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Map<String, Object> map = new LinkedHashMap<>();

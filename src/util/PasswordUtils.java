@@ -7,12 +7,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.logging.Logger;
 
-/**
- * Tiện ích hash mật khẩu.
- * Sử dụng SHA-256 + Salt.
- * (Trong dự án thực tế nên dùng BCrypt, nhưng SHA-256 đủ cho đồ án học thuật
- *  và không cần thêm thư viện bên ngoài.)
- */
+/** New passwords use PBKDF2-HMAC-SHA256; legacy SHA-256 hashes remain readable. */
 public class PasswordUtils {
 
     private static final Logger LOGGER = Logger.getLogger(PasswordUtils.class.getName());
@@ -34,8 +29,17 @@ public class PasswordUtils {
      * Kết quả: salt$hash (dùng $ làm separator)
      */
     public static String hashPassword(String password) {
-        String salt = generateSalt();
-        return hashPassword(password, salt);
+        byte[] salt = Base64.getDecoder().decode(generateSalt());
+        int iterations = 210000;
+        return "pbkdf2$" + iterations + "$" + Base64.getEncoder().encodeToString(salt)
+                + "$" + Base64.getEncoder().encodeToString(derive(password, salt, iterations));
+    }
+
+    private static byte[] derive(String password, byte[] salt, int iterations) {
+        javax.crypto.spec.PBEKeySpec spec = new javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, iterations, 256);
+        try { return javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded(); }
+        catch (java.security.GeneralSecurityException e) { throw new IllegalStateException(e); }
+        finally { spec.clearPassword(); }
     }
 
     /**
@@ -62,6 +66,16 @@ public class PasswordUtils {
      */
     public static boolean verifyPassword(String password, String storedHash) {
         if (password == null || storedHash == null) return false;
+        if (storedHash.startsWith("pbkdf2$")) {
+            try {
+                String[] parts = storedHash.split("\\$");
+                if (parts.length != 4) return false;
+                int iterations = Integer.parseInt(parts[1]);
+                if (iterations < 10000 || iterations > 2000000) return false;
+                return MessageDigest.isEqual(Base64.getDecoder().decode(parts[3]),
+                        derive(password, Base64.getDecoder().decode(parts[2]), iterations));
+            } catch (IllegalArgumentException e) { return false; }
+        }
 
         // Hỗ trợ legacy: nếu hash không chứa '$' thì đây là plaintext cũ → so sánh trực tiếp
         if (!storedHash.contains("$")) {

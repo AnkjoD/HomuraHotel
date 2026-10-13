@@ -7,7 +7,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class DatPhong {
+public class DatPhong implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maDatPhong;
     private LocalDateTime ngayDat;
     private LocalDateTime ngayNhanDuKien;

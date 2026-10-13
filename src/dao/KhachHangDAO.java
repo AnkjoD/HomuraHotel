@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.KhachHang;
 
@@ -18,7 +20,7 @@ public class KhachHangDAO {
     }
 
     public List<KhachHang> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getCustomers();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.KhachHang.class);
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT * FROM KhachHang WHERE trangThai=1 ORDER BY hoTen";
         try (Statement st = getConn().createStatement();
@@ -29,6 +31,7 @@ public class KhachHangDAO {
     }
 
     public List<KhachHang> getAllWithInactive() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(KhachHang.class); }
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT * FROM KhachHang ORDER BY hoTen";
         try (Statement st = getConn().createStatement();
@@ -39,8 +42,9 @@ public class KhachHangDAO {
     }
 
     public List<KhachHang> timKiem(String keyword) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> DemoRepository.matches(x.getHoTen(),keyword)||DemoRepository.matches(x.getSdt(),keyword)||DemoRepository.matches(x.getMaKhachHang(),keyword)).collect(java.util.stream.Collectors.toList()); }
         if (keyword == null || keyword.trim().isEmpty()) return getAll();
-        
+
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT * FROM KhachHang WHERE (hoTen LIKE ? OR sdt LIKE ? OR cccd LIKE ? OR soHoChieu LIKE ?) AND trangThai=1";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -51,7 +55,7 @@ public class KhachHangDAO {
             ps.setString(4, kw);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) list.add(mapRow(rs));
-        } catch (SQLException e) { 
+        } catch (SQLException e) {
             // Fallback without soHoChieu
             list.clear();
             String sqlFallback = "SELECT * FROM KhachHang WHERE (hoTen LIKE ? OR sdt LIKE ? OR cccd LIKE ?) AND trangThai=1";
@@ -66,6 +70,7 @@ public class KhachHangDAO {
     }
 
     public KhachHang getById(String maKhachHang) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(KhachHang.class, maKhachHang); }
         String sql = "SELECT * FROM KhachHang WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maKhachHang);
@@ -76,6 +81,7 @@ public class KhachHangDAO {
     }
 
     public KhachHang getByPhone(String sdt) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> java.util.Objects.equals(sdt,x.getSdt())).findFirst().orElse(null); }
         String sql = "SELECT * FROM KhachHang WHERE sdt=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, sdt);
@@ -86,6 +92,7 @@ public class KhachHangDAO {
     }
 
     public KhachHang getByCCCD(String cccd) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> java.util.Objects.equals(cccd,x.getCccd())).findFirst().orElse(null); }
         String sql = "SELECT * FROM KhachHang WHERE cccd=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, cccd);
@@ -97,6 +104,7 @@ public class KhachHangDAO {
 
     /** Tìm khách hàng theo số hộ chiếu */
     public KhachHang getByPassport(String soHoChieu) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> java.util.Objects.equals(soHoChieu,x.getSoHoChieu())).findFirst().orElse(null); }
         String sql = "SELECT * FROM KhachHang WHERE soHoChieu=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, soHoChieu);
@@ -107,6 +115,7 @@ public class KhachHangDAO {
     }
 
     public boolean insert(KhachHang kh) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(KhachHang.class, kh); }
         String sql = "INSERT INTO KhachHang(maKhachHang, hoTen, sdt, cccd, ngaySinh, gioiTinh, quocTich, loaiGiayTo, soHoChieu, soVisa, ngayHetHanVisa, noiCapHoChieu, ngayNhapCanh, trangThai, anhCCCD, soLanO, tongChiTieu, diemTichLuy, hangKhachHang, isBlacklist, preferences, vipLevel) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getMaKhachHang());
@@ -132,7 +141,7 @@ public class KhachHangDAO {
             ps.setString(21, kh.getPreferences());
             ps.setString(22, kh.getVipLevel());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { 
+        } catch (SQLException e) {
             // Attempt to update only primary columns if CRM columns aren't ready
             return insertLegacy(kh);
         }
@@ -156,6 +165,7 @@ public class KhachHangDAO {
     }
 
     public boolean update(KhachHang kh) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(KhachHang.class, kh); }
         String sql = "UPDATE KhachHang SET hoTen=?, sdt=?, cccd=?, ngaySinh=?, gioiTinh=?, quocTich=?, loaiGiayTo=?, soHoChieu=?, soVisa=?, ngayHetHanVisa=?, noiCapHoChieu=?, ngayNhapCanh=?, trangThai=?, anhCCCD=?, soLanO=?, tongChiTieu=?, diemTichLuy=?, hangKhachHang=?, isBlacklist=?, preferences=?, vipLevel=? WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, kh.getHoTen());
@@ -181,7 +191,7 @@ public class KhachHangDAO {
             ps.setString(21, kh.getVipLevel());
             ps.setString(22, kh.getMaKhachHang());
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) { 
+        } catch (SQLException e) {
             // Fallback
             return updateLegacy(kh);
         }
@@ -199,14 +209,11 @@ public class KhachHangDAO {
     }
 
     public String generateMaKH() {
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery("SELECT MAX(CAST(SUBSTRING(maKhachHang,3,10) AS INT)) FROM KhachHang WHERE maKhachHang LIKE 'KH%'")) {
-            if (rs.next()) return String.format("KH%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in KhachHangDAO", e); }
-        return "KH001";
+        return util.IdGenerator.next("KH");
     }
 
     public boolean delete(String maKhachHang) {
+        if (DatabaseConnection.isDemoMode()) { KhachHang x=getById(maKhachHang);if(x==null)return false;x.setTrangThai("INACTIVE");return update(x); }
         String sql = "UPDATE KhachHang SET trangThai=0 WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maKhachHang);
@@ -215,6 +222,7 @@ public class KhachHangDAO {
     }
 
     public boolean activate(String maKhachHang) {
+        if (DatabaseConnection.isDemoMode()) { KhachHang x=getById(maKhachHang);if(x==null)return false;x.setTrangThai("ACTIVE");return update(x); }
         String sql = "UPDATE KhachHang SET trangThai=1 WHERE maKhachHang=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maKhachHang);
@@ -224,6 +232,7 @@ public class KhachHangDAO {
 
     /** Lấy danh sách khách nước ngoài */
     public List<KhachHang> getKhachNuocNgoai() {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> !"Việt Nam".equals(x.getQuocTich())).collect(java.util.stream.Collectors.toList()); }
         List<KhachHang> list = new ArrayList<>();
         String sql = "SELECT * FROM KhachHang WHERE quocTich IS NOT NULL AND quocTich <> N'Việt Nam' AND quocTich <> 'VN' AND trangThai=1 ORDER BY hoTen";
         try (Statement st = getConn().createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -271,7 +280,7 @@ public class KhachHangDAO {
             kh.setAnhCCCD(rs.getString("anhCCCD"));
         } catch (SQLException ignored) { }
         try { kh.setTrangThai(rs.getBoolean("trangThai") ? "Hoạt động" : "Ngừng"); } catch (Exception e) { kh.setTrangThai("Hoạt động"); }
-        
+
         // CRM Mapping
         try { kh.setSoLanO(rs.getInt("soLanO")); } catch (SQLException ignored) { }
         try { kh.setTongChiTieu(rs.getDouble("tongChiTieu")); } catch (SQLException ignored) { }
@@ -280,12 +289,13 @@ public class KhachHangDAO {
         try { kh.setBlacklist(rs.getBoolean("isBlacklist")); } catch (SQLException ignored) { }
         try { kh.setPreferences(rs.getString("preferences")); } catch (SQLException ignored) { }
         try { kh.setVipLevel(rs.getString("vipLevel")); } catch (SQLException ignored) { }
-        
+
         return kh;
     }
 
     /** Cập nhật thống kê CRM (nguyên tử) */
     public boolean updateCRMStats(String maKh, double addedSpending, boolean incrementStay) {
+        if (DatabaseConnection.isDemoMode()) { KhachHang x=getById(maKh);if(x==null)return false;x.setTongChiTieu(x.getTongChiTieu()+addedSpending);if(incrementStay)x.setSoLanO(x.getSoLanO()+1);return update(x); }
         String sql = "UPDATE KhachHang SET " +
                      "soLanO = ISNULL(soLanO, 0) + ?, " +
                      "tongChiTieu = ISNULL(tongChiTieu, 0) + ?, " +
@@ -299,7 +309,7 @@ public class KhachHangDAO {
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             int inc = incrementStay ? 1 : 0;
             int points = (int) (addedSpending / 200000);
-            
+
             ps.setInt(1, inc);
             ps.setDouble(2, addedSpending);
             ps.setInt(3, points);

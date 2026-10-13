@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.TienNghi;
 
@@ -23,6 +25,7 @@ public class TienNghiDAO {
     // ======================== CRUD TienNghi ========================
 
     public List<TienNghi> getAll() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(TienNghi.class); }
         List<TienNghi> list = new ArrayList<>();
         String sql = "SELECT * FROM TienNghi ORDER BY thuTu, tenTienNghi";
         try (Statement st = getConn().createStatement();
@@ -33,6 +36,7 @@ public class TienNghiDAO {
     }
 
     public List<TienNghi> getByNhom(String nhom) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(TienNghi.class,x -> java.util.Objects.equals(nhom,x.getNhomTienNghi())); }
         List<TienNghi> list = new ArrayList<>();
         String sql = "SELECT * FROM TienNghi WHERE nhomTienNghi=? ORDER BY thuTu";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
@@ -45,6 +49,7 @@ public class TienNghiDAO {
 
     /** Lấy danh sách nhóm tiện nghi (distinct) */
     public List<String> getAllNhom() {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().map(TienNghi::getNhomTienNghi).distinct().collect(java.util.stream.Collectors.toList()); }
         List<String> list = new ArrayList<>();
         String sql = "SELECT DISTINCT nhomTienNghi FROM TienNghi WHERE nhomTienNghi IS NOT NULL ORDER BY nhomTienNghi";
         try (Statement st = getConn().createStatement();
@@ -55,6 +60,7 @@ public class TienNghiDAO {
     }
 
     public TienNghi getById(String maTienNghi) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(TienNghi.class,maTienNghi); }
         String sql = "SELECT * FROM TienNghi WHERE maTienNghi=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maTienNghi);
@@ -65,6 +71,7 @@ public class TienNghiDAO {
     }
 
     public boolean insert(TienNghi tn) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(TienNghi.class,tn); }
         String sql = "INSERT INTO TienNghi(maTienNghi, tenTienNghi, nhomTienNghi, icon, thuTu) VALUES(?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, tn.getMaTienNghi());
@@ -77,6 +84,7 @@ public class TienNghiDAO {
     }
 
     public boolean update(TienNghi tn) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(TienNghi.class,tn); }
         String sql = "UPDATE TienNghi SET tenTienNghi=?, nhomTienNghi=?, icon=?, thuTu=? WHERE maTienNghi=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, tn.getTenTienNghi());
@@ -89,6 +97,7 @@ public class TienNghiDAO {
     }
 
     public boolean delete(String maTienNghi) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(TienNghi.class,x -> maTienNghi.equals(x.getMaTienNghi())); }
         // Xóa khỏi bảng trung gian trước
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM TienNghi_LoaiPhong WHERE maTienNghi=?")) {
             ps.setString(1, maTienNghi);
@@ -102,18 +111,14 @@ public class TienNghiDAO {
     }
 
     public String generateMa() {
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(
-                 "SELECT MAX(CAST(SUBSTRING(maTienNghi,3,10) AS INT)) FROM TienNghi WHERE maTienNghi LIKE 'TN%'")) {
-            if (rs.next()) return String.format("TN%02d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in TienNghiDAO", e); }
-        return "TN01";
+        return util.IdGenerator.next("TN");
     }
 
     // ======================== Many-to-Many: TienNghi_LoaiPhong ========================
 
     /** Lấy tiện nghi của 1 loại phòng */
     public List<TienNghi> getByLoaiPhong(String maLoaiPhong) {
+        if (DatabaseConnection.isDemoMode()) { entity.LoaiPhong p=DemoRepository.get(entity.LoaiPhong.class,maLoaiPhong);return p==null?new java.util.ArrayList<>():p.getDsTienNghi(); }
         List<TienNghi> list = new ArrayList<>();
         String sql = "SELECT tn.* FROM TienNghi tn " +
                      "JOIN TienNghi_LoaiPhong tnlp ON tn.maTienNghi = tnlp.maTienNghi " +
@@ -128,6 +133,7 @@ public class TienNghiDAO {
 
     /** Cập nhật toàn bộ tiện nghi cho 1 loại phòng (xóa cũ, thêm mới) */
     public void updateTienNghiForLoaiPhong(String maLoaiPhong, List<String> maTienNghiList) {
+        if (DatabaseConnection.isDemoMode()) { entity.LoaiPhong p=DemoRepository.get(entity.LoaiPhong.class,maLoaiPhong);if(p!=null){p.setDsTienNghi(getAll().stream().filter(x->maTienNghiList.contains(x.getMaTienNghi())).collect(java.util.stream.Collectors.toList()));DemoRepository.update(entity.LoaiPhong.class,p);}return; }
         // Xóa hết mapping cũ
         try (PreparedStatement ps = getConn().prepareStatement(
                 "DELETE FROM TienNghi_LoaiPhong WHERE maLoaiPhong=?")) {

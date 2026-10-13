@@ -2,7 +2,8 @@ package entity;
 
 import entity.enums.LoaiChiTietHoaDon;
 
-public class ChiTietHoaDon {
+public class ChiTietHoaDon implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maChiTietHoaDon;
     private LoaiChiTietHoaDon loaiChiTiet;
     private String noiDung;
@@ -14,7 +15,7 @@ public class ChiTietHoaDon {
     private HoaDon hoaDon;
 
     public ChiTietHoaDon() {}
-    
+
     // Getters and Setters
     public String getMaChiTietHoaDon() { return maChiTietHoaDon; }
     public void setMaChiTietHoaDon(String maChiTietHoaDon) { this.maChiTietHoaDon = maChiTietHoaDon; }

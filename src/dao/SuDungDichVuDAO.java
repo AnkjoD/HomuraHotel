@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.*;
 
@@ -16,6 +18,7 @@ public class SuDungDichVuDAO {
     }
 
     public List<SuDungDichVu> getByChiTietDatPhong(String maChiTiet) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(SuDungDichVu.class, x -> x.getCtdp()!=null && maChiTiet.equals(x.getCtdp().getMaChiTiet())); }
         List<SuDungDichVu> list = new ArrayList<>();
         String[] queries = {
             "SELECT * FROM SU_DUNG_DICH_VU WHERE maChiTiet=?",
@@ -58,11 +61,12 @@ public class SuDungDichVuDAO {
     }
 
     public boolean insert(SuDungDichVu sddv) {
+        if (DatabaseConnection.isDemoMode()) { if(sddv.getMaSuDung()==null) sddv.setMaSuDung(DemoRepository.nextId("DV")); if(sddv.getThoiDiem()==null) sddv.setThoiDiem(java.time.LocalDateTime.now()); return DemoRepository.insert(SuDungDichVu.class,sddv); }
         String maDV = sddv.getDichVu() != null ? sddv.getDichVu().getMaDichVu() : null;
         if (maDV == null) return false;
 
         String maChiTiet = sddv.getCtdp() != null ? sddv.getCtdp().getMaChiTiet() : null;
-        
+
         Timestamp ts = sddv.getThoiDiem() != null ? Timestamp.valueOf(sddv.getThoiDiem()) : Timestamp.valueOf(java.time.LocalDateTime.now());
         String maSD = generateMaSuDung();
         SQLException lastEx = null;
@@ -117,7 +121,7 @@ public class SuDungDichVuDAO {
         } catch (SQLException ex) {
             maDV = rs.getString("maDV");
         }
-        
+
         DichVu dv = null;
         if (maDV != null) {
             dv = new DichVuDAO().getById(maDV);
@@ -159,6 +163,7 @@ public class SuDungDichVuDAO {
      * Nếu không có maSuDung, fallback xóa theo maChiTiet + maDV + soLuong.
      */
     public boolean deleteOne(SuDungDichVu sddv) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(SuDungDichVu.class,x -> java.util.Objects.equals(x.getMaSuDung(),sddv.getMaSuDung())); }
         // Thử xóa bằng maSuDung trước (chính xác nhất)
         if (sddv.getMaSuDung() != null && !sddv.getMaSuDung().isBlank()) {
             String[] queries = {
@@ -195,6 +200,7 @@ public class SuDungDichVuDAO {
      * Cập nhật số lượng cho 1 dòng dịch vụ.
      */
     public boolean updateSoLuong(SuDungDichVu sddv, int newSoLuong) {
+        if (DatabaseConnection.isDemoMode()) { sddv.setSoLuong(newSoLuong); return DemoRepository.update(SuDungDichVu.class,sddv); }
         if (sddv.getMaSuDung() != null && !sddv.getMaSuDung().isBlank()) {
             String[] queries = {
                 "UPDATE SuDungDichVu SET soLuong=? WHERE maSuDung=?",
@@ -245,6 +251,7 @@ public class SuDungDichVuDAO {
     }
 
     public boolean deleteByDatPhong(String ma) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(SuDungDichVu.class,x -> x.getCtdp()!=null && ma.equals(x.getCtdp().getMaDatPhong())); }
         String[] queries = {
             "DELETE FROM SuDungDichVu WHERE maDatPhong=?",
             "DELETE FROM SU_DUNG_DICH_VU WHERE maDatPhong=?",

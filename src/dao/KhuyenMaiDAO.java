@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.KhuyenMai;
 import entity.enums.LoaiGiam;
@@ -19,10 +21,12 @@ public class KhuyenMaiDAO {
     }
 
     public List<KhuyenMai> getAll() {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.all(entity.KhuyenMai.class); }
         return search(null, null);
     }
 
     public List<KhuyenMai> search(String keyword, String status) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> DemoRepository.matches(x.getTenKhuyenMai(),keyword)||DemoRepository.matches(x.getMaKhuyenMai(),keyword)).collect(java.util.stream.Collectors.toList()); }
         List<KhuyenMai> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM KhuyenMai WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -60,6 +64,7 @@ public class KhuyenMaiDAO {
     }
 
     public KhuyenMai getByVoucherCode(String code) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(entity.KhuyenMai.class,code); }
         String sql = "SELECT * FROM KhuyenMai WHERE maKM=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, code);
@@ -70,6 +75,7 @@ public class KhuyenMaiDAO {
     }
 
     public boolean insert(KhuyenMai km) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(entity.KhuyenMai.class,km); }
         String sql = "INSERT INTO KhuyenMai(maKM, tenKM, loaiGiam, giaTriGiam, ngayBatDau, ngayKetThuc, trangThai, soLuong, daDung, dieuKienToiThieu, giaTriGiamToiDa) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getMaKhuyenMai());
@@ -88,6 +94,7 @@ public class KhuyenMaiDAO {
     }
 
     public boolean update(KhuyenMai km) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(entity.KhuyenMai.class,km); }
         String sql = "UPDATE KhuyenMai SET tenKM=?, loaiGiam=?, giaTriGiam=?, ngayBatDau=?, ngayKetThuc=?, trangThai=?, soLuong=?, daDung=?, dieuKienToiThieu=?, giaTriGiamToiDa=? WHERE maKM=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, km.getTenKhuyenMai());
@@ -106,6 +113,7 @@ public class KhuyenMaiDAO {
     }
 
     public boolean delete(String maKM) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.remove(entity.KhuyenMai.class,x -> maKM.equals(x.getMaKhuyenMai())); }
         try (PreparedStatement ps = getConn().prepareStatement("DELETE FROM KhuyenMai WHERE maKM=?")) {
             ps.setString(1, maKM);
             return ps.executeUpdate() > 0;
@@ -116,7 +124,7 @@ public class KhuyenMaiDAO {
         KhuyenMai km = new KhuyenMai();
         km.setMaKhuyenMai(rs.getString("maKM"));
         km.setTenKM(rs.getString("tenKM"));
-        
+
         String loaiStr = rs.getString("loaiGiam");
         if (loaiStr != null) {
             try {
@@ -125,11 +133,11 @@ public class KhuyenMaiDAO {
                 km.setLoaiGiam(LoaiGiam.PERCENT);
             }
         }
-        
+
         km.setGiaTriGiam(rs.getDouble("giaTriGiam"));
         km.setNgayBatDau(rs.getTimestamp("ngayBatDau").toLocalDateTime());
         km.setNgayKetThuc(rs.getTimestamp("ngayKetThuc").toLocalDateTime());
-        
+
         km.setTrangThai(rs.getBoolean("trangThai"));
         km.setSoLuong(rs.getInt("soLuong"));
         km.setDaDung(rs.getInt("daDung"));
@@ -139,7 +147,7 @@ public class KhuyenMaiDAO {
         } catch (SQLException ignored) {
             km.setGiaTriGiamToiDa(0);
         }
-        
+
         return km;
     }
 }

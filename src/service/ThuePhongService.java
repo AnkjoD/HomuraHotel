@@ -29,33 +29,40 @@ public class ThuePhongService {
 
     // ---- Check-in ----
     public String checkIn(ChiTietDatPhong ct) {
+        DatabaseConnection db = DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            String error = checkInInternal(ct);
+            if (error != null) { db.rollbackTransaction(); return error; }
+            db.commitTransaction(); return null;
+        } catch (Exception e) { db.rollbackTransaction(); return "Lỗi nhận phòng: " + e.getMessage(); }
+    }
+
+    private String checkInInternal(ChiTietDatPhong ct) {
         if (ct == null || ct.getPhong() == null) return "Thông tin phòng không hợp lệ!";
-        
+
         Phong phong = phongDAO.getById(ct.getPhong().getMaPhong());
         if (phong == null) return "Phòng không tồn tại!";
-        
-        if (phong.getTrangThai() != TrangThaiPhong.AVAILABLE) 
+
+        if (phong.getTrangThai() != TrangThaiPhong.AVAILABLE)
             return "Phòng " + ct.getPhong().getMaPhong() + " không sẵn sàng (đang: " + phong.getTrangThaiString() + ")!";
 
-        if (ctdpDAO.hasActiveStay(phong.getMaPhong())) {
-            // Trường hợp hy hữu: Trạng thái phòng là AVAILABLE nhưng vẫn còn ChiTietDatPhong chưa kết thúc (Ghost Stay)
-            // Tự động kết thúc lượt cũ để giải phóng phòng
-            ChiTietDatPhong ghostStay = ctdpDAO.getActiveStayByPhong(phong.getMaPhong());
-            if (ghostStay != null) {
-                LOGGER.log(Level.WARNING, "Ghost stay detected for room {0}. Auto-finalizing stay {1} to allow new check-in.", 
-                          new Object[]{phong.getMaPhong(), ghostStay.getMaChiTiet()});
-                ghostStay.setNgayTraThucTe(LocalDateTime.now());
-                ctdpDAO.update(ghostStay);
-            } else {
-                return "Phòng " + ct.getPhong().getMaPhong() + " hiện đang có một lượt lưu trú chưa được trả phòng. Vui lòng kiểm tra lại!";
-            }
-        }
+        if (ctdpDAO.hasActiveStay(phong.getMaPhong()))
+            return "Phòng còn lượt lưu trú chưa kết thúc. Vui lòng xử lý lượt cũ trước!";
+        if (ct.getDatPhong() == null || ct.getDatPhong().getMaDatPhong() == null)
+            return "Chưa có đơn đặt phòng!";
+        DatPhong booking = datPhongDAO.getById(ct.getDatPhong().getMaDatPhong());
+        if (booking == null || booking.getTrangThai() == TrangThaiDatPhong.CANCELLED
+                || booking.getTrangThai() == TrangThaiDatPhong.NO_SHOW || booking.getTrangThai() == TrangThaiDatPhong.CHECKED_OUT)
+            return "Đơn đặt phòng không cho phép nhận phòng!";
+        ct.setDatPhong(booking);
 
         if (ct.getDatPhong() != null && phong.getLoaiPhong() != null) {
             // Kiểm tra xung đột lịch đặt phòng (Double booking protection)
-            LocalDateTime checkStart = ct.getDatPhong().getNgayNhanDuKien() != null ? ct.getDatPhong().getNgayNhanDuKien() : LocalDateTime.now();
-            LocalDateTime checkEnd = ct.getDatPhong().getNgayTraDuKien() != null ? ct.getDatPhong().getNgayTraDuKien() : checkStart.plusDays(1);
-            
+            LocalDateTime checkStart = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : booking.getNgayNhanDuKien();
+            LocalDateTime checkEnd = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : booking.getNgayTraDuKien();
+            if (checkStart == null || checkEnd == null || !checkEnd.isAfter(LocalDateTime.now())) return "Khoảng lưu trú đã hết hạn hoặc không hợp lệ!";
+
             ChiTietDatPhong conflict = ctdpDAO.getConflictingStay(phong.getMaPhong(), checkStart, checkEnd, ct.getDatPhong().getMaDatPhong());
             if (conflict != null) {
                 java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM");
@@ -65,10 +72,10 @@ public class ThuePhongService {
 
             int sucChua = phong.getLoaiPhong().getSucChua();
             int maxPax = sucChua + 2;
-            
+
             List<ChiTietDatPhong> ds = ct.getDatPhong().getDsChiTiet();
             boolean isGroup = (ds != null && ds.size() > 1);
-            
+
             if (!isGroup && ct.getDatPhong().getSoLuongKhach() > maxPax && sucChua > 0) {
                 return "Số khách (" + ct.getDatPhong().getSoLuongKhach() + ") vượt mức tối đa tuyệt đối cho phép (" + maxPax + ")!";
             }
@@ -100,14 +107,23 @@ public class ThuePhongService {
         }
 
         phong.setTrangThai(TrangThaiPhong.OCCUPIED);
-        phongDAO.update(phong);
+        KhachHang guest = ct.getKhachHang() != null ? ct.getKhachHang() : booking.getKhachHang();
+        phong.setTenKhachHienTai(guest != null ? guest.getHoTen() : null);
+        phong.setSdtKhachHienTai(guest != null ? guest.getSdt() : null);
+        phong.setCheckInTime(LocalDateTime.now());
+        phong.setExpectedCheckOutTime(ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : booking.getNgayTraDuKien());
+        requireWrite(phongDAO.update(phong), "Lỗi cập nhật trạng thái phòng");
+        updateDatPhongStatus(booking, ctdpDAO.getByDatPhong(booking.getMaDatPhong()));
         return null;
     }
 
     public String themDichVu(SuDungDichVu sddv) {
         if (sddv == null) return "Dữ liệu dịch vụ trống!";
-        if (sddv.getDichVu() == null || sddv.getSoLuong() <= 0) 
+        if (sddv == null || sddv.getDichVu() == null || sddv.getSoLuong() <= 0)
             return "Thông tin dịch vụ hoặc số lượng không hợp lệ!";
+        ChiTietDatPhong active = sddv.getCtdp()!=null ? ctdpDAO.getById(sddv.getCtdp().getMaChiTiet()) : null;
+        if(active==null || active.getNgayNhanThucTe()==null || active.getNgayTraThucTe()!=null || active.isDaThanhToan()) return "Lượt lưu trú không cho phép gọi dịch vụ!";
+        if(!Double.isFinite(sddv.getDonGiaLuu()) || sddv.getDonGiaLuu()<0) return "Đơn giá dịch vụ không hợp lệ!";
         return sddvDAO.insert(sddv) ? null : "Lỗi lưu dịch vụ vào cơ sở dữ liệu!";
     }
 
@@ -143,27 +159,28 @@ public class ThuePhongService {
         ChiTietDatPhong ct = ctdpDAO.getById(maChiTiet);
         if (ct == null || ct.getDatPhong() == null) return "Không tìm thấy thông tin thuê phòng!";
         DatPhong dp = ct.getDatPhong();
-        
+
         LocalDateTime currentCheckout = ct.getNgayTraDuKien() != null ? ct.getNgayTraDuKien() : dp.getNgayTraDuKien();
-        if (newLDT.isBefore(currentCheckout)) {
+        if (newLDT == null || currentCheckout == null || ct.getNgayNhanThucTe() == null || ct.getNgayTraThucTe() != null || ct.isDaThanhToan()) return "Lượt lưu trú không cho phép gia hạn!";
+        if (!newLDT.isAfter(currentCheckout)) {
             return "Ngày trả mới không thể sớm hơn ngày trả hiện tại!";
         }
-        
+
         if (!phongDAO.isRoomAvailable(ct.getPhong().getMaPhong(), currentCheckout, newLDT, dp.getMaDatPhong())) {
             return "Không thể gia hạn! Phòng " + ct.getPhong().getMaPhong() + " đã có khách khác đặt trước trong khoảng thời gian này.";
         }
-        
+
         database.DatabaseConnection db = database.DatabaseConnection.getInstance();
         try {
             db.beginTransaction();
-            
+
             // 1. Cập nhật chi tiết đặt phòng
             ct.setNgayTraDuKien(newLDT);
             if (!ctdpDAO.update(ct)) {
                 db.rollbackTransaction();
                 return "Lỗi cập nhật chi tiết thuê phòng!";
             }
-            
+
             // 2. Tìm ngày trả muộn nhất trong tất cả các phòng để cập nhật đơn đặt phòng cha
             List<ChiTietDatPhong> rooms = ctdpDAO.getByDatPhong(dp.getMaDatPhong());
             LocalDateTime maxCheckout = newLDT;
@@ -176,13 +193,13 @@ public class ThuePhongService {
                     }
                 }
             }
-            
+
             dp.setNgayTraDuKien(maxCheckout);
             if (!datPhongDAO.update(dp)) {
                 db.rollbackTransaction();
                 return "Lỗi cập nhật đơn đặt phòng!";
             }
-            
+
             db.commitTransaction();
             LOGGER.info("Gia hạn phòng " + ct.getPhong().getMaPhong() + " đến " + newLDT);
             return null;
@@ -196,7 +213,7 @@ public class ThuePhongService {
     public String checkOut(String maChiTiet, String maNV) {
         return checkOut(maChiTiet, maNV, "PAID", null);
     }
-    
+
     public String checkOut(String maChiTiet, String maNV, String status) {
         return checkOut(maChiTiet, maNV, status, null);
     }
@@ -207,11 +224,11 @@ public class ThuePhongService {
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode) {
         return checkOut(maChiTiet, maNV, status, voucherCode, -1);
     }
-    
+
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode, double customDeposit) {
         return checkOut(maChiTiet, maNV, status, voucherCode, customDeposit, 0);
     }
-    
+
     public String checkOut(String maChiTiet, String maNV, String status, String voucherCode, double customDeposit, double earlyCheckoutPenalty) {
         database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
@@ -224,14 +241,26 @@ public class ThuePhongService {
             }
 
             List<ChiTietDatPhong> segments = new ArrayList<>();
+            if (mainCt.isDaThanhToan()) { dbConn.rollbackTransaction(); return "Lượt lưu trú đã lập hóa đơn!"; }
+            if (mainCt.getNgayNhanThucTe() == null) { dbConn.rollbackTransaction(); return "Phòng chưa nhận, không thể trả phòng!"; }
             segments.add(mainCt);
+            String previous = mainCt.getMaChiTietTruoc();
+            java.util.Set<String> visited = new java.util.HashSet<>();
+            visited.add(mainCt.getMaChiTiet());
+            while (previous != null) {
+                if (!visited.add(previous)) throw new IllegalStateException("Vòng lặp trong lịch sử đổi phòng");
+                ChiTietDatPhong old = ctdpDAO.getById(previous);
+                if (old == null || !java.util.Objects.equals(old.getMaDatPhong(), mainCt.getMaDatPhong())) throw new IllegalStateException("Lịch sử đổi phòng không hợp lệ");
+                if (!old.isDaThanhToan()) segments.add(old);
+                previous = old.getMaChiTietTruoc();
+            }
 
             HoaDon hd = new HoaDon();
             hd.setMaHoaDon(hoaDonDAO.generateMaHD());
             hd.setDatPhong(mainCt.getDatPhong());
             hd.setNhanVien(nhanVienDAO.getById(maNV));
             hd.setNgayLap(LocalDateTime.now());
-            
+
             double tongTienPhong = 0;
             double tongDichVu = 0;
             double tongPhuPhi = 0;
@@ -239,11 +268,11 @@ public class ThuePhongService {
 
             for (ChiTietDatPhong ct : segments) {
                 if (ct.getNgayTraThucTe() == null) ct.setNgayTraThucTe(LocalDateTime.now());
-                
+
                 LocalDateTime ngayNhanResolved = ct.getNgayNhanThucTe();
                 if (ngayNhanResolved == null && ct.getDatPhong() != null) ngayNhanResolved = ct.getDatPhong().getNgayNhanDuKien();
-                
-                long soNgay = Math.max(1, tinhSoNgay(ngayNhanResolved, ct.getNgayTraThucTe()));
+
+                long soNgay = billingNights(ct, ct.getNgayTraThucTe());
                 double donGiaChot = ct.getGiaThucTeChot() > 0 ? ct.getGiaThucTeChot() : 400000;
                 double tienPhongChang = donGiaChot * soNgay;
                 tongTienPhong += tienPhongChang;
@@ -261,15 +290,11 @@ public class ThuePhongService {
                 // 2. Tính phụ phí động (Nhận sớm / Trả trễ) bằng StandardRoomCalculator
                 StandardRoomCalculator calc = new StandardRoomCalculator();
                 List<SuDungDichVu> dsDichVu = sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet());
-                boolean earlyAdded = dsDichVu.stream().anyMatch(s -> 
+                boolean earlyAdded = dsDichVu.stream().anyMatch(s ->
                     (s.getDichVu() != null && "DV_EXTRA_EARLY".equals(s.getDichVu().getMaDV()))
                     || (s.getTenDichVu() != null && s.getTenDichVu().toLowerCase().contains("nhận phòng sớm")));
 
-                double dynamicSurcharge = calc.tinhPhuPhi(ct, ngayNhanResolved, ct.getNgayTraThucTe());
-                if (earlyAdded && ngayNhanResolved != null) {
-                    double onlyEarly = calc.tinhPhuPhi(ct, ngayNhanResolved, ngayNhanResolved.withHour(14).withMinute(0).withSecond(0));
-                    dynamicSurcharge = Math.max(0, dynamicSurcharge - onlyEarly);
-                }
+                double dynamicSurcharge = ct == mainCt ? billingSurcharge(ct, ct.getNgayTraThucTe()) : 0;
 
                 if (dynamicSurcharge > 0) {
                     ChiTietHoaDon cthdPhuPhi = new ChiTietHoaDon();
@@ -311,7 +336,7 @@ public class ThuePhongService {
                     cthdKhac.setThanhTien(ct.getPhuPhiPhatSinh());
                     pendingItems.add(cthdKhac);
                 }
-                
+
                 for (SuDungDichVu sddv : dsDichVu) {
                     double itemTotal = sddv.getDonGiaLuu() * sddv.getSoLuong();
                     tongDichVu += itemTotal;
@@ -328,35 +353,35 @@ public class ThuePhongService {
                 ct.setDaThanhToan(true);
                 if (!ctdpDAO.update(ct)) { dbConn.rollbackTransaction(); return "Lỗi cập nhật chặng!"; }
 
-                if (ct.getPhong() != null) {
+                if (ct == mainCt && ct.getPhong() != null) {
                     Phong p = phongDAO.getById(ct.getPhong().getMaPhong());
                     if (p != null) {
                         p.setTrangThai(TrangThaiPhong.CLEANING);
                         p.setTenKhachHienTai(null);
-                        phongDAO.update(p);
+                        requireWrite(phongDAO.update(p), "Không thể lưu thay đổi nghiệp vụ");
                     }
                 }
             }
-            
+
             hd.setTongTienPhong(tongTienPhong);
             hd.setTongTienDichVu(tongDichVu + tongPhuPhi);
-            
+
             KhuyenMai chosenKM = null;
             double subTotal = tongTienPhong + hd.getTongTienDichVu();
-            
-            String selectedVoucher = (voucherCode != null && !voucherCode.trim().isEmpty()) 
-                ? voucherCode.trim() 
+
+            String selectedVoucher = (voucherCode != null && !voucherCode.trim().isEmpty())
+                ? voucherCode.trim()
                 : (mainCt.getDatPhong() != null ? mainCt.getDatPhong().getMaKhuyenMai() : null);
 
-            LocalDateTime thoiDiemDat = (mainCt.getDatPhong() != null) 
-                ? mainCt.getDatPhong().getNgayDat() 
+            LocalDateTime thoiDiemDat = (mainCt.getDatPhong() != null)
+                ? mainCt.getDatPhong().getNgayDat()
                 : LocalDateTime.now();
 
             if (selectedVoucher != null && !selectedVoucher.trim().isEmpty()) {
                 chosenKM = khuyenMaiDAO.getByVoucherCode(selectedVoucher.trim());
                 if (chosenKM != null && !chosenKM.kiemTraHopLe(subTotal, thoiDiemDat)) chosenKM = null;
             }
-            
+
             hd.setKhuyenMai(chosenKM);
             double tienGiam = 0;
             if (chosenKM != null) {
@@ -364,7 +389,7 @@ public class ThuePhongService {
                 tienGiam = chosenKM.tinhSoTienGiam(tongTienPhong);
             }
             hd.setTienGiamKhuyenMai(tienGiam);
-            
+
             double tienCoc = 0;
             if (mainCt.getDatPhong() != null) {
                 // Nghiệp vụ thực tế: Nếu tách bill thanh toán lẻ 1 phòng trong khách đoàn,
@@ -374,13 +399,13 @@ public class ThuePhongService {
                 boolean isGroup = realDs != null && realDs.size() > 1;
                 long unpaidOthers = realDs != null ? realDs.stream().filter(r -> !r.isDaThanhToan() && !r.getMaChiTiet().equals(mainCt.getMaChiTiet())).count() : 0;
                 double maxCoc = mainCt.getDatPhong().getTienDatCoc();
-                
+
                 if (customDeposit >= 0) { // Khi thao tác Manual Deduct
                     tienCoc = Math.min(customDeposit, maxCoc);
                 } else if (!isGroup || unpaidOthers == 0) { // Tự động trừ cọc nếu là phòng đơn hoặc phòng cuối cùng chưa thanh toán của đoàn
                     tienCoc = maxCoc;
                 }
-                
+
                 if (tienCoc > 0) {
                     ChiTietHoaDon cthdCoc = new ChiTietHoaDon();
                     cthdCoc.setMaChiTietHoaDon(cthdDAO.generateMaCTHD());
@@ -394,10 +419,10 @@ public class ThuePhongService {
                 }
             }
             hd.setTongThanhToan(subTotal - tienGiam - tienCoc);
-            
-            try { hd.setTrangThai(TrangThaiThanhToan.valueOf(status.toUpperCase())); } 
+
+            try { hd.setTrangThai(TrangThaiThanhToan.valueOf(status.toUpperCase())); }
             catch (Exception e) { hd.setTrangThai(TrangThaiThanhToan.PAID); }
-            
+
             if (!hoaDonDAO.insert(hd)) { dbConn.rollbackTransaction(); return "Lỗi tạo hóa đơn!"; }
             for (ChiTietHoaDon item : pendingItems) {
                 if (!cthdDAO.insert(item)) { dbConn.rollbackTransaction(); return "Lỗi lưu chi tiết hóa đơn!"; }
@@ -420,9 +445,9 @@ public class ThuePhongService {
                 } else if (mainCt.getDatPhong() != null && mainCt.getDatPhong().getKhachHang() != null) {
                     targetMaKH = mainCt.getDatPhong().getKhachHang().getMaKhachHang();
                 }
-                
+
                 if (targetMaKH != null) {
-                    khachHangDAO.updateCRMStats(targetMaKH, hd.getTongThanhToan(), true);
+                    requireWrite(khachHangDAO.updateCRMStats(targetMaKH, hd.getTongThanhToan(), true), "Không thể lưu thay đổi nghiệp vụ");
                 }
             }
 
@@ -452,10 +477,10 @@ public class ThuePhongService {
                 }
             }
             Phong phong = phongDAO.getById(ct.getPhong().getMaPhong());
-            if (phong != null) { 
-                phong.setTrangThai(TrangThaiPhong.CLEANING); 
+            if (phong != null) {
+                phong.setTrangThai(TrangThaiPhong.CLEANING);
                 phong.setTenKhachHienTai(null);
-                phongDAO.update(phong); 
+                requireWrite(phongDAO.update(phong), "Không thể lưu thay đổi nghiệp vụ");
             }
             dbConn.commitTransaction();
             return null;
@@ -465,7 +490,7 @@ public class ThuePhongService {
     public String checkOutMasterBill(String maDatPhong, String maNV, String voucherCode) {
         return checkOutMasterBill(maDatPhong, maNV, voucherCode, new HashMap<>());
     }
-    
+
     public String checkOutMasterBill(String maDatPhong, String maNV, String voucherCode, Map<String, Double> roomPenalties) {
         database.DatabaseConnection dbConn = database.DatabaseConnection.getInstance();
         try {
@@ -474,6 +499,12 @@ public class ThuePhongService {
             if (dp == null) return "Không tìm thấy thông tin đặt phòng!";
 
             List<ChiTietDatPhong> rooms = ctdpDAO.getByDatPhong(maDatPhong);
+            if (rooms.isEmpty() || rooms.stream().allMatch(ChiTietDatPhong::isDaThanhToan)) {
+                dbConn.rollbackTransaction(); return "Đơn không còn lượt lưu trú cần thanh toán!";
+            }
+            if (rooms.stream().anyMatch(c -> !c.isDaThanhToan() && c.getNgayNhanThucTe() == null)) {
+                dbConn.rollbackTransaction(); return "Còn phòng chưa nhận; hãy hủy phòng đó trước khi thanh toán đoàn!";
+            }
             if (rooms == null || rooms.isEmpty()) return "Không có phòng nào để thanh toán!";
 
             HoaDon hd = new HoaDon();
@@ -491,29 +522,12 @@ public class ThuePhongService {
 
             for (ChiTietDatPhong ct : rooms) {
                 if (ct.isDaThanhToan()) continue;
-                
-                // Hậu mãi: Nếu phòng đã trả/đổi trong cùng ngày nhận và có phòng khác thay thế, bỏ qua không tính tiền
-                if (ct.getNgayTraThucTe() != null && ct.getNgayNhanThucTe() != null) {
-                    if (ct.getNgayNhanThucTe().toLocalDate().isEqual(ct.getNgayTraThucTe().toLocalDate())) {
-                        boolean hasReplacement = rooms.stream().anyMatch(other -> 
-                            !other.getMaChiTiet().equals(ct.getMaChiTiet()) 
-                            && other.getNgayNhanThucTe() != null 
-                            && !other.getNgayNhanThucTe().isBefore(ct.getNgayNhanThucTe())
-                        );
-                        if (hasReplacement) {
-                            // Tự động đánh dấu đã thanh toán để dọn dẹp DB và giải phóng trạng thái phòng
-                            ct.setDaThanhToan(true);
-                            ctdpDAO.update(ct);
-                            continue; 
-                        }
-                    }
-                }
 
                 // 1. Tiền phòng
                 LocalDateTime ngayNhan = ct.getNgayNhanThucTe() != null ? ct.getNgayNhanThucTe() : dp.getNgayNhanDuKien();
                 LocalDateTime ngayTra = ct.getNgayTraThucTe() != null ? ct.getNgayTraThucTe() : LocalDateTime.now();
-                long soNgay = Math.max(1, tinhSoNgay(ngayNhan, ngayTra));
-                
+                long soNgay = billingNights(ct, ngayTra);
+
                 double donGia = ct.getGiaThucTeChot() > 0 ? ct.getGiaThucTeChot() : 400000;
                 double tienPhong = donGia * soNgay;
                 tongTienPhong += tienPhong;
@@ -529,7 +543,7 @@ public class ThuePhongService {
                 pendingItems.add(ctPhong);
 
                 // 2. Phụ phí
-                double phuPhi = calc.tinhPhuPhi(ct, ngayNhan, ngayTra) + ct.getPhuPhiPhatSinh();
+                double phuPhi = billingSurcharge(ct, ngayTra) + ct.getPhuPhiPhatSinh();
                 if (phuPhi > 0) {
                     tongPhuPhi += phuPhi;
                     ChiTietHoaDon ctPhu = new ChiTietHoaDon();
@@ -582,26 +596,27 @@ public class ThuePhongService {
                     pendingItems.add(ctDV);
                 }
 
+                boolean releaseRoom = ct.getNgayTraThucTe() == null;
                 ct.setDaThanhToan(true);
                 ct.setNgayTraThucTe(ngayTra);
-                ctdpDAO.update(ct);
+                requireWrite(ctdpDAO.update(ct), "Không thể lưu thay đổi nghiệp vụ");
 
                 Phong p = ct.getPhong();
-                if (p != null) {
+                if (p != null && releaseRoom) {
                     p.setTrangThai(TrangThaiPhong.CLEANING);
                     p.setTenKhachHienTai(null);
-                    phongDAO.update(p);
+                    requireWrite(phongDAO.update(p), "Không thể lưu thay đổi nghiệp vụ");
                 }
             }
 
             hd.setTongTienPhong(tongTienPhong);
             hd.setTongTienDichVu(tongDichVu + tongPhuPhi);
-            
+
             double subTotal = tongTienPhong + hd.getTongTienDichVu();
-            
+
             KhuyenMai chosenKM = null;
-            String vc = (voucherCode != null && !voucherCode.trim().isEmpty()) 
-                ? voucherCode.trim() 
+            String vc = (voucherCode != null && !voucherCode.trim().isEmpty())
+                ? voucherCode.trim()
                 : dp.getMaKhuyenMai();
 
             LocalDateTime thoiDiemDat = (dp.getNgayDat() != null) ? dp.getNgayDat() : LocalDateTime.now();
@@ -643,11 +658,12 @@ public class ThuePhongService {
 
             // CRM Stats update for group representative
             if (dp.getKhachHang() != null) {
-                khachHangDAO.updateCRMStats(dp.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true);
+                requireWrite(khachHangDAO.updateCRMStats(dp.getKhachHang().getMaKhachHang(), hd.getTongThanhToan(), true), "Không thể lưu thay đổi nghiệp vụ");
             }
 
+            dp.setTienDatCoc(0);
             dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
-            datPhongDAO.update(dp);
+            requireWrite(datPhongDAO.update(dp), "Không thể lưu thay đổi nghiệp vụ");
 
             dbConn.commitTransaction();
             LogService.addLog("Thanh toán đoàn", "Giao dịch", "Mã HD: " + hd.getMaHoaDon() + ", Tổng: " + hd.getTongThanhToan());
@@ -671,31 +687,31 @@ public class ThuePhongService {
         try {
             DatPhong dp = datPhongDAO.getById(maDP);
             if (dp == null) return "Không tìm thấy thông tin đặt phòng!";
-            
+
             // 1. Cập nhật người đại diện chính của đơn đặt phòng (Cả đoàn)
             dp.setKhachHang(newKh);
-            datPhongDAO.update(dp);
-            
+            requireWrite(datPhongDAO.update(dp), "Không thể lưu thay đổi nghiệp vụ");
+
             // 2. Nếu có chỉ định phòng, cập nhật người lưu trú thực tế của chặng đó
-            if (room != null) { 
+            if (room != null) {
                 // Cập nhật tên hiển thị trên sơ đồ phòng
-                Phong p = phongDAO.getById(room); 
-                if (p != null) { 
-                    p.setTenKhachHienTai(newKh.getHoTen()); 
-                    phongDAO.update(p); 
-                } 
-                
+                Phong p = phongDAO.getById(room);
+                if (p != null) {
+                    p.setTenKhachHienTai(newKh.getHoTen());
+                    requireWrite(phongDAO.update(p), "Không thể lưu thay đổi nghiệp vụ");
+                }
+
                 // Cập nhật quan trọng: Đồng bộ vào bản ghi lưu trú để Hóa đơn nhận diện đúng người mới
                 ChiTietDatPhong ct = ctdpDAO.getActiveStayByPhong(room);
                 if (ct != null && ct.getDatPhong() != null && ct.getDatPhong().getMaDatPhong().equals(maDP)) {
                     ct.setKhachHang(newKh);
-                    ctdpDAO.update(ct);
+                    requireWrite(ctdpDAO.update(ct), "Không thể lưu thay đổi nghiệp vụ");
                 }
             }
             return null;
-        } catch (Exception e) { 
+        } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Lỗi cập nhật người đại diện", e);
-            return "Lỗi hệ thống: " + e.getMessage(); 
+            return "Lỗi hệ thống: " + e.getMessage();
         }
     }
 
@@ -704,13 +720,17 @@ public class ThuePhongService {
         try {
             dbConn.beginTransaction();
             ChiTietDatPhong ctOld = ctdpDAO.getById(maCT);
-            if (ctOld == null) { dbConn.rollbackTransaction(); return "Không tìm thấy!"; }
+            if (ctOld == null || ctOld.getNgayNhanThucTe() == null || ctOld.getNgayTraThucTe() != null || ctOld.isDaThanhToan()) { dbConn.rollbackTransaction(); return "Lượt lưu trú không cho phép đổi phòng!"; }
             Phong newRoom = phongDAO.getById(maP);
             if (newRoom == null || newRoom.getTrangThai() != TrangThaiPhong.AVAILABLE) { dbConn.rollbackTransaction(); return "Phòng không khả dụng!"; }
 
             LocalDateTime now = LocalDateTime.now();
+            LocalDateTime plannedEnd = ctOld.getNgayTraDuKien() != null ? ctOld.getNgayTraDuKien() : ctOld.getDatPhong().getNgayTraDuKien();
+            if (plannedEnd == null || !plannedEnd.isAfter(now) || !phongDAO.isRoomAvailable(maP, now, plannedEnd, ctOld.getMaDatPhong())) {
+                dbConn.rollbackTransaction(); return "Phòng mới có lịch đặt trùng hoặc khoảng lưu trú đã hết hạn!";
+            }
             ctOld.setNgayTraThucTe(now);
-            
+
             // Nếu khách đổi phòng khi chưa qua đêm nào ở phòng cũ (ở cùng một ngày calendar),
             // đánh dấu phòng cũ đã thanh toán (daThanhToan = true) để Master Bill không tính tiền phòng cũ.
             long soDemOld = 0;
@@ -722,14 +742,15 @@ public class ThuePhongService {
                 }
             }
             ctOld.setDaThanhToan(soDemOld == 0);
-            
-            ctdpDAO.update(ctOld);
+
+            requireWrite(ctdpDAO.update(ctOld), "Không thể lưu thay đổi nghiệp vụ");
             Phong oldR = ctOld.getPhong();
-            if (oldR != null) { oldR.setTrangThai(TrangThaiPhong.CLEANING); phongDAO.update(oldR); }
+            if (oldR != null) { oldR.setTrangThai(TrangThaiPhong.CLEANING); requireWrite(phongDAO.update(oldR), "Không cập nhật được phòng cũ"); }
 
             ChiTietDatPhong ctNew = new ChiTietDatPhong();
             ctNew.setMaChiTiet(ctdpDAO.generateMaChiTiet());
             ctNew.setDatPhong(ctOld.getDatPhong());
+            ctNew.setMaChiTietTruoc(ctOld.getMaChiTiet());
             ctNew.setPhong(newRoom);
             ctNew.setKhachHang(ctOld.getKhachHang());
             ctNew.setNgayNhanDuKien(ctOld.getNgayNhanDuKien());
@@ -744,7 +765,7 @@ public class ThuePhongService {
             double rate = keepPrice ? ctOld.getGiaThucTeChot() : bangGiaService.layGiaHienHanh(newRoom.getLoaiPhong().getMaLoaiPhong());
             ctNew.setGiaThucTeChot(rate);
             ctNew.setDaThanhToan(false);
-            ctdpDAO.insert(ctNew);
+            requireWrite(ctdpDAO.insert(ctNew), "Không thể lưu thay đổi nghiệp vụ");
 
             // Copy dịch vụ từ phòng cũ sang phòng mới và xoá dịch vụ ở phòng cũ để tránh double billing
             java.util.List<SuDungDichVu> oldServices = sddvDAO.getByChiTietDatPhong(ctOld.getMaChiTiet());
@@ -755,14 +776,14 @@ public class ThuePhongService {
                 newService.setSoLuong(oldService.getSoLuong());
                 newService.setDonGiaLuu(oldService.getDonGiaLuu());
                 newService.setThoiDiem(oldService.getThoiDiem());
-                sddvDAO.insert(newService);
-                
-                sddvDAO.deleteOne(oldService);
+                requireWrite(sddvDAO.insert(newService), "Không thể lưu thay đổi nghiệp vụ");
+
+                requireWrite(sddvDAO.deleteOne(oldService), "Không thể lưu thay đổi nghiệp vụ");
             }
 
             newRoom.setTrangThai(TrangThaiPhong.OCCUPIED);
             newRoom.setTenKhachHienTai(ctNew.getKhachHang() != null ? ctNew.getKhachHang().getHoTen() : "Khách");
-            phongDAO.update(newRoom);
+            requireWrite(phongDAO.update(newRoom), "Không thể lưu thay đổi nghiệp vụ");
             dbConn.commitTransaction();
             return null;
         } catch (Exception e) { dbConn.rollbackTransaction(); return e.getMessage(); }
@@ -796,6 +817,7 @@ public class ThuePhongService {
 
         if (checkedOutRooms == totalRooms) {
             // Tất cả phòng đã trả (kể cả phòng chưa checkin — coi như không dùng)
+            dp.setTienDatCoc(0);
             dp.setTrangThai(TrangThaiDatPhong.CHECKED_OUT);
         } else if (checkedOutRooms > 0 || activeRooms > 0) {
             // Có ít nhất 1 phòng đã trả HOẶC đang ở, nhưng chưa xong hết
@@ -809,7 +831,7 @@ public class ThuePhongService {
         }
         // Nếu checkedOutRooms==0 && activeRooms==0: tất cả chưa checkin → giữ nguyên
 
-        datPhongDAO.update(dp);
+        requireWrite(datPhongDAO.update(dp), "Không thể lưu thay đổi nghiệp vụ");
     }
 
     public KhuyenMai getBestPromotion(double total) {
@@ -824,12 +846,68 @@ public class ThuePhongService {
         return best;
     }
 
+    private static void requireWrite(boolean success, String message) {
+        if (!success) throw new IllegalStateException(message);
+    }
+
+    /** A transferred same-day segment must not add another minimum night to an already billed overnight stay. */
+    public long billingNights(ChiTietDatPhong ct, LocalDateTime end) {
+        LocalDateTime start = ct.getNgayNhanThucTe();
+        if (start == null) start = ct.getNgayNhanDuKien() != null ? ct.getNgayNhanDuKien() : ct.getDatPhong().getNgayNhanDuKien();
+        long nights = StandardRoomCalculator.countNights(start, end);
+        if (start.toLocalDate().equals(end.toLocalDate()) && ct.getMaChiTietTruoc() != null) {
+            String previous = ct.getMaChiTietTruoc(); java.util.Set<String> visited = new java.util.HashSet<>();
+            while (previous != null && visited.add(previous)) {
+                ChiTietDatPhong old = ctdpDAO.getById(previous);
+                if (old == null) break;
+                if (old.getNgayNhanThucTe()!=null && old.getNgayTraThucTe()!=null
+                        && old.getNgayTraThucTe().toLocalDate().isAfter(old.getNgayNhanThucTe().toLocalDate())) return 0;
+                previous = old.getMaChiTietTruoc();
+            }
+        }
+        return nights;
+    }
+
+    public List<ChiTietDatPhong> getBillableSegments(String id) {
+        List<ChiTietDatPhong> result = new ArrayList<>(); java.util.Set<String> visited=new java.util.HashSet<>();
+        while(id!=null && visited.add(id)) {
+            ChiTietDatPhong ct=ctdpDAO.getById(id); if(ct==null)break;
+            if(!ct.isDaThanhToan())result.add(ct);id=ct.getMaChiTietTruoc();
+        }
+        return result;
+    }
+
+    public double quotedRoomTotal(String id, LocalDateTime end) {
+        double total=0;
+        for(ChiTietDatPhong ct:getBillableSegments(id)) total+=(ct.getGiaThucTeChot()>0?ct.getGiaThucTeChot():400000)
+                * billingNights(ct,ct.getNgayTraThucTe()!=null?ct.getNgayTraThucTe():end);
+        return total;
+    }
+
+    public LocalDateTime billingCheckIn(ChiTietDatPhong ct) {
+        LocalDateTime start=ct.getNgayNhanThucTe();String previous=ct.getMaChiTietTruoc();
+        java.util.Set<String> visited=new java.util.HashSet<>();
+        while(previous!=null && visited.add(previous)) {
+            ChiTietDatPhong old=ctdpDAO.getById(previous);if(old==null)break;
+            if(old.getNgayNhanThucTe()!=null)start=old.getNgayNhanThucTe();previous=old.getMaChiTietTruoc();
+        }
+        return start!=null?start:ct.getNgayNhanDuKien()!=null?ct.getNgayNhanDuKien():ct.getDatPhong().getNgayNhanDuKien();
+    }
+
+    public double billingSurcharge(ChiTietDatPhong ct, LocalDateTime end) {
+        if(ctdpDAO.getByDatPhong(ct.getMaDatPhong()).stream().anyMatch(next -> ct.getMaChiTiet().equals(next.getMaChiTietTruoc())))return 0;
+        LocalDateTime start=billingCheckIn(ct);StandardRoomCalculator calc=new StandardRoomCalculator();
+        double fee=calc.tinhPhuPhi(ct,start,end);
+        boolean earlyPaid=sddvDAO.getByChiTietDatPhong(ct.getMaChiTiet()).stream().anyMatch(s ->
+                (s.getDichVu()!=null && "DV_EXTRA_EARLY".equals(s.getDichVu().getMaDV()))
+                || (s.getTenDichVu()!=null && s.getTenDichVu().toLowerCase(java.util.Locale.ROOT).contains("nhận phòng sớm")));
+        if(earlyPaid && start!=null)fee-=calc.tinhPhuPhi(ct,start,start.withHour(14).withMinute(0).withSecond(0));
+        return Math.max(0,fee);
+    }
+
     public long tinhSoNgay(LocalDateTime start, LocalDateTime end) {
         if (start == null || end == null) return 0;
-        java.time.Duration d = java.time.Duration.between(start, end);
-        long days = d.toDays();
-        // Tính làm tròn: hơn 2 tiếng tính thêm 1 ngày
-        return Math.max(1, days + (d.toHoursPart() > 2 ? 1 : 0));
+        return StandardRoomCalculator.countNights(start, end);
     }
 
     /**
@@ -852,7 +930,7 @@ public class ThuePhongService {
         if (hour < 5) return baseRate; // 100% surcharge
         if (hour < 9) return baseRate * 0.5; // 50% surcharge
         if (hour < 12) return baseRate * 0.3; // 30% surcharge
-        
+
         // 12h - 14h: Free (Grace period)
         return 0;
     }

@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.NhanVien;
 import entity.TaiKhoan;
@@ -20,6 +22,7 @@ public class NhanVienDAO {
     }
 
     public NhanVien getByMaNV(String maNV) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(NhanVien.class, maNV); }
         String sql = "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
                 "FROM NhanVien nv " +
                 "LEFT JOIN TaiKhoan tk ON nv.maNhanVien = tk.maNhanVien " +
@@ -40,7 +43,7 @@ public class NhanVienDAO {
     }
 
     public List<NhanVien> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getStaffList();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.NhanVien.class);
         List<NhanVien> list = new ArrayList<>();
         String sql = "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
                 "FROM NhanVien nv " +
@@ -58,6 +61,7 @@ public class NhanVienDAO {
     }
 
     public List<NhanVien> search(String keyword, String filterRole) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x -> DemoRepository.matches(x.getHoTen(),keyword)||DemoRepository.matches(x.getMaNhanVien(),keyword)).collect(java.util.stream.Collectors.toList()); }
         List<NhanVien> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder(
                 "SELECT nv.*, tk.tenDangNhap, tk.vaiTro, tk.trangThai " +
@@ -90,11 +94,13 @@ public class NhanVienDAO {
     }
 
     public boolean insert(NhanVien nv) {
+        if (nv.getTaiKhoan()!=null && (nv.getTaiKhoan().getMatKhau()==null || nv.getTaiKhoan().getMatKhau().isBlank())) return false;
+        if (DatabaseConnection.isDemoMode()) return saveDemoStaff(nv, true);
         String sqlNV = "INSERT INTO NhanVien(maNhanVien, hoTen, sdt, chucVu, email, cccd, ngaySinh, gioiTinh, diaChi, ngayVaoLam, dangLamViec) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
         String sqlTK = "INSERT INTO TaiKhoan(tenDangNhap, matKhau, vaiTro, trangThai, maNhanVien) VALUES(?,?,?,1,?)";
         try {
             Connection conn = getConn();
-            conn.setAutoCommit(false);
+            DatabaseConnection.getInstance().beginTransaction();
             try {
                 try (PreparedStatement ps = conn.prepareStatement(sqlNV)) {
                     ps.setString(1, nv.getMaNhanVien());
@@ -114,21 +120,21 @@ public class NhanVienDAO {
                 if (tk != null) {
                     try (PreparedStatement ps = conn.prepareStatement(sqlTK)) {
                         ps.setString(1, tk.getTenDangNhap() != null ? tk.getTenDangNhap() : nv.getMaNhanVien());
-                        ps.setString(2, tk.getMatKhau() != null ? tk.getMatKhau() : "123456");
+                        ps.setString(2, util.PasswordUtils.hashPassword(tk.getMatKhau()));
                         String role = tk.getVaiTro() != null ? tk.getVaiTro().name() : "RECEPTIONIST";
                         ps.setString(3, role);
                         ps.setString(4, nv.getMaNhanVien());
                         ps.executeUpdate();
                     }
                 }
-                conn.commit();
+                DatabaseConnection.getInstance().commitTransaction();
                 return true;
             } catch (SQLException ex) {
-                conn.rollback();
+                DatabaseConnection.getInstance().rollbackTransaction();
                 LOGGER.log(Level.SEVERE, "Error inserting NhanVien", ex);
                 return false;
             } finally {
-                conn.setAutoCommit(true);
+                DatabaseConnection.getInstance().rollbackTransaction();
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO insert", e);
@@ -137,10 +143,11 @@ public class NhanVienDAO {
     }
 
     public boolean update(NhanVien nv) {
+        if (DatabaseConnection.isDemoMode()) return saveDemoStaff(nv, false);
         String sqlNV = "UPDATE NhanVien SET hoTen=?, sdt=?, chucVu=?, email=?, cccd=?, ngaySinh=?, gioiTinh=?, diaChi=?, ngayVaoLam=?, dangLamViec=? WHERE maNhanVien=?";
         try {
             Connection conn = getConn();
-            conn.setAutoCommit(false);
+            DatabaseConnection.getInstance().beginTransaction();
             try {
                 try (PreparedStatement ps = conn.prepareStatement(sqlNV)) {
                     ps.setString(1, nv.getHoTen());
@@ -165,19 +172,19 @@ public class NhanVienDAO {
                         ps.setString(idx++, tk.getVaiTro() != null ? tk.getVaiTro().name() : "RECEPTIONIST");
                         ps.setBoolean(idx++, nv.isDangLamViec());
                         if (hasPw)
-                            ps.setString(idx++, tk.getMatKhau());
+                            ps.setString(idx++, util.PasswordUtils.isHashed(tk.getMatKhau()) ? tk.getMatKhau() : util.PasswordUtils.hashPassword(tk.getMatKhau()));
                         ps.setString(idx, nv.getMaNhanVien());
                         ps.executeUpdate();
                     }
                 }
-                conn.commit();
+                DatabaseConnection.getInstance().commitTransaction();
                 return true;
             } catch (SQLException ex) {
-                conn.rollback();
+                DatabaseConnection.getInstance().rollbackTransaction();
                 LOGGER.log(Level.SEVERE, "Error updating NhanVien", ex);
                 return false;
             } finally {
-                conn.setAutoCommit(true);
+                DatabaseConnection.getInstance().rollbackTransaction();
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO update", e);
@@ -186,10 +193,11 @@ public class NhanVienDAO {
     }
 
     public boolean delete(String maNhanVien) {
+        if (DatabaseConnection.isDemoMode()) { entity.NhanVien x=getById(maNhanVien);if(x==null)return false;x.setDangLamViec(false);for(entity.TaiKhoan t:DemoRepository.all(entity.TaiKhoan.class))if(t.getNhanVien()!=null && maNhanVien.equals(t.getNhanVien().getMaNhanVien())){t.setTrangThai(false);DemoRepository.update(entity.TaiKhoan.class,t);}return DemoRepository.update(NhanVien.class,x); }
         // Soft delete: set dangLamViec = 0 and deactivate account
         try {
             Connection conn = getConn();
-            conn.setAutoCommit(false);
+            DatabaseConnection.getInstance().beginTransaction();
             try {
                 try (PreparedStatement ps = conn.prepareStatement("UPDATE TaiKhoan SET trangThai=0 WHERE maNhanVien=?")) {
                     ps.setString(1, maNhanVien);
@@ -198,14 +206,14 @@ public class NhanVienDAO {
                 try (PreparedStatement ps = conn.prepareStatement("UPDATE NhanVien SET dangLamViec=0 WHERE maNhanVien=?")) {
                     ps.setString(1, maNhanVien);
                     int res = ps.executeUpdate();
-                    conn.commit();
+                    DatabaseConnection.getInstance().commitTransaction();
                     return res > 0;
                 }
             } catch (SQLException ex) {
-                conn.rollback();
+                DatabaseConnection.getInstance().rollbackTransaction();
                 throw ex;
             } finally {
-                conn.setAutoCommit(true);
+                DatabaseConnection.getInstance().rollbackTransaction();
             }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO soft delete", e);
@@ -213,19 +221,33 @@ public class NhanVienDAO {
         }
     }
 
+    private boolean saveDemoStaff(NhanVien nv, boolean create) {
+        DatabaseConnection db=DatabaseConnection.getInstance();
+        try {
+            db.beginTransaction();
+            boolean saved=create?DemoRepository.insert(NhanVien.class,nv):DemoRepository.update(NhanVien.class,nv);
+            if(!saved)throw new IllegalStateException("Cannot save staff");
+            TaiKhoan supplied=nv.getTaiKhoan();
+            if(supplied!=null) {
+                TaiKhoan account=DemoRepository.all(TaiKhoan.class).stream().filter(t->t.getNhanVien()!=null && nv.getMaNhanVien().equals(t.getNhanVien().getMaNhanVien())).findFirst().orElse(null);
+                if(create) { supplied.setNhanVien(nv); supplied.setTrangThai(nv.isDangLamViec()); if(!new TaiKhoanDAO().insert(supplied))throw new IllegalStateException("Cannot create staff account"); }
+                else if(account!=null) {
+                    account.setVaiTro(supplied.getVaiTro());account.setTrangThai(nv.isDangLamViec());account.setNhanVien(nv);
+                    String password=supplied.getMatKhau();
+                    if(password!=null && !password.isBlank())account.setMatKhau(util.PasswordUtils.isHashed(password)?password:util.PasswordUtils.hashPassword(password));
+                    if(!DemoRepository.update(TaiKhoan.class,account))throw new IllegalStateException("Cannot update staff account");
+                }
+            }
+            db.commitTransaction();return true;
+        }catch(Exception e){db.rollbackTransaction();return false;}
+    }
+
     public String generateMaNV() {
-        try (Statement st = getConn().createStatement();
-                ResultSet rs = st.executeQuery(
-                        "SELECT MAX(CAST(SUBSTRING(maNhanVien,3,10) AS INT)) FROM NhanVien WHERE maNhanVien LIKE 'NV%'")) {
-            if (rs.next())
-                return String.format("NV%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Database error in NhanVienDAO", e);
-        }
-        return "NV001";
+        return util.IdGenerator.next("NV");
     }
 
     public boolean isSdtExists(String sdt, String excludeMaNV) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().anyMatch(x -> !java.util.Objects.equals(x.getMaNhanVien(),excludeMaNV) && java.util.Objects.equals(x.getSdt(),sdt)); }
         String sql = "SELECT COUNT(*) FROM NhanVien WHERE sdt = ?" + (excludeMaNV != null ? " AND maNhanVien <> ?" : "");
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, sdt);
@@ -241,6 +263,7 @@ public class NhanVienDAO {
     }
 
     public boolean isCccdExists(String cccd, String excludeMaNV) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().anyMatch(x -> !java.util.Objects.equals(x.getMaNhanVien(),excludeMaNV) && java.util.Objects.equals(x.getCccd(),cccd)); }
         String sql = "SELECT COUNT(*) FROM NhanVien WHERE cccd = ?" + (excludeMaNV != null ? " AND maNhanVien <> ?" : "");
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, cccd);

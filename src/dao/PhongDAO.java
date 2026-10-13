@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.HuongNhin;
 import entity.LoaiPhong;
@@ -24,7 +26,7 @@ public class PhongDAO {
 
     public List<Phong> getAll() {
         if (database.DatabaseConnection.isDemoMode()) {
-            return database.DemoDataStore.getInstance().getRooms();
+            return database.DemoRepository.all(entity.Phong.class);
         }
         List<Phong> list = new ArrayList<>();
         String sql =
@@ -57,7 +59,7 @@ public class PhongDAO {
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 Phong p = mapRow(rs);
-                try { 
+                try {
                     String guest = rs.getString("tenKhachHienTai");
                     String phone = rs.getString("sdtKhachHienTai");
                     if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
@@ -79,6 +81,7 @@ public class PhongDAO {
     }
 
     public Phong getById(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(Phong.class, maPhong); }
         String sql = "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, " +
                      "hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin, " +
                      "(SELECT TOP 1 kh.hoTen " +
@@ -101,7 +104,7 @@ public class PhongDAO {
                      " ORDER BY ct.ngayNhanThucTe DESC) AS sdtKhachHienTai, " +
                      "(SELECT TOP 1 ct.ngayNhanThucTe FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianCheckIn, " +
                      "(SELECT TOP 1 dp.ngayTraDuKien FROM ChiTietDatPhong ct JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong WHERE ct.maPhong = p.maPhong AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL AND dp.trangThai NOT IN ('CHECKED_OUT', 'CANCELLED') ORDER BY ct.ngayNhanThucTe DESC) AS thoiGianTraDuKien " +
-                     "FROM Phong p " +
+                     "FROM Phong p WITH (UPDLOCK, HOLDLOCK) " +
                      "JOIN LoaiPhong lp ON p.maLoaiPhong = lp.maLoaiPhong " +
                      "LEFT JOIN HuongNhin hn ON p.maHuongNhin = hn.maHuongNhin " +
                      "WHERE p.maPhong=?";
@@ -110,7 +113,7 @@ public class PhongDAO {
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 Phong p = mapRow(rs);
-                try { 
+                try {
                     String guest = rs.getString("tenKhachHienTai");
                     String phone = rs.getString("sdtKhachHienTai");
                     if (p.getTrangThai() == entity.enums.TrangThaiPhong.OCCUPIED) {
@@ -132,6 +135,7 @@ public class PhongDAO {
     }
 
     public boolean insert(Phong p) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(Phong.class, p); }
         String sql = "INSERT INTO Phong(maPhong, maLoaiPhong, tang, maHuongNhin, trangThai) VALUES(?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, p.getMaPhong());
@@ -148,6 +152,7 @@ public class PhongDAO {
     }
 
     public boolean update(Phong p) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(Phong.class, p); }
         String sql = "UPDATE Phong SET maLoaiPhong=?, tang=?, maHuongNhin=?, trangThai=? WHERE maPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, p.getLoaiPhong() != null ? p.getLoaiPhong().getMaLoaiPhong() : null);
@@ -164,6 +169,7 @@ public class PhongDAO {
     }
 
     public List<Phong> findAvailableRooms(java.time.LocalDateTime start, java.time.LocalDateTime end, int sucChua) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(p -> p.getTrangThai()!=entity.enums.TrangThaiPhong.DELETED && p.getTrangThai()!=entity.enums.TrangThaiPhong.MAINTENANCE && p.getLoaiPhong()!=null && p.getLoaiPhong().getSucChua()>=sucChua && isRoomAvailable(p.getMaPhong(),start,end)).collect(java.util.stream.Collectors.toList()); }
         List<Phong> list = new ArrayList<>();
         String sql =
             "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, " +
@@ -208,8 +214,8 @@ public class PhongDAO {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 Phong p = mapRow(rs);
-                try { 
-                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai")); 
+                try {
+                    p.setTenKhachHienTai(rs.getString("tenKhachHienTai"));
                     p.setSdtKhachHienTai(rs.getString("sdtKhachHienTai"));
                 } catch (Exception ignored) {}
                 list.add(p);
@@ -219,6 +225,7 @@ public class PhongDAO {
     }
 
     public boolean delete(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { Phong p=getById(maPhong); if(p==null)return false; p.setTrangThai(entity.enums.TrangThaiPhong.DELETED); return update(p); }
         String sql = "UPDATE Phong SET trangThai='DELETED' WHERE maPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
@@ -231,6 +238,7 @@ public class PhongDAO {
     }
 
     public int countBookingReferences(String maPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.ChiTietDatPhong.class,c -> c.getPhong()!=null && maPhong.equals(c.getPhong().getMaPhong())).size(); }
         String sql = "SELECT COUNT(*) FROM ChiTietDatPhong WHERE maPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maPhong);
@@ -241,6 +249,7 @@ public class PhongDAO {
     }
 
     public List<Phong> search(String kw, String tang, String huongNhin) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(p -> DemoRepository.matches(p.getMaPhong(),kw) && (tang==null || tang.isBlank() || String.valueOf(p.getTang()).equals(tang)) && (huongNhin==null || huongNhin.isBlank() || java.util.Objects.equals(huongNhin,p.getView()))).collect(java.util.stream.Collectors.toList()); }
         List<Phong> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder(
             "SELECT p.*, lp.tenLoaiPhong, lp.giaTheoNgay, lp.soNguoiToiDa, hn.tenHuongNhin, hn.heSoGia, hn.moTa AS moTaHuongNhin " +
@@ -264,6 +273,7 @@ public class PhongDAO {
     }
 
     public java.util.Map<String, Integer> getThongKeTrangThai() {
+        if (DatabaseConnection.isDemoMode()) { java.util.Map<String,Integer> m=new java.util.HashMap<>();for(entity.Phong p:getAll())m.merge(p.getTrangThaiString(),1,Integer::sum);return m; }
         java.util.Map<String, Integer> map = new java.util.HashMap<>();
         String sql = "SELECT trangThai, COUNT(*) FROM Phong WHERE trangThai <> 'DELETED' GROUP BY trangThai";
         try (Statement st = getConn().createStatement();
@@ -288,6 +298,7 @@ public class PhongDAO {
      * Trả về Map: maPhong -> maDatPhong (để hiện badge "Đã đặt" trên sơ đồ phòng).
      */
     public Map<String, String[]> getReservedRoomsForDate(LocalDateTime date) {
+        if (DatabaseConnection.isDemoMode()) { java.util.Map<String,String[]> result=new java.util.HashMap<>(); for(entity.ChiTietDatPhong c:new ChiTietDatPhongDAO().getAll()) { entity.DatPhong d=c.getDatPhong(); if(d!=null && c.getNgayNhanThucTe()==null && (d.getTrangThai()==entity.enums.TrangThaiDatPhong.CONFIRMED || d.getTrangThai()==entity.enums.TrangThaiDatPhong.PARTIALLY_CHECKED_IN) && d.getNgayNhanDuKien()!=null && d.getNgayTraDuKien()!=null && d.getNgayNhanDuKien().isBefore(date.plusDays(1)) && d.getNgayTraDuKien().isAfter(date)) result.put(c.getPhong().getMaPhong(),new String[]{d.getMaDatPhong(),d.getTenKhachHang(),d.getNgayNhanDuKien().toString()}); } return result; }
         Map<String, String[]> map = new HashMap<>();
         String sql =
             "SELECT ct.maPhong, dp.maDatPhong, kh.hoTen, dp.ngayNhanDuKien, dp.ngayTraDuKien " +
@@ -327,6 +338,7 @@ public class PhongDAO {
      * Kiểm tra sẵn sàng của phòng, có thể loại trừ 1 mã đặt phòng (để gia hạn/đổi phòng chính nó).
      */
     public boolean isRoomAvailable(String maPhong, LocalDateTime from, LocalDateTime to, String excludeMaDatPhong) {
+        if (DatabaseConnection.isDemoMode()) return DemoRepository.conflict(maPhong, from, to, excludeMaDatPhong) == null;
         // Ưu tiên dùng ngày dự kiến riêng của từng phòng (ct.ngayNhanDuKien/ngayTraDuKien).
         // Nếu không có (đặt phòng cũ hoặc tất cả phòng cùng ngày), fallback về ngày cha (dp).
         StringBuilder sql = new StringBuilder(
@@ -334,15 +346,11 @@ public class PhongDAO {
             "JOIN DatPhong dp ON ct.maDatPhong = dp.maDatPhong " +
             "WHERE ct.maPhong = ? " +
             "AND dp.trangThai IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'PARTIALLY_CHECKED_IN') " +
-            "AND ( " +
-            "  (dp.trangThai IN ('PENDING', 'CONFIRMED') AND ct.ngayTraThucTe IS NULL) " +
-            "  OR " +
-            "  (dp.trangThai IN ('CHECKED_IN', 'PARTIALLY_CHECKED_IN') AND ct.ngayNhanThucTe IS NOT NULL AND ct.ngayTraThucTe IS NULL) " +
-            ") " +
+                     "AND ct.ngayTraThucTe IS NULL " +
             "AND COALESCE(ct.ngayNhanDuKien, dp.ngayNhanDuKien) < ? " +
             "AND COALESCE(ct.ngayTraDuKien, dp.ngayTraDuKien) > ?"
         );
-        
+
         if (excludeMaDatPhong != null && !excludeMaDatPhong.trim().isEmpty()) {
             sql.append(" AND dp.maDatPhong <> ?");
         }
@@ -354,11 +362,11 @@ public class PhongDAO {
             if (excludeMaDatPhong != null && !excludeMaDatPhong.trim().isEmpty()) {
                 ps.setString(4, excludeMaDatPhong);
             }
-            
+
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1) == 0;
         } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in PhongDAO", e); }
-        return true;
+        return false;
     }
 
     private Phong mapRow(ResultSet rs) throws SQLException {

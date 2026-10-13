@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Phong {
+public class Phong implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maPhong;
     private int tang;
     private String viTri;           // backward compat field
@@ -18,7 +19,7 @@ public class Phong {
     private String sdtKhachHienTai;
     private LocalDateTime checkInTime;
     private LocalDateTime expectedCheckOutTime;
-    
+
     private LoaiPhong loaiPhong;
     private HuongNhin huongNhin;    // FK → HuongNhin table
     private List<LichSuTrangThaiPhong> dsLichSu = new ArrayList<>();

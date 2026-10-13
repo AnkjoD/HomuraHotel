@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.GiaoCa;
 import entity.NhanVien;
@@ -14,21 +16,11 @@ public class GiaoCaDAO {
     }
 
     public String generateMaGiaoCa() {
-        String sql = "SELECT TOP 1 maGiaoCa FROM GiaoCa ORDER BY maGiaoCa DESC";
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-            if (rs.next()) {
-                String last = rs.getString(1);
-                int num = Integer.parseInt(last.substring(2)) + 1;
-                return String.format("GC%05d", num);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return "GC00001";
+        return util.IdGenerator.next("GC");
     }
 
     public boolean insert(GiaoCa gc) {
+        if (DatabaseConnection.isDemoMode()) { gc.setTrangThai("OPEN");return DemoRepository.insert(entity.GiaoCa.class,gc); }
         String sql = "INSERT INTO GiaoCa (maGiaoCa, maNhanVien, thoiGianBatDau, tienMatDauCa, trangThai, ghiChu) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, gc.getMaGiaoCa());
@@ -45,6 +37,7 @@ public class GiaoCaDAO {
     }
 
     public boolean closeShift(GiaoCa gc) {
+        if (DatabaseConnection.isDemoMode()) { gc.setTrangThai("CLOSED");return DemoRepository.update(entity.GiaoCa.class,gc); }
         String sql = "UPDATE GiaoCa SET thoiGianKetThuc=?, tienMatThuTrongCa=?, tienMatBanGiao=?, tienMatChenhLech=?, maNhanVienNhan=?, ghiChu=?, trangThai='CLOSED' WHERE maGiaoCa=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setTimestamp(1, Timestamp.valueOf(gc.getThoiGianKetThuc()));
@@ -62,6 +55,7 @@ public class GiaoCaDAO {
     }
 
     public GiaoCa findCurrentShift(String maNV) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.GiaoCa.class,x -> "OPEN".equals(x.getTrangThai()) && x.getNhanVien()!=null && maNV.equals(x.getNhanVien().getMaNhanVien())).stream().findFirst().orElse(null); }
         String sql = "SELECT * FROM GiaoCa WHERE maNhanVien=? AND trangThai='OPEN'";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maNV);
@@ -81,6 +75,7 @@ public class GiaoCaDAO {
      * Nếu không có ca nào được chỉ định, fallback lấy ca CLOSED mới nhất.
      */
     public GiaoCa getLastClosedShift(String maNhanVienNhan) {
+        if (DatabaseConnection.isDemoMode()) { return getAll().stream().filter(x->"CLOSED".equals(x.getTrangThai()) && java.util.Objects.equals(maNhanVienNhan,x.getMaNhanVienNhan())).max(java.util.Comparator.comparing(entity.GiaoCa::getThoiGianKetThuc)).orElse(null); }
         // Ưu tiên 1: Ca mới nhất được bàn giao đúng người
         String sql = "SELECT TOP 1 gc.*, nv.hoTen FROM GiaoCa gc " +
                      "JOIN NhanVien nv ON gc.maNhanVien = nv.maNhanVien " +
@@ -103,6 +98,7 @@ public class GiaoCaDAO {
      * Fallback: Lấy ca CLOSED mới nhất bất kỳ (không lọc người nhận).
      */
     public GiaoCa getLastClosedShift() {
+        if(DatabaseConnection.isDemoMode())return getAll().stream().filter(x->"CLOSED".equals(x.getTrangThai())).max(java.util.Comparator.comparing(entity.GiaoCa::getThoiGianKetThuc)).orElse(null);
         String sql = "SELECT TOP 1 gc.*, nv.hoTen FROM GiaoCa gc " +
                      "JOIN NhanVien nv ON gc.maNhanVien = nv.maNhanVien " +
                      "WHERE gc.trangThai='CLOSED' " +
@@ -118,11 +114,13 @@ public class GiaoCaDAO {
     }
 
     public double calculateRevenue(LocalDateTime start, LocalDateTime end) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.HoaDon.class,x -> x.getTrangThai()==entity.enums.TrangThaiThanhToan.PAID && x.getNgayLap()!=null && !x.getNgayLap().isBefore(start) && (end==null||!x.getNgayLap().isAfter(end))).stream().mapToDouble(entity.HoaDon::getTongThanhToan).sum(); }
         String sql = "SELECT SUM(tongThanhToan) FROM HoaDon WHERE ngayLap >= ? AND ngayLap <= ? AND trangThai='PAID'";
         return queryAmount(start, end, sql);
     }
 
     public double calculateCashRevenue(LocalDateTime start, LocalDateTime end) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.HoaDon.class,x -> x.getTrangThai()==entity.enums.TrangThaiThanhToan.PAID && "CASH".equals(x.getPhuongThucThanhToan()) && x.getNgayLap()!=null && !x.getNgayLap().isBefore(start) && (end==null||!x.getNgayLap().isAfter(end))).stream().mapToDouble(entity.HoaDon::getTongThanhToan).sum(); }
         String sql = "SELECT SUM(tongThanhToan) FROM HoaDon WHERE ngayLap >= ? AND ngayLap <= ? AND trangThai='PAID' AND phuongThucThanhToan='CASH'";
         return queryAmount(start, end, sql);
     }
@@ -144,6 +142,7 @@ public class GiaoCaDAO {
     }
 
     public List<GiaoCa> search(String staffName, String status) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.find(entity.GiaoCa.class,x -> (staffName==null||staffName.isBlank()||DemoRepository.matches(x.getMaGiaoCa(),staffName)||DemoRepository.matches(x.getNhanVien().getHoTen(),staffName)) && (status==null||status.isBlank()||status.equals(x.getTrangThai()))); }
         List<GiaoCa> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
             "SELECT gc.*, nv.hoTen FROM GiaoCa gc " +
@@ -182,16 +181,16 @@ public class GiaoCaDAO {
     private GiaoCa mapRow(ResultSet rs) throws SQLException {
         GiaoCa gc = new GiaoCa();
         gc.setMaGiaoCa(rs.getString("maGiaoCa"));
-        
+
         NhanVien nv = new NhanVien();
         nv.setMaNhanVien(rs.getString("maNhanVien"));
         try { nv.setHoTen(rs.getString("hoTen")); } catch (Exception ignored) {}
         gc.setNhanVien(nv);
-        
+
         gc.setThoiGianBatDau(rs.getTimestamp("thoiGianBatDau").toLocalDateTime());
         Timestamp end = rs.getTimestamp("thoiGianKetThuc");
         if (end != null) gc.setThoiGianKetThuc(end.toLocalDateTime());
-        
+
         gc.setTienMatDauCa(rs.getDouble("tienMatDauCa"));
         gc.setTienMatThuTrongCa(rs.getDouble("tienMatThuTrongCa"));
         gc.setTienMatBanGiao(rs.getDouble("tienMatBanGiao"));
@@ -203,6 +202,7 @@ public class GiaoCaDAO {
     }
 
     public boolean saveDenominations(String maGiaoCa, java.util.Map<Integer, Integer> map) {
+        if (DatabaseConnection.isDemoMode()) { entity.GiaoCa x=DemoRepository.get(entity.GiaoCa.class,maGiaoCa);if(x==null)return false;x.setDemoDenominations(new java.util.HashMap<>(map));return DemoRepository.update(entity.GiaoCa.class,x); }
         String sql = "INSERT INTO ChiTietKiemTien (maGiaoCa, menhGia, soLuong) VALUES (?, ?, ?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             for (java.util.Map.Entry<Integer, Integer> entry : map.entrySet()) {
@@ -220,6 +220,7 @@ public class GiaoCaDAO {
     }
 
     public java.util.Map<Integer, Integer> getDenominations(String maGiaoCa) {
+        if (DatabaseConnection.isDemoMode()) { entity.GiaoCa x=DemoRepository.get(entity.GiaoCa.class,maGiaoCa);return x==null?new java.util.HashMap<>():x.getDemoDenominations(); }
         java.util.Map<Integer, Integer> map = new java.util.TreeMap<>(java.util.Collections.reverseOrder());
         String sql = "SELECT menhGia, soLuong FROM ChiTietKiemTien WHERE maGiaoCa = ?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {

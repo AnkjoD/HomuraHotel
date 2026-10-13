@@ -47,16 +47,21 @@ public class BangGiaService {
 
     /** Save all chi tiet for a bang gia (delete old, insert new) */
     public String saveChiTiet(String maBangGia, List<ChiTietBangGia> dsCT) {
+        database.DatabaseConnection db = database.DatabaseConnection.getInstance();
+        try {
+        db.beginTransaction();
         // Delete old
-        ctDAO.deleteByBangGia(maBangGia);
+        if (!ctDAO.deleteByBangGia(maBangGia)) throw new IllegalStateException("Không xóa được giá cũ");
         // Insert new
         BangGia bg = new BangGia();
         bg.setMaBangGia(maBangGia);
         for (ChiTietBangGia ct : dsCT) {
             ct.setBangGia(bg);
-            if (!ctDAO.insert(ct)) return "Lỗi lưu chi tiết giá cho " + ct.getLoaiPhong().getTenLoaiPhong();
+            if (!ctDAO.insert(ct)) throw new IllegalStateException("Không lưu được giá mới");
         }
+        db.commitTransaction();
         return null;
+        } catch (Exception e) { db.rollbackTransaction(); return "Lỗi lưu bảng giá: " + e.getMessage(); }
     }
 
     // ---- Rate Lookup Logic (tra giá hiện hành) ----

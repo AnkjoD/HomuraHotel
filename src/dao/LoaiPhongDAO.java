@@ -1,5 +1,7 @@
 package dao;
 
+import database.DemoRepository;
+
 import database.DatabaseConnection;
 import entity.LoaiPhong;
 
@@ -18,7 +20,7 @@ public class LoaiPhongDAO {
     }
 
     public List<LoaiPhong> getAll() {
-        if (database.DatabaseConnection.isDemoMode()) return database.DemoDataStore.getInstance().getRoomTypes();
+        if (database.DatabaseConnection.isDemoMode()) return database.DemoRepository.all(entity.LoaiPhong.class);
         List<LoaiPhong> list = new ArrayList<>();
         try (Statement st = getConn().createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM LoaiPhong WHERE trangThai=1 ORDER BY tenLoaiPhong")) {
@@ -32,6 +34,7 @@ public class LoaiPhongDAO {
     }
 
     public LoaiPhong getById(String maLoaiPhong) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.get(LoaiPhong.class, maLoaiPhong); }
         try (PreparedStatement ps = getConn().prepareStatement("SELECT * FROM LoaiPhong WHERE maLoaiPhong=?")) {
             ps.setString(1, maLoaiPhong);
             ResultSet rs = ps.executeQuery();
@@ -41,6 +44,7 @@ public class LoaiPhongDAO {
     }
 
     public boolean insert(LoaiPhong lp) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.insert(LoaiPhong.class, lp); }
         String sql = "INSERT INTO LoaiPhong(maLoaiPhong, tenLoaiPhong, soNguoiToiDa, moTa, giaTheoNgay, trangThai) VALUES(?,?,?,?,?,?)";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, lp.getMaLoaiPhong());
@@ -54,6 +58,7 @@ public class LoaiPhongDAO {
     }
 
     public boolean update(LoaiPhong lp) {
+        if (DatabaseConnection.isDemoMode()) { return DemoRepository.update(LoaiPhong.class, lp); }
         String sql = "UPDATE LoaiPhong SET tenLoaiPhong=?, soNguoiToiDa=?, moTa=?, giaTheoNgay=?, trangThai=? WHERE maLoaiPhong=?";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, lp.getTenLoaiPhong());
@@ -67,6 +72,7 @@ public class LoaiPhongDAO {
     }
 
     public boolean delete(String maLoaiPhong) {
+        if (DatabaseConnection.isDemoMode()) { entity.LoaiPhong x=getById(maLoaiPhong);if(x==null)return false;x.setTrangThai("INACTIVE");return update(x); }
         try (PreparedStatement ps = getConn().prepareStatement("UPDATE LoaiPhong SET trangThai=0 WHERE maLoaiPhong=?")) {
             ps.setString(1, maLoaiPhong);
             return ps.executeUpdate() > 0;
@@ -75,6 +81,7 @@ public class LoaiPhongDAO {
 
     /** Check if any phong references this loaiPhong */
     public int countPhongByLoai(String maLoaiPhong) {
+        if (DatabaseConnection.isDemoMode()) { return (int)new PhongDAO().getAll().stream().filter(p -> p.getLoaiPhong()!=null && maLoaiPhong.equals(p.getLoaiPhong().getMaLoaiPhong())).count(); }
         String sql = "SELECT COUNT(*) FROM Phong WHERE maLoaiPhong=? AND trangThai <> 'DELETED'";
         try (PreparedStatement ps = getConn().prepareStatement(sql)) {
             ps.setString(1, maLoaiPhong);
@@ -86,12 +93,7 @@ public class LoaiPhongDAO {
 
     /** Generate next maLoaiPhong like LP006, LP007... */
     public String generateMa() {
-        try (Statement st = getConn().createStatement();
-             ResultSet rs = st.executeQuery(
-                 "SELECT MAX(CAST(SUBSTRING(maLoaiPhong,3,10) AS INT)) FROM LoaiPhong WHERE maLoaiPhong LIKE 'LP%'")) {
-            if (rs.next()) return String.format("LP%03d", rs.getInt(1) + 1);
-        } catch (SQLException e) { LOGGER.log(Level.SEVERE, "Database error in LoaiPhongDAO", e); }
-        return "LP001";
+        return util.IdGenerator.next("LP");
     }
 
     private LoaiPhong mapRow(ResultSet rs) throws SQLException {

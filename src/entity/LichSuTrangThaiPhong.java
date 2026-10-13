@@ -3,7 +3,8 @@ package entity;
 import entity.enums.TrangThaiPhong;
 import java.time.LocalDateTime;
 
-public class LichSuTrangThaiPhong {
+public class LichSuTrangThaiPhong implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String maLichSu;
     private TrangThaiPhong trangThaiCu;
     private TrangThaiPhong trangThaiMoi;

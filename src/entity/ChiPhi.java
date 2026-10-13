@@ -2,7 +2,8 @@ package entity;
 
 import java.time.LocalDateTime;
 
-public class ChiPhi {
+public class ChiPhi implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private int maChiPhi;
     private NhanVien nhanVien;
     private double soTien;

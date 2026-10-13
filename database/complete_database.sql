@@ -146,7 +146,7 @@ CREATE TABLE Phong (
     tang INT,
     maHuongNhin VARCHAR(20) REFERENCES HuongNhin(maHuongNhin),
     maLoaiPhong VARCHAR(20) REFERENCES LoaiPhong(maLoaiPhong),
-    trangThai VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (trangThai IN ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'CLEANING'))
+    trangThai VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (trangThai IN ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'CLEANING', 'DELETED'))
 );
 
 CREATE TABLE LichSuTrangThaiPhong (
@@ -235,6 +235,7 @@ CREATE TABLE DatPhong (
 
 CREATE TABLE ChiTietDatPhong (
     maChiTiet VARCHAR(20) PRIMARY KEY,
+    maChiTietTruoc VARCHAR(20) NULL,
     maDatPhong VARCHAR(20) REFERENCES DatPhong(maDatPhong),
     maPhong VARCHAR(20) REFERENCES Phong(maPhong),
     maKhachHang VARCHAR(20) REFERENCES KhachHang(maKhachHang),
@@ -286,7 +287,7 @@ CREATE TABLE HoaDon (
     tienDatCoc DECIMAL(18,2) DEFAULT 0,
     tienGiamKhuyenMai DECIMAL(18,2) DEFAULT 0,
     tongThanhToan DECIMAL(18,2) DEFAULT 0,
-    trangThai VARCHAR(20) DEFAULT 'UNPAID' CHECK (trangThai IN ('UNPAID', 'PARTIALLY_PAID', 'PAID', 'REFUNDED')),
+    trangThai VARCHAR(20) DEFAULT 'UNPAID' CHECK (trangThai IN ('UNPAID', 'PARTIALLY_PAID', 'PAID', 'REFUNDED', 'CANCELLED')),
     phuongThucThanhToan VARCHAR(20) DEFAULT 'CASH' CHECK (phuongThucThanhToan IN ('CASH', 'CARD', 'TRANSFER', 'DEPOSIT')),
     tenCongTy NVARCHAR(200) NULL,
     maSoThue VARCHAR(20) NULL,

@@ -1,0 +1,4 @@
+db.url=jdbc:sqlserver://localhost:1433;databaseName=HotelMs;encrypt=true;trustServerCertificate=false
+db.user=homura_app
+db.password=
+db.driver=com.microsoft.sqlserver.jdbc.SQLServerDriver
